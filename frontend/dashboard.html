@@ -738,7 +738,7 @@ async function renderCustPlans(category) {
       const d = await api('/api/plans?status=Active&network=' + connMSO);
       filteredPlans = d.plans || [];
     } catch (e) { filteredPlans = []; }
-    if (!filteredPlans.length) { container.innerHTML = '<p class="empty-state">No plans available for ' + esc(connMSO) + ' network</p>'; return; }
+    if (!filteredPlans.length) { container.innerHTML = '<p class="empty-state">No plans available for ' + esc(connMSO) + ' MSO</p>'; return; }
 
     // Get current plan from connection
     const currentPlanName = activeConn ? (activeConn.plan_name || '') : '';
@@ -1374,11 +1374,9 @@ async function initPaymentForm() {
       } catch (e) { break; }
     }
     
-    // Load plans
-    const pdata = await api('/api/plans');
-    const plans = pdata.plans || pdata.items || pdata || [];
+    // Plans loaded after connection selected (filtered by MSO)
     const psel = document.getElementById('payPlan');
-    psel.innerHTML = '<option value="">Select plan</option>';
+    psel.innerHTML = '<option value="">Select customer first</option>';
     
     // Setup months dropdown
     const msel = document.getElementById('payMonths');
