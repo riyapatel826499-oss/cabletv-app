@@ -1694,7 +1694,7 @@ async function loadCustLastPayment(custId) {
   const el = document.getElementById('payLastPayment');
   try {
     // Fetch from unified payments endpoint for this customer
-    const data = await api('/api/payments/all?per_page=1&from_date=2024-01-01&to_date=2030-12-31&customer_id=' + custId);
+    const data = await api('/api/payments/all?per_page=1&date_from=2024-01-01&date_to=2030-12-31&customer_id=' + custId);
     const payments = data.payments || [];
     if (payments.length > 0) {
       const last = payments[0];
@@ -1728,7 +1728,7 @@ async function showCustPayHistory(custId) {
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
   
   try {
-    const data = await api('/api/payments/all?per_page=50&from_date=2024-01-01&to_date=2030-12-31&customer_id=' + custId);
+    const data = await api('/api/payments/all?per_page=50&date_from=2024-01-01&date_to=2030-12-31&customer_id=' + custId);
     const payments = data.payments || [];
     const body = document.getElementById('custPayHistBody');
     
@@ -1808,31 +1808,36 @@ function autoDetectGap(conn) {
   }
 
   const expiry = new Date(expiryStr + 'T23:59:59');
-  // Use date-only comparison: set both to start of day
   const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const expiryDate = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
   const isExpired = expiryDate < todayDate || status === 'disconnected' || status === 'inactive' || status === 'suspended';
 
   if (isExpired) {
-    const expMonth = expiry.getMonth() + 1;
+    const curMonth = today.getMonth(); // 0-indexed
+    const curYear = today.getFullYear();
+    
+    // Set month to current month so prorata logic works
+    document.getElementById('payMonth').value = curYear + '-' + String(curMonth + 1).padStart(2, '0');
+    
+    // Calculate gap months from expiry to current month (inclusive of both)
+    const expMonth = expiry.getMonth(); // 0-indexed
     const expYear = expiry.getFullYear();
-    document.getElementById('payMonth').value = expYear + '-' + String(expMonth).padStart(2, '0');
-    document.getElementById('payMonths').value = '1';
-    const gapMonths = (today.getFullYear() - expYear) * 12 + (today.getMonth() - expMonth) + 1;
-    noteEl.textContent = '⚠️ Disconnected since ' + expiry.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + ' (' + gapMonths + ' month' + (gapMonths > 1 ? 's' : '') + ' gap). Month auto-set to expired month — prorata gap will be calculated.';
+    const gapMonths = (curYear - expYear) * 12 + (curMonth - expMonth) + 1;
+    
+    document.getElementById('payMonths').value = String(gapMonths);
+    
+    noteEl.innerHTML = '⚠️ Last paid till <strong>' + expiry.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + '</strong> (' + gapMonths + ' month gap). Month set to current — prorata will apply if after 20th.';
     noteEl.style.display = 'block';
     calcPayAmount();
   } else {
     // Not expired — check if already paid for current month
-    const now = new Date();
-    const curMonth = now.getMonth(); // 0-indexed
-    const curYear = now.getFullYear();
+    const curMonth = today.getMonth();
+    const curYear = today.getFullYear();
     const expMonth = expiryDate.getMonth();
     const expYear = expiryDate.getFullYear();
 
-    // If expiry covers current month or later, customer already paid — set to next month
     if (expYear > curYear || (expYear === curYear && expMonth >= curMonth)) {
-      let nextM = curMonth + 2; // +2 because 0-indexed, and we want NEXT month
+      let nextM = curMonth + 2;
       let nextY = curYear;
       if (nextM > 12) { nextM -= 12; nextY++; }
       document.getElementById('payMonth').value = nextY + '-' + String(nextM).padStart(2, '0');
@@ -1840,7 +1845,7 @@ function autoDetectGap(conn) {
       noteEl.innerHTML = '✅ Already paid till <strong>' + expiry.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + '</strong>. Month set to <strong>' + nextMonthName + '</strong>.';
       noteEl.style.display = 'block';
     } else {
-      document.getElementById('payMonth').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      document.getElementById('payMonth').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
       noteEl.style.display = 'none';
     }
     document.getElementById('payMonths').value = '1';
@@ -1911,23 +1916,15 @@ function calcPayAmount() {
     discount = fullAmt;
     netAmt = fullAmt * 11;
     prorataNote = '🎁 Yearly Pack: 12 months, pay for 11 — 1 month FREE! (₹' + fullAmt + ' saved)';
-  }
-
-  if (network === 'GTPL' && months === 1) {
+  } else if (network === 'GTPL' && payDay > 20 && months >= 1) {
+    // GTPL prorata: after 20th, current month is prorata + next month full
     const selDate = new Date(monthVal + '-01');
     const selMonth = selDate.getMonth();
     const selYear = selDate.getFullYear();
     const isCurrentMonth = (payYear === selYear && payMonth === selMonth);
-    const isFutureMonth = (selYear > payYear) || (selYear === payYear && selMonth > payMonth);
 
-    if (isFutureMonth) {
-      // Next/future month — full amount, no prorata
-      netAmt = fullAmt;
-      discount = 0;
-      fullDisplay = fullAmt;
-      const monthName = selDate.toLocaleDateString('en-IN', {month: 'long', year: 'numeric'});
-      prorataNote = '📅 Full month payment for ' + monthName;
-    } else if (isCurrentMonth && payDay > 20) {
+    if (isCurrentMonth && months === 1) {
+      // Single current month after 20th: prorata for remaining days
       const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
       const nextYear = payMonth === 11 ? payYear + 1 : payYear;
       const targetDate = new Date(nextYear, nextMonth, 16);
@@ -1937,9 +1934,33 @@ function calcPayAmount() {
       const roundedAmt = Math.round(prorataAmt / 10) * 10;
       discount = fullAmt - roundedAmt;
       netAmt = roundedAmt;
+      fullDisplay = fullAmt;
       prorataNote = '📊 Prorata: ' + remainingDays + ' days (today → ' + targetDate.toLocaleDateString('en-IN', {day:'2-digit',month:'short'}) + ') × ₹' + fullAmt + ' ÷ ' + daysInMonth + ' = ₹' + Math.round(prorataAmt) + ' → ₹' + roundedAmt;
-    } else if (isCurrentMonth) {
-      // Current month, paid by 20th — full amount
+    } else if (isCurrentMonth && months > 1) {
+      // Gap payment: past months full + current month prorata
+      const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
+      const nextYear = payMonth === 11 ? payYear + 1 : payYear;
+      const targetDate = new Date(nextYear, nextMonth, 16);
+      const remainingDays = Math.ceil((targetDate - today) / (86400000));
+      const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
+      const prorataAmt = (remainingDays / daysInMonth) * fullAmt;
+      const roundedProrata = Math.round(prorataAmt / 10) * 10;
+      const fullMonths = months - 1; // past months at full rate
+      netAmt = (fullAmt * fullMonths) + roundedProrata;
+      fullDisplay = fullAmt * months;
+      discount = fullDisplay - netAmt;
+      prorataNote = '📊 ' + fullMonths + ' month(s) full (₹' + (fullAmt * fullMonths) + ') + current month prorata ' + remainingDays + ' days (₹' + roundedProrata + ') = ₹' + netAmt;
+    }
+  } else if (network === 'GTPL' && months === 1) {
+    const selDate = new Date(monthVal + '-01');
+    const selMonth = selDate.getMonth();
+    const selYear = selDate.getFullYear();
+    const isFutureMonth = (selYear > payYear) || (selYear === payYear && selMonth > payMonth);
+
+    if (isFutureMonth) {
+      const monthName = selDate.toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+      prorataNote = '📅 Full month payment for ' + monthName;
+    } else {
       prorataNote = '📅 Full month payment';
     }
   }
