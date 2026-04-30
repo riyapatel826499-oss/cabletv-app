@@ -254,3 +254,126 @@ def mso_summary(
         msos_list.sort(key=lambda x: x["total_customers"], reverse=True)
 
         return {"msos": msos_list}
+
+
+@router.get("/my-collections")
+def my_collections(
+    from_date: Optional[str] = Query(None),
+    to_date: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
+    """Agent's own collection report — payments collected by THIS logged-in user."""
+    user_id = current_user["id"]
+    username = current_user.get("username", "")
+
+    with get_db() as conn:
+        # Try to find paypakka employee mapping by username matching employee name
+        emp_row = conn.execute(
+            "SELECT emp_ref_id, emp_name FROM paypakka_employees WHERE LOWER(emp_name) LIKE ?",
+            (f"%{username.lower()}%",)
+        ).fetchone()
+        emp_ref_id = emp_row["emp_ref_id"] if emp_row else None
+        emp_name = emp_row["emp_name"] if emp_row else username
+
+        payments = []
+        total_collected = 0
+        payment_count = 0
+
+        # 1. Paypakka payments by this agent
+        if emp_ref_id:
+            pp_query = """
+                SELECT pp.id, pp.customer_id, c.name as customer_name, c.area,
+                       pp.collection_amount, pp.payment_type, pp.paypakka_created_at,
+                       pp.emp_ref_id, 'paypakka' as source
+                FROM paypakka_payments pp
+                LEFT JOIN customers c ON pp.customer_id = c.customer_id
+                WHERE pp.emp_ref_id = ?
+            """
+            pp_params = [emp_ref_id]
+            if from_date:
+                pp_query += " AND date(pp.paypakka_created_at) >= ?"
+                pp_params.append(from_date)
+            if to_date:
+                pp_query += " AND date(pp.paypakka_created_at) <= ?"
+                pp_params.append(to_date)
+
+            # Get total
+            total_row = conn.execute(
+                "SELECT COALESCE(SUM(collection_amount),0) as total, COUNT(*) as cnt FROM paypakka_payments WHERE emp_ref_id = ?" +
+                (" AND date(paypakka_created_at) >= ?" if from_date else "") +
+                (" AND date(paypakka_created_at) <= ?" if to_date else ""),
+                [emp_ref_id] + ([from_date] if from_date else []) + ([to_date] if to_date else [])
+            ).fetchone()
+            total_collected += total_row["total"] or 0
+            payment_count += total_row["cnt"] or 0
+
+            # Get paginated payments
+            pp_query += " ORDER BY pp.paypakka_created_at DESC LIMIT ? OFFSET ?"
+            pp_params.extend([per_page, (page - 1) * per_page])
+            rows = conn.execute(pp_query, pp_params).fetchall()
+            for r in rows:
+                payments.append({
+                    "id": r["id"],
+                    "customer_name": r["customer_name"] or f"Customer #{r['customer_id']}",
+                    "area": r["area"] or "",
+                    "amount": r["collection_amount"],
+                    "mode": r["payment_type"],
+                    "date": r["paypakka_created_at"],
+                    "source": "paypakka"
+                })
+
+        # 2. Local payments by this user
+        lp_query = """
+            SELECT p.id, p.customer_id, c.name as customer_name, c.area,
+                   p.amount, p.payment_mode, p.created_at, 'local' as source
+            FROM payments p
+            LEFT JOIN customers c ON p.customer_id = c.customer_id
+            WHERE p.collected_by = ?
+        """
+        lp_params = [user_id]
+        if from_date:
+            lp_query += " AND date(p.created_at) >= ?"
+            lp_params.append(from_date)
+        if to_date:
+            lp_query += " AND date(p.created_at) <= ?"
+            lp_params.append(to_date)
+
+        lp_total = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM payments WHERE collected_by = ?" +
+            (" AND date(created_at) >= ?" if from_date else "") +
+            (" AND date(created_at) <= ?" if to_date else ""),
+            [user_id] + ([from_date] if from_date else []) + ([to_date] if to_date else [])
+        ).fetchone()
+        total_collected += lp_total["total"] or 0
+        payment_count += lp_total["cnt"] or 0
+
+        lp_query += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?"
+        lp_params.extend([per_page, (page - 1) * per_page])
+        lp_rows = conn.execute(lp_query, lp_params).fetchall()
+        for r in lp_rows:
+            payments.append({
+                "id": r["id"],
+                "customer_name": r["customer_name"] or f"Customer #{r['customer_id']}",
+                "area": r["area"] or "",
+                "amount": r["amount"],
+                "mode": r["payment_mode"],
+                "date": r["created_at"],
+                "source": "local"
+            })
+
+        # Sort all by date desc
+        payments.sort(key=lambda x: x["date"] or "", reverse=True)
+        payments = payments[:per_page]
+
+        return {
+            "agent_name": emp_name,
+            "total_collected": total_collected,
+            "payment_count": payment_count,
+            "from_date": from_date,
+            "to_date": to_date,
+            "page": page,
+            "per_page": per_page,
+            "payments": payments
+        }

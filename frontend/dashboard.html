@@ -350,6 +350,23 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </div>
 </div>
 
+<!-- Agent My Collections Page -->
+<div id="page-my-collections" class="page">
+<h2 style="margin-bottom:16px">📈 My Collections</h2>
+<div class="stats-grid" style="margin-bottom:20px">
+<div class="stat-card"><h3>Total Collected</h3><div class="value" id="myCollTotal">₹0</div></div>
+<div class="stat-card success"><h3>Payments</h3><div class="value" id="myCollCount">0</div></div>
+<div class="stat-card"><h3>Agent</h3><div class="value" id="myCollAgent" style="font-size:1.1rem">--</div></div>
+</div>
+<div class="filter-row" style="margin-bottom:16px">
+<div><label style="font-size:12px">From</label><input type="date" id="myCollFrom" class="form-control" onchange="loadMyCollections(1)"></div>
+<div><label style="font-size:12px">To</label><input type="date" id="myCollTo" class="form-control" onchange="loadMyCollections(1)"></div>
+<button class="btn btn-primary btn-sm" onclick="loadMyCollections(1)">Filter</button>
+</div>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Customer</th><th>Area</th><th>Amount</th><th>Mode</th><th>Date</th></tr></thead><tbody id="myCollBody"></tbody></table></div>
+<div class="pagination" id="myCollPagination"></div>
+</div>
+
 <!-- Settings Page -->
 <div id="page-settings" class="page">
 <h2 style="margin-bottom:20px">Settings</h2>
@@ -563,6 +580,7 @@ function showPage(page) {
   if (page === 'employees') loadEmployees();
   if (page === 'surrender-req') loadSurrenderRequests();
   if (page === 'reports') loadReports();
+  if (page === 'my-collections') loadMyCollections(1);
   if (page === 'settings') loadStbInventory();
 }
 
@@ -582,8 +600,10 @@ function mobNav(page, el) {
 const _origShowPage2 = showPage;
 showPage = function(page) {
   _origShowPage2(page);
-  const pageMap = {'dashboard':0,'payments':1,'customers':2,'reports':3};
-  const idx = pageMap[page];
+  const pageMap = {'dashboard':0,'payments':1,'customers':2,'reports':3,'more':4};
+  // For agents, "reports" page is actually "my-collections"
+  const actualPage = (page === 'my-collections' || (page === 'reports' && (_userRole === 'collection_agent' || _userRole === 'agent'))) ? 'my-collections' : page;
+  const idx = pageMap[actualPage];
   document.querySelectorAll('.mob-nav-item').forEach((b,i) => b.classList.toggle('active', i === idx));
 };
 
@@ -2411,8 +2431,8 @@ function applyRoleAccess(user) {
   // Define which nav items each role can see
   const roleAccess = {
     'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','reports','settings'],
-    'collection_agent': ['payments','customers'],
-    'agent': ['payments','customers'],
+    'collection_agent': ['payments','reports'],
+    'agent': ['payments','reports'],
     'support': ['dashboard','customers','add-customer','payments','reports']
   };
 
@@ -2423,6 +2443,12 @@ function applyRoleAccess(user) {
     const page = item.dataset.page;
     item.style.display = allowed.includes(page) ? '' : 'none';
   });
+
+  // Update "Reports" nav item text for agents
+  const reportsNav = document.querySelector('.nav-item[data-page="reports"]');
+  if (reportsNav && (_userRole === 'collection_agent' || _userRole === 'agent')) {
+    reportsNav.innerHTML = '📈 My Collections';
+  }
 
   // Show/hide mobile bottom nav items
   const mobMap = {'dashboard':0,'payments':1,'customers':2,'reports':3,'more':4};
@@ -2459,8 +2485,8 @@ api('/api/me').then(u => {
   // Redirect to allowed page if current page is not accessible
   const allowed = {
     'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','reports','settings'],
-    'collection_agent': ['payments','customers'],
-    'agent': ['payments','customers'],
+    'collection_agent': ['payments','reports'],
+    'agent': ['payments','reports'],
     'support': ['dashboard','customers','add-customer','payments','reports']
   };
   const myAllowed = allowed[(u.role || 'agent').toLowerCase()] || allowed['agent'];
@@ -2474,6 +2500,65 @@ api('/api/me').then(u => {
 }).catch(() => {});
 
 loadDashboard();
+
+// ===== AGENT MY COLLECTIONS PAGE =====
+let _myCollPage = 1;
+
+function loadMyCollections(page = 1) {
+  _myCollPage = page;
+  const from = document.getElementById('myCollFrom')?.value || '';
+  const to = document.getElementById('myCollTo')?.value || '';
+  
+  api(`/api/reports/my-collections?from_date=${from}&to_date=${to}&page=${page}&per_page=20`)
+    .then(data => {
+      document.getElementById('myCollTotal').textContent = fmtRs(data.total_collected);
+      document.getElementById('myCollCount').textContent = data.payment_count;
+      document.getElementById('myCollAgent').textContent = data.agent_name || 'Agent';
+      
+      const tbody = document.getElementById('myCollBody');
+      if (!data.payments || data.payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No payments collected yet</p></td></tr>';
+      } else {
+        tbody.innerHTML = data.payments.map((p, i) => 
+          '<tr>' +
+          '<td>' + ((page - 1) * 20 + i + 1) + '</td>' +
+          '<td>' + esc(p.customer_name) + '</td>' +
+          '<td>' + esc(p.area) + '</td>' +
+          '<td><strong>' + fmtRs(p.amount) + '</strong></td>' +
+          '<td>' + esc(p.mode) + '</td>' +
+          '<td>' + fmtDateTime(p.date) + '</td>' +
+          '</tr>'
+        ).join('');
+      }
+      
+      // Pagination
+      const total = data.payment_count;
+      const perPage = data.per_page;
+      const totalPages = Math.ceil(total / perPage);
+      const pag = document.getElementById('myCollPagination');
+      
+      if (totalPages <= 1) {
+        pag.innerHTML = '';
+        return;
+      }
+      
+      let html = '';
+      if (page > 1) html += '<button onclick="loadMyCollections(' + (page - 1) + ')" class="btn btn-outline btn-sm">← Prev</button> ';
+      html += '<span style="margin:0 8px;font-size:13px;color:var(--text-light)">Page ' + page + ' of ' + totalPages + '</span> ';
+      if (page < totalPages) html += '<button onclick="loadMyCollections(' + (page + 1) + ')" class="btn btn-outline btn-sm">Next →</button>';
+      pag.innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById('myCollBody').innerHTML = '<tr><td colspan="6" class="empty-state"><p>Failed to load data</p></td></tr>';
+    });
+}
+
+// Set default dates to current month
+const now = new Date();
+const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+if (document.getElementById('myCollFrom')) document.getElementById('myCollFrom').value = firstDay.toISOString().split('T')[0];
+if (document.getElementById('myCollTo')) document.getElementById('myCollTo').value = lastDay.toISOString().split('T')[0];
 
 // Mobile hamburger menu
 const hamburgerBtn = document.getElementById('hamburgerBtn');
