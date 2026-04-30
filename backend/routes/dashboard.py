@@ -92,20 +92,24 @@ def dashboard_stats(current_user=Depends(get_current_user)):
         # Recent payments (last 15 from BOTH local + paypakka)
         recent_local = conn.execute(
             """SELECT p.customer_id, p.amount, p.payment_mode as mode, p.collected_at as date,
-                      c.name as customer_name, c.area, u.name as collector_name, 'Local' as source
+                      c.name as customer_name, c.area, u.name as collector_name, 'Local' as source,
+                      cn.stb_no
                FROM payments p
                JOIN customers c ON p.customer_id = c.customer_id
                LEFT JOIN users u ON p.collected_by = u.id
+               LEFT JOIN connections cn ON cn.id = p.connection_id
                ORDER BY p.collected_at DESC LIMIT 15""",
         ).fetchall()
 
         recent_pp = conn.execute(
             """SELECT pp.customer_id, pp.collection_amount as amount, pp.payment_type as mode,
                       pp.paypakka_created_at as date, c.name as customer_name, c.area,
-                      e.emp_name as collector_name, 'Paypakka' as source
+                      e.emp_name as collector_name, 'Paypakka' as source,
+                      cn.stb_no
                FROM paypakka_payments pp
                JOIN customers c ON pp.customer_id = c.customer_id
                LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
+               LEFT JOIN connections cn ON cn.customer_id = pp.customer_id AND cn.status = 'Active'
                ORDER BY pp.paypakka_created_at DESC LIMIT 15""",
         ).fetchall()
 
