@@ -23,6 +23,7 @@ from routes.websocket import router as ws_router, manager
 # from routes.customer_portal import router as customer_portal_router
 from routes.surrenders import router as surrenders_router
 from routes.connections import router as connections_router
+from routes.reports import router as reports_router
 from config import CORS_ORIGINS
 
 # Rate limiter (shared instance from limiter.py)
@@ -84,6 +85,7 @@ app.include_router(stb_inventory_router)
 # app.include_router(customer_portal_router)  # Disabled: no frontend yet
 app.include_router(surrenders_router)
 app.include_router(connections_router)
+app.include_router(reports_router)
 
 
 @app.get("/")
