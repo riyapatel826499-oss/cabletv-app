@@ -1650,7 +1650,8 @@ function searchPayCustomer(query) {
     const matches = _payAllCustomers.filter(c => 
       (c.name && c.name.toLowerCase().includes(q)) ||
       (c.customer_id && c.customer_id.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.includes(q))
+      (c.phone && c.phone.includes(q)) ||
+      (c.stb_no && c.stb_no.toLowerCase().includes(q))
     ).slice(0, 8);
     
     if (matches.length === 0) {
