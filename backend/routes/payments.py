@@ -5,7 +5,7 @@ from typing import Optional
 import asyncio
 import calendar
 
-from deps import get_db, get_current_user
+from deps import get_db, get_current_user, require_role
 from utils import get_current_month
 
 router = APIRouter(prefix="/api", tags=["Payments"])
@@ -326,7 +326,7 @@ def all_payment_history(
 
 
 @router.delete("/payments/{payment_id}")
-def delete_payment(payment_id: int, current_user=Depends(get_current_user)):
+def delete_payment(payment_id: int, current_user: dict = Depends(require_role("admin"))):
     with get_db() as conn:
         # Fetch payment to delete
         payment = conn.execute(

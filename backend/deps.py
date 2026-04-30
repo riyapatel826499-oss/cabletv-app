@@ -24,7 +24,7 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA cache_size = -64000")  # 64MB cache
+    conn.execute("PRAGMA cache_size = -64000") # 64MB cache
     conn.execute("PRAGMA temp_store = MEMORY")
     try:
         yield conn
@@ -35,12 +35,15 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
 # ── JWT Token Creation ────────────────────────────────────────────────────
 
 def create_token(subject: str, token_type: str = "staff",
-                 extra_claims: dict = None, expires_hours: int = None) -> str:
+               extra_claims: dict = None, expires_hours: int = None,
+               session_id: str = None) -> str:
     """Create a JWT token. token_type: 'staff' or 'customer'."""
     hours = expires_hours or (ACCESS_TOKEN_EXPIRE_HOURS if token_type == "staff"
-                              else CUSTOMER_TOKEN_EXPIRE_DAYS * 24)
+                             else CUSTOMER_TOKEN_EXPIRE_DAYS * 24)
     expire = datetime.now(timezone.utc) + timedelta(hours=hours)
     payload = {"sub": subject, "type": token_type, "exp": expire}
+    if session_id:
+        payload["sid"] = session_id
     if extra_claims:
         payload.update(extra_claims)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -60,13 +63,16 @@ def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
 
 # ── Staff Auth Dependency ─────────────────────────────────────────────────
 
+
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """FastAPI dependency: returns the authenticated staff user dict."""
+    """FastAPI dependency: returns the authenticated staff user dict.
+    Also validates session_id for single-device enforcement."""
     payload = _decode_token(credentials)
     if payload.get("type") not in ("staff", None):
         raise HTTPException(status_code=401, detail="Staff token required")
 
     user_id = payload.get("sub")
+    session_id = payload.get("sid")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
@@ -76,12 +82,29 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             [int(user_id)],
         ).fetchone()
 
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
 
-    u = dict(user)
-    if u.get("status") == "Inactive":
-        raise HTTPException(status_code=403, detail="Account deactivated")
+        u = dict(user)
+        if u.get("status") == "Inactive":
+            raise HTTPException(status_code=403, detail="Account deactivated")
+
+        # Validate session_id (single-device enforcement)
+        if session_id:
+            session = conn.execute(
+                "SELECT session_id FROM active_sessions WHERE user_id = ? AND session_id = ?",
+                [int(user_id), session_id]
+            ).fetchone()
+            if not session:
+                raise HTTPException(status_code=401, detail="Session expired. Please login again.")
+
+            # Update last activity
+            conn.execute(
+                "UPDATE active_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = ?",
+                [session_id]
+            )
+            conn.commit()
+
     return u
 
 
@@ -99,7 +122,7 @@ def require_permission(permission: str):
     def checker(current_user: dict = Depends(get_current_user)) -> dict:
         import json
         if current_user.get("role") == "admin":
-            return current_user  # admin has all permissions
+            return current_user # admin has all permissions
         perms_str = current_user.get("permissions", "") or ""
         try:
             perms = json.loads(perms_str) if perms_str else {}
@@ -113,6 +136,7 @@ def require_permission(permission: str):
 
 
 # ── Customer Auth Dependency ──────────────────────────────────────────────
+
 
 def get_current_customer(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """FastAPI dependency: returns the authenticated customer dict."""
@@ -130,7 +154,7 @@ def get_current_customer(credentials: HTTPAuthorizationCredentials = Depends(sec
             [customer_id],
         ).fetchone()
 
-    if not customer:
-        raise HTTPException(status_code=401, detail="Customer not found")
+        if not customer:
+            raise HTTPException(status_code=401, detail="Customer not found")
 
     return dict(customer)

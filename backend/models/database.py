@@ -262,6 +262,18 @@ def init_db():
         FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
     )''')
 
+    # ── Active Sessions (single-device login) ────────────────────────────
+    c.execute('''CREATE TABLE IF NOT EXISTS active_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        session_id TEXT NOT NULL UNIQUE,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        last_activity TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON active_sessions(user_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON active_sessions(session_id)")
+
     # ── Performance Indexes ────────────────────────────────────────────────
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status)",

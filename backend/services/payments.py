@@ -135,13 +135,25 @@ def get_merged_payments(conn, customer_ids, month_start, month_end, current_mont
 
 
 def get_total_paid_amount(conn, month_start, month_end, area=None):
-    """Get total paid amount from paypakka payments, optionally filtered by area."""
+    """Get total paid amount from BOTH paypakka AND local payments, optionally filtered by area."""
     if area:
-        q = """SELECT COALESCE(SUM(pp.collection_amount), 0) FROM paypakka_payments pp
-    INNER JOIN customers c ON pp.customer_id = c.customer_id
-    WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at <= ?
-    AND c.area = ?"""
-        return conn.execute(q, [month_start, month_end, area]).fetchone()[0] or 0
-    q = """SELECT COALESCE(SUM(pp.collection_amount), 0) FROM paypakka_payments pp
-    WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at <= ?"""
-    return conn.execute(q, [month_start, month_end]).fetchone()[0] or 0
+        q = """SELECT COALESCE(SUM(amount), 0) FROM (
+            SELECT pp.collection_amount AS amount FROM paypakka_payments pp
+                INNER JOIN customers c ON pp.customer_id = c.customer_id
+                WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at <= ?
+                AND c.area = ?
+            UNION ALL
+            SELECT p.amount FROM payments p
+                INNER JOIN customers c ON p.customer_id = c.customer_id
+                WHERE p.collected_at >= ? AND p.collected_at <= ?
+                AND c.area = ?
+        )"""
+        return conn.execute(q, [month_start, month_end, area, month_start, month_end, area]).fetchone()[0] or 0
+    q = """SELECT COALESCE(SUM(amount), 0) FROM (
+        SELECT pp.collection_amount AS amount FROM paypakka_payments pp
+            WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at <= ?
+        UNION ALL
+        SELECT p.amount FROM payments p
+            WHERE p.collected_at >= ? AND p.collected_at <= ?
+    )"""
+    return conn.execute(q, [month_start, month_end, month_start, month_end]).fetchone()[0] or 0

@@ -1,4 +1,5 @@
 """Staff authentication — login, token validation, role-based access."""
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api", tags=["Auth"])
 class LoginRequest(BaseModel):
     username: str
     password: str
+    force: bool = False  # Set True to kick existing session
 
 
 class TokenResponse(BaseModel):
@@ -45,10 +47,38 @@ def login(request: Request, body: LoginRequest):
             )
             conn.commit()
 
+        # Check for existing active session
+        existing = conn.execute(
+            "SELECT session_id FROM active_sessions WHERE user_id = ?",
+            (user["id"],)
+        ).fetchone()
+
+        if existing and not body.force:
+            # Session conflict — ask user to confirm
+            raise HTTPException(
+                status_code=409,
+                detail="This account is already logged in on another device. Do you want to continue?",
+                headers={"X-Session-Conflict": "true"}
+            )
+
+        # If force=True or no existing session: create new session
+        session_id = str(uuid.uuid4())
+
+        # Remove any existing sessions for this user
+        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (user["id"],))
+
+        # Register new session
+        conn.execute(
+            "INSERT INTO active_sessions (user_id, session_id) VALUES (?, ?)",
+            (user["id"], session_id)
+        )
+        conn.commit()
+
     access_token = create_token(
         subject=str(user["id"]),
         token_type="staff",
         extra_claims={"role": user["role"]},
+        session_id=session_id,
     )
 
     return TokenResponse(
@@ -61,6 +91,16 @@ def login(request: Request, body: LoginRequest):
             "phone": user["phone"],
         },
     )
+
+
+@router.post("/logout")
+def logout(current_user=Depends(get_current_user)):
+    """Logout: remove active session."""
+    # The session_id is in the token; we clear all sessions for this user
+    with get_db() as conn:
+        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (current_user["id"],))
+        conn.commit()
+    return {"message": "Logged out successfully"}
 
 
 @router.get("/me")

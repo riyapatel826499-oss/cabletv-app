@@ -3,29 +3,23 @@ __pycache__/
 *.pyc
 *.pyo
 venv/
-.env
+.venv/
 
-# Database (contains customer data - sensitive)
-backend/cabletv.db
-backend/cable_tv.db
+# Database (contains customer data)
+*.db
+*.db-journal
 
-# Secrets
-backend/config.py
+# Logs
+*.log
+/tmp/
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Temp files
-*.tmp
-*.log
+# IDE
+.vscode/
+.idea/
 
-# Flutter build caches
-build/
-.dart_tool/
-.flutter-plugins-dependencies
-*.lock
-!pubspec.lock
-
-# Paypakka token cache
-/tmp/paypakka_token.txt
+# Env
+.env

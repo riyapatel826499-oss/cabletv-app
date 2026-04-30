@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timedelta
+import calendar
 
 from deps import get_db, get_current_user, require_role
-from utils import get_month_range
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 import re
 
@@ -336,6 +336,219 @@ def list_customers(
             "per_page": per_page,
             "customers": customers_list,
             "total_paid_amount": total_paid_amount,
+        }
+
+
+@router.get("/customers/unpaid")
+def get_unpaid_customers(
+    q: Optional[str] = None,
+    area: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    as_of: Optional[str] = None,  # YYYY-MM-DD — show unpaid AS OF this date
+    current_user: dict = Depends(get_current_user),
+):
+    """Get customers with expired connections (unpaid).
+    as_of: optional date to check who was unpaid BY that date (default: today)."""
+    with get_db() as db:
+        # Use as_of date or today
+        if as_of:
+            try:
+                ref_date = datetime.strptime(as_of, "%Y-%m-%d")
+            except ValueError:
+                ref_date = datetime.now()
+        else:
+            ref_date = datetime.now()
+        ref_str = ref_date.strftime("%Y-%m-%d")
+
+        offset = (page - 1) * per_page
+
+        # Base query: active connections with expiry before ref_date
+        where = "WHERE conn.status = 'Active' AND conn.expiry_date < ?"
+        params: list = [ref_str]
+
+        if q:
+            where += " AND (c.name LIKE ? OR c.customer_id LIKE ? OR c.phone LIKE ? OR conn.stb_no LIKE ?)"
+            params += [f"%{q}%"] * 4
+        if area:
+            where += " AND c.area = ?"
+            params.append(area)
+
+        # Count
+        count_row = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM connections conn JOIN customers c ON c.customer_id = conn.customer_id {where}",
+            params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Fetch data
+        rows = db.execute(f"""
+            SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address,
+                   conn.id as conn_id, conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
+                   conn.expiry_date, conn.network
+            FROM connections conn 
+            JOIN customers c ON c.customer_id = conn.customer_id
+            {where}
+            ORDER BY conn.expiry_date ASC, c.area, c.name
+            LIMIT ? OFFSET ?
+        """, params + [per_page, offset]).fetchall()
+
+        # Calculate gap months and pending amount (relative to ref_date)
+        results = []
+        for r in rows:
+            exp = r["expiry_date"]
+            gap_months = 0
+            if exp:
+                exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+                gap_months = (ref_date.year - exp_dt.year) * 12 + (ref_date.month - exp_dt.month)
+                if gap_months < 0:
+                    gap_months = 0
+
+            results.append({
+                "customer_id": r["customer_id"],
+                "name": r["name"],
+                "phone": r["phone"],
+                "phone2": r["phone2"],
+                "area": r["area"],
+                "address": r["address"],
+                "conn_id": r["conn_id"],
+                "stb_no": r["stb_no"],
+                "mso": r["mso"],
+                "plan_name": r["plan_name"],
+                "plan_amount": r["plan_amount"],
+                "expiry_date": exp,
+                "network": r["network"],
+                "gap_months": gap_months,
+                "pending_amount": round(r["plan_amount"] * (gap_months + 1), 2) if r["plan_amount"] else 0
+            })
+
+        # Get distinct areas for filter
+        areas = [a["area"] for a in db.execute(
+            "SELECT DISTINCT area FROM customers WHERE area IS NOT NULL AND area != '' ORDER BY area"
+        ).fetchall() if a["area"]]
+
+        return {
+            "customers": results,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page,
+            "areas": areas,
+            "as_of": ref_str
+        }
+
+
+@router.get("/customers/not-renewed")
+def get_not_renewed_customers(
+    month: str = None, # YYYY-MM format, e.g. "2026-03" = expired in March
+    q: Optional[str] = None,
+    area: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 50,
+    current_user: dict = Depends(get_current_user),
+):
+    """Customers whose subscription expired IN a specific month.
+    Meaning they paid through that month but didn't renew for the next.
+    Default: last month."""
+    with get_db() as db:
+        # Default to last month
+        if not month:
+            now = datetime.now()
+            # Last month
+            if now.month == 1:
+                ref_year, ref_month = now.year - 1, 12
+            else:
+                ref_year, ref_month = now.year, now.month - 1
+        else:
+            try:
+                ref_year, ref_month = month.split("-")
+                ref_year, ref_month = int(ref_year), int(ref_month)
+            except (ValueError, AttributeError):
+                now = datetime.now()
+                ref_year = now.year if now.month > 1 else now.year - 1
+                ref_month = now.month - 1 if now.month > 1 else 12
+
+        # Date range: first day to last day of the month
+        first_day = f"{ref_year}-{ref_month:02d}-01"
+        last_day_num = calendar.monthrange(ref_year, ref_month)[1]
+        last_day = f"{ref_year}-{ref_month:02d}-{last_day_num}"
+
+        offset = (page - 1) * per_page
+
+        # Find active connections whose expiry_date falls within the target month
+        where = "WHERE conn.status = 'Active' AND conn.expiry_date >= ? AND conn.expiry_date <= ?"
+        params: list = [first_day, last_day]
+
+        if q:
+            where += " AND (c.name LIKE ? OR c.customer_id LIKE ? OR c.phone LIKE ? OR conn.stb_no LIKE ?)"
+            params += [f"%{q}%"] * 4
+        if area:
+            where += " AND c.area = ?"
+            params.append(area)
+
+        # Count
+        count_row = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM connections conn JOIN customers c ON c.customer_id = conn.customer_id {where}",
+            params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Fetch — include last paid date from both payment tables
+        rows = db.execute(f"""
+            SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address,
+                   conn.id as conn_id, conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
+                   conn.expiry_date, conn.network,
+                   COALESCE(
+                     (SELECT MAX(p.collected_at) FROM payments p 
+                      WHERE p.customer_id = conn.customer_id AND p.connection_id = conn.id),
+                     (SELECT MAX(pp.paypakka_created_at) FROM paypakka_payments pp 
+                      WHERE pp.customer_id = conn.customer_id),
+                     NULL
+                   ) as last_paid_date
+            FROM connections conn 
+            JOIN customers c ON c.customer_id = conn.customer_id
+            {where}
+            ORDER BY c.area, c.name
+            LIMIT ? OFFSET ?
+        """, params + [per_page, offset]).fetchall()
+
+        results = []
+        for r in rows:
+            results.append({
+                "customer_id": r["customer_id"],
+                "name": r["name"],
+                "phone": r["phone"],
+                "phone2": r["phone2"],
+                "area": r["area"],
+                "address": r["address"],
+                "conn_id": r["conn_id"],
+                "stb_no": r["stb_no"],
+                "mso": r["mso"],
+                "plan_name": r["plan_name"],
+                "plan_amount": r["plan_amount"],
+                "expiry_date": r["expiry_date"],
+                "network": r["network"],
+                "last_paid_date": r["last_paid_date"],
+            })
+
+        areas = [a["area"] for a in db.execute(
+            "SELECT DISTINCT area FROM customers WHERE area IS NOT NULL AND area != '' ORDER BY area"
+        ).fetchall() if a["area"]]
+
+        # Month label for display
+        month_label = datetime(ref_year, ref_month, 1).strftime("%B %Y")
+
+        return {
+            "customers": results,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page,
+            "areas": areas,
+            "month": f"{ref_year}-{ref_month:02d}",
+            "month_label": month_label,
+            "first_day": first_day,
+            "last_day": last_day,
         }
 
 

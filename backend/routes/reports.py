@@ -1,8 +1,7 @@
 """Reports API — area-wise collection, charts, etc."""
 from fastapi import APIRouter, Query, Depends
 from typing import Optional
-from models.database import get_db
-from deps import get_current_user
+from deps import get_db, get_current_user
 
 router = APIRouter(prefix="/api/reports", tags=["Reports"])
 

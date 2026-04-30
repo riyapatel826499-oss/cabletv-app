@@ -116,9 +116,16 @@ def add_connection(customer_id: str, data: ConnectionCreate, current_user=Depend
             raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is already assigned to {dup['name']} ({dup['customer_id']})")
 
         # Free up STB from any surrendered connections so UNIQUE constraint passes
-        conn.execute("""
-            UPDATE connections SET stb_no = NULL WHERE stb_no = ? AND status = 'Surrendered'
-        """, [data.stb_no])
+        # Can't set stb_no = NULL due to NOT NULL constraint — use unique marker instead
+        surrendered_rows = conn.execute(
+            "SELECT id FROM connections WHERE stb_no = ? AND status = 'Surrendered'",
+            [data.stb_no]
+        ).fetchall()
+        for row in surrendered_rows:
+            conn.execute(
+                "UPDATE connections SET stb_no = 'SURRENDERED-' || ? WHERE id = ?",
+                [row['id'], row['id']]
+            )
 
         network = _detect_network(data.stb_no)
 
