@@ -49,6 +49,18 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 .pay-history-modal-content table{width:100%;font-size:0.85rem}
 .pay-history-modal-content td,.pay-history-modal-content th{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
 /* ===== MOBILE BOTTOM NAV ===== */
+/* Agent role restrictions - hide admin sections */
+body.role-agent #page-payments > h3,
+body.role-agent #page-payments > .filter-row,
+body.role-agent #page-payments > .table-wrap,
+body.role-agent #page-payments > .pagination { display: none !important; }
+body.role-agent #page-customers > .filter-row,
+body.role-agent #page-customers > .tabs,
+body.role-agent #page-customers > #dateFilterRow,
+body.role-agent #page-customers > #paidSummaryBar,
+body.role-agent #page-customers > #paidFilterRow,
+body.role-agent #page-customers > .pagination { display: none !important; }
+
 .mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);z-index:1200;padding:6px 0 env(safe-area-inset-bottom,6px);box-shadow:0 -2px 10px rgba(0,0,0,0.08)}
 .mob-nav-items{display:flex;justify-content:space-around;align-items:center}
 .mob-nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;cursor:pointer;color:var(--text-light);font-size:10px;font-weight:500;border:none;background:none;min-width:56px;-webkit-tap-highlight-color:transparent}
@@ -2385,12 +2397,83 @@ function closeModal() { document.getElementById('modalOverlay').classList.remove
 // LOGOUT
 function logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = 'index.html'; }
 
+// ===== ROLE-BASED ACCESS CONTROL =====
+let _userRole = 'admin';
+let _userPerms = [];
+
+function applyRoleAccess(user) {
+  _userRole = (user.role || 'agent').toLowerCase();
+  try {
+    const p = JSON.parse(user.permissions || '{}');
+    _userPerms = p.permissions || [];
+  } catch(e) { _userPerms = []; }
+
+  // Define which nav items each role can see
+  const roleAccess = {
+    'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','reports','settings'],
+    'collection_agent': ['payments','customers'],
+    'agent': ['payments','customers'],
+    'support': ['dashboard','customers','add-customer','payments','reports']
+  };
+
+  const allowed = roleAccess[_userRole] || roleAccess['agent'];
+  
+  // Show/hide sidebar nav items
+  document.querySelectorAll('#sidebar .nav-item').forEach(item => {
+    const page = item.dataset.page;
+    item.style.display = allowed.includes(page) ? '' : 'none';
+  });
+
+  // Show/hide mobile bottom nav items
+  const mobMap = {'dashboard':0,'payments':1,'customers':2,'reports':3,'more':4};
+  const mobBtns = document.querySelectorAll('.mob-nav-item');
+  mobBtns.forEach((btn, i) => {
+    // "More" button only for roles that need hidden items
+    const pages = ['dashboard','payments','customers','reports'];
+    const thisPage = pages[i];
+    if (i === 4) {
+      // More button: show only if there are hidden nav items beyond the 4 shown
+      btn.style.display = allowed.some(p => !['payments','customers'].includes(p) && _userRole !== 'admin') ? '' : 'none';
+    } else if (thisPage) {
+      btn.style.display = allowed.includes(thisPage) ? '' : 'none';
+    }
+  });
+
+  // If agent: hide admin-only sections in pages they CAN see
+  if (_userRole !== 'admin' && _userRole !== 'support') {
+    // On customers page: hide add customer, filters
+    // On payments page: hide payment history table (keep collect form only)
+    // We'll handle this with CSS class
+    document.body.classList.add('role-agent');
+  }
+}
+
 // INIT
-loadDashboard();
+applyRoleAccess({role: 'admin', permissions: null}); // default until loaded
+
 api('/api/me').then(u => {
   if (u.name) { document.getElementById('userName').textContent = u.name; document.getElementById('userAvatar').textContent = u.name[0].toUpperCase(); }
   if (u.role) document.getElementById('userRole').textContent = u.role;
+  applyRoleAccess(u);
+  
+  // Redirect to allowed page if current page is not accessible
+  const allowed = {
+    'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','reports','settings'],
+    'collection_agent': ['payments','customers'],
+    'agent': ['payments','customers'],
+    'support': ['dashboard','customers','add-customer','payments','reports']
+  };
+  const myAllowed = allowed[(u.role || 'agent').toLowerCase()] || allowed['agent'];
+  const activePage = document.querySelector('.page.active');
+  if (activePage) {
+    const pageId = activePage.id.replace('page-', '');
+    if (!myAllowed.includes(pageId)) {
+      showPage(myAllowed[0]);
+    }
+  }
 }).catch(() => {});
+
+loadDashboard();
 
 // Mobile hamburger menu
 const hamburgerBtn = document.getElementById('hamburgerBtn');
