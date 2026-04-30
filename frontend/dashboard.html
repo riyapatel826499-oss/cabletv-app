@@ -124,7 +124,7 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 </style>
 </head>
 <body>
-<button id="hamburgerBtn" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button>
+<button id="hamburgerBtn">&#9776;</button>
 <aside id="sidebar">
 <div class="brand">&#128250; Cable TV</div>
 <nav class="nav">
@@ -584,15 +584,6 @@ if (isMobile() && token) {
     mobBtns[1].classList.add('active');
   }, 150);
 }
-
-// Close sidebar on outside tap
-document.addEventListener('click', function(e) {
-  const sb = document.getElementById('sidebar');
-  const hb = document.getElementById('hamburgerBtn');
-  if (isMobile() && sb.classList.contains('open') && !sb.contains(e.target) && !hb.contains(e.target)) {
-    sb.classList.remove('open');
-  }
-});
 
 async function loadDashboard() {
   try {
