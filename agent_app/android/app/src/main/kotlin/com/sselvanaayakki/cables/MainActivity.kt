@@ -1,0 +1,3 @@
+package com.sselvanaayakki.cables
+import io.flutter.embedding.android.FlutterActivity
+class MainActivity: FlutterActivity()

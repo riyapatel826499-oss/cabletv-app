@@ -1,0 +1,552 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime, timedelta
+
+from deps import get_db, get_current_user, require_role
+from utils import get_month_range
+from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
+import re
+
+router = APIRouter(prefix="/api", tags=["Customers"])
+
+
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    phone2: Optional[str] = None
+    address: Optional[str] = None
+    area: Optional[str] = None
+    city: Optional[str] = None
+    pincode: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ConnectionCreate(BaseModel):
+    stb_no: str
+    can_id: Optional[str] = None
+    mso: Optional[str] = "GTPL"
+    service_type: Optional[str] = "Cable"
+    billing_type: Optional[str] = "Prepaid"
+    status: Optional[str] = "Active"
+
+
+class CustomerPlanAssign(BaseModel):
+    connection_id: int
+    plan_id: int
+    start_date: Optional[str] = None  # ISO date string
+    notes: Optional[str] = None
+
+
+def _customer_to_dict(row):
+    """Convert a customer row to dict."""
+    d = {
+        "id": row["id"],
+        "customer_id": row["customer_id"],
+        "name": row["name"],
+        "phone": row["phone"],
+        "phone2": row["phone2"],
+        "address": row["address"],
+        "area": row["area"],
+        "city": row["city"],
+        "pincode": row["pincode"],
+        "status": row["status"],
+    }
+    # Add optional fields if available
+    for field in ["surrendered_date", "surrender_reason", "stb_no"]:
+        try:
+            d[field] = row[field] if row[field] is not None else None
+        except (IndexError, KeyError):
+            d[field] = None
+    # Add is_paid if available (from JOIN query)
+    try:
+        d["is_paid"] = bool(row["is_paid"])
+    except (IndexError, KeyError):
+        d["is_paid"] = False
+    return d
+
+
+def _connection_to_dict(row):
+    d = {
+        "id": row["id"],
+        "customer_id": row["customer_id"],
+        "stb_no": row["stb_no"],
+        "can_id": row["can_id"],
+        "mso": row["mso"],
+        "service_type": row["service_type"],
+        "billing_type": row["billing_type"],
+        "status": row["status"],
+    }
+    # network field
+    try:
+        d["network"] = row["network"]
+    except (IndexError, KeyError):
+        d["network"] = "GTPL"
+    # Add plan/expiry fields if available (from Paypakka import)
+    for field in ["plan_name", "plan_amount", "activation_date", "expiry_date"]:
+        try:
+            d[field] = row[field] if row[field] is not None else None
+        except (IndexError, KeyError):
+            d[field] = None
+    return d
+
+
+
+# ============================================================
+# IMPORTANT: Fixed routes (search, unpaid, paid) MUST come
+# before the parameterized /customers/{customer_id} route
+# to avoid FastAPI matching "search"/"unpaid"/"paid" as customer_id
+# ============================================================
+
+@router.get("/customers/paid-filters")
+def get_paid_filters(
+    paid_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    paid_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    current_user=Depends(get_current_user),
+):
+    """Return unique areas, amounts, modes, collectors from paid customers."""
+    with get_db() as conn:
+        month_start, month_end, current_month = get_date_range(paid_from, paid_to)
+
+        # Get unique areas from paid customers (always use date-range mode for filter queries)
+        paid_subq = paid_customer_subquery(None)
+        paid_params = paid_subquery_params(month_start, month_end, None)
+        areas = conn.execute(f"""
+            SELECT DISTINCT c.area FROM customers c
+            INNER JOIN (
+                {paid_subq}
+            ) p ON c.customer_id = p.customer_id
+            WHERE c.area IS NOT NULL AND c.area != ''
+            ORDER BY c.area
+        """, paid_params).fetchall()
+        area_list = [r["area"] for r in areas]
+
+        # Get unique amounts
+        amounts = conn.execute("""
+            SELECT DISTINCT collection_amount FROM paypakka_payments
+            WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?
+            AND collection_amount IS NOT NULL AND collection_amount > 0
+            UNION
+            SELECT DISTINCT amount FROM payments
+            WHERE collected_at >= ? AND collected_at <= ?
+            AND amount IS NOT NULL AND amount > 0
+            ORDER BY collection_amount
+        """, [month_start, month_end, month_start, month_end]).fetchall()
+        amount_list = sorted(set([float(r[0]) for r in amounts]))
+
+        # Get unique payment modes
+        modes = conn.execute("""
+            SELECT DISTINCT payment_type FROM paypakka_payments
+            WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?
+            AND payment_type IS NOT NULL AND payment_type != ''
+            UNION
+            SELECT DISTINCT payment_mode FROM payments
+            WHERE collected_at >= ? AND collected_at <= ?
+            AND payment_mode IS NOT NULL AND payment_mode != ''
+        """, [month_start, month_end, month_start, month_end]).fetchall()
+        mode_list = sorted(set([r[0].strip().title() for r in modes if r[0]]))
+
+        # Get unique collectors
+        collectors = conn.execute("""
+            SELECT DISTINCT e.emp_name FROM paypakka_employees e
+            INNER JOIN paypakka_payments pp ON pp.emp_ref_id = e.emp_ref_id
+            WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at <= ?
+            AND e.emp_name IS NOT NULL AND e.emp_name != ''
+            ORDER BY e.emp_name
+        """, [month_start, month_end]).fetchall()
+        collector_list = [r["emp_name"] for r in collectors]
+
+        return {
+            "areas": area_list,
+            "amounts": amount_list,
+            "modes": mode_list,
+            "collectors": collector_list,
+        }
+
+
+@router.get("/customers")
+def list_customers(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=200),
+    area: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: Optional[str] = Query("name", regex="^(name|customer_id|area)$"),
+    sort_order: Optional[str] = Query("asc", regex="^(asc|desc)$"),
+    payment_filter: Optional[str] = Query(None, regex="^(paid|unpaid)$"),
+    paid_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    paid_to: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    paid_area: Optional[str] = Query(None, description="Filter paid by area"),
+    paid_mode: Optional[str] = Query(None, description="Filter paid by payment mode"),
+    paid_collected_by: Optional[str] = Query(None, description="Filter paid by collector"),
+    paid_amount: Optional[float] = Query(None, description="Filter paid by exact amount"),
+    current_user=Depends(get_current_user),
+):
+    with get_db() as conn:
+        month_start, month_end, current_month = get_date_range(paid_from, paid_to)
+        paid_subq = paid_customer_subquery(current_month)
+        paid_params = paid_subquery_params(month_start, month_end, current_month)
+
+        query = """SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid,
+            conn.stb_no
+            FROM customers c
+            LEFT JOIN (
+                """ + paid_subq + """
+            ) p ON c.customer_id = p.customer_id
+            LEFT JOIN connections conn ON c.customer_id = conn.customer_id
+            WHERE 1=1"""
+        params = list(paid_params)
+
+        if area:
+            query += " AND c.area LIKE ?"
+            params.append(f"%{area}%")
+        if status is not None and status != "":
+            # Specific status filter (e.g. "Surrendered")
+            query += " AND c.status = ?"
+            params.append(status)
+        elif status == "":
+            # Empty string means show ALL statuses (no filter)
+            pass
+        else:
+            # No status param at all: only show Active (default)
+            query += " AND (c.status = 'Active' OR c.status IS NULL)"
+
+        # Payment filter
+        if payment_filter == "paid":
+            query += " AND p.customer_id IS NOT NULL"
+        elif payment_filter == "unpaid":
+            query += " AND p.customer_id IS NULL"
+
+        # Paid-specific area filter (exact match on customer area)
+        if payment_filter == "paid" and paid_area:
+            query += " AND c.area = ?"
+            params.append(paid_area)
+
+        # Count total
+        count_query = query.replace(
+            "SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid",
+            "SELECT COUNT(*)"
+        )
+        total = conn.execute(count_query, params).fetchone()[0]
+
+        # Sorting - customer_id sort uses numeric part for proper ordering
+        if sort_by == "customer_id":
+            query += f" ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) {sort_order.upper()}"
+        else:
+            query += f" ORDER BY c.{sort_by} COLLATE NOCASE {sort_order.upper()}"
+        query += " LIMIT ? OFFSET ?"
+        params.extend([per_page, (page - 1) * per_page])
+
+        rows = conn.execute(query, params).fetchall()
+
+        # If paid filter, fetch payment details for each customer
+        customers_list = [_customer_to_dict(r) for r in rows]
+        if payment_filter == "paid" and customers_list:
+            cids = [c["customer_id"] for c in customers_list]
+            pay_map = get_merged_payments(conn, cids, month_start, month_end, current_month)
+            for c in customers_list:
+                pinfo = pay_map.get(c["customer_id"], {})
+                c["paid_amount"] = pinfo.get("amount", 0)
+                c["payment_mode"] = pinfo.get("mode", "")
+                c["payment_date"] = pinfo.get("date", "")
+                c["collected_by"] = pinfo.get("collected_by", "")
+
+            # Apply paid_mode and paid_collected_by filters (post-SQL, since they come from aggregated payment data)
+            if payment_filter == "paid" and (paid_mode or paid_collected_by or paid_amount):
+                # Need to compute total across ALL pages, not just current page
+                # Run the full query without LIMIT/OFFSET
+                all_q = query.replace(" LIMIT ? OFFSET ?", "")
+                all_params_no_page = params[:-2]
+                all_rows = conn.execute(all_q, all_params_no_page).fetchall()
+                all_cids = [dict(r).get("customer_id") for r in all_rows]
+            
+                # Get payment details for ALL matching customers
+                all_pay_map = get_merged_payments(conn, all_cids, month_start, month_end, current_month) if all_cids else {}
+                # Lowercase mode for filter matching
+                for info in all_pay_map.values():
+                    info["mode"] = info.get("mode", "").lower()
+
+                # Apply filters to get total count and amount
+                filtered_count = 0
+                filtered_total_amount = 0
+                filtered_ids = set()
+                for cid in all_cids:
+                    info = all_pay_map.get(cid, {})
+                    if paid_mode and paid_mode.lower() not in info.get("mode", ""):
+                        continue
+                    if paid_collected_by and paid_collected_by.lower() not in info.get("collected_by", "").lower():
+                        continue
+                    if paid_amount and abs(info.get("amount", 0) - paid_amount) > 0.5:
+                        continue
+                    filtered_count += 1
+                    filtered_total_amount += info.get("amount", 0)
+                    filtered_ids.add(cid)
+
+
+                # Override total and total_paid_amount
+                total = filtered_count
+                total_paid_amount = filtered_total_amount
+
+                # Re-fetch customers for this page from filtered_ids
+                def sort_key(cid):
+                    m = re.search(r'-(\d+)', cid)
+                    return int(m.group(1)) if m else 0
+                sorted_ids = sorted(filtered_ids, key=sort_key)
+                start_idx = (page - 1) * per_page
+                end_idx = start_idx + per_page
+                page_ids = sorted_ids[start_idx:end_idx]
+
+                # Re-query DB for only the filtered page of customers
+                if page_ids:
+                    placeholders = ",".join(["?"] * len(page_ids))
+                    detail_q = f"""SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid,
+                        conn.stb_no
+                        FROM customers c
+                        LEFT JOIN (
+                            """ + paid_subq + """
+                        ) p ON c.customer_id = p.customer_id
+                        LEFT JOIN connections conn ON c.customer_id = conn.customer_id
+                        WHERE c.customer_id IN (""" + placeholders + """)
+                        ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) ASC"""
+                    detail_params = paid_params + page_ids
+                    detail_rows = conn.execute(detail_q, detail_params).fetchall()
+                    customers_list = [_customer_to_dict(r) for r in detail_rows]
+                    for c in customers_list:
+                        pinfo = all_pay_map.get(c["customer_id"], {})
+                        c["paid_amount"] = pinfo.get("amount", 0)
+                        c["payment_mode"] = pinfo.get("mode", "").title()
+                        c["payment_date"] = pinfo.get("date", "")
+                        c["collected_by"] = pinfo.get("collected_by", "")
+                else:
+                    customers_list = []
+
+        # Calculate total paid amount for paid tab (across ALL matching, not just current page)
+        total_paid_amount = 0  # default
+        if payment_filter == "paid" and not (paid_mode or paid_collected_by or paid_amount):
+            total_paid_amount = get_total_paid_amount(conn, month_start, month_end, paid_area)
+        elif payment_filter != "paid":
+            # "all" or "unpaid" — set to 0
+            total_paid_amount = 0
+        # else: total_paid_amount was already set by the filter block above
+
+
+        return {
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "customers": customers_list,
+            "total_paid_amount": total_paid_amount,
+        }
+
+
+@router.get("/customers/search")
+def search_customers(
+    q: str = Query(..., min_length=1),
+    current_user=Depends(get_current_user),
+):
+    with get_db() as conn:
+        month_start, month_end, current_month = get_date_range()
+        paid_subq = paid_customer_subquery(current_month)
+        paid_params = paid_subquery_params(month_start, month_end, current_month)
+        rows = conn.execute(f"""
+            SELECT c.*, conn.stb_no,
+            CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid
+            FROM customers c
+            LEFT JOIN connections conn ON c.customer_id = conn.customer_id
+            LEFT JOIN (
+                {paid_subq}
+            ) p ON c.customer_id = p.customer_id
+            WHERE c.name LIKE ? OR c.phone LIKE ? OR c.customer_id LIKE ? OR conn.stb_no LIKE ?
+            ORDER BY c.name
+            LIMIT 20
+        """, paid_params + [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]).fetchall()
+        return [_customer_to_dict(r) for r in rows]
+
+
+@router.get("/customers/{customer_id}")
+def get_customer(customer_id: str, current_user=Depends(get_current_user)):
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT c.*, conn.stb_no, conn.id as conn_id, conn.can_id, conn.mso, conn.status as conn_status
+            FROM customers c
+            LEFT JOIN connections conn ON c.customer_id = conn.customer_id
+            WHERE c.customer_id = ?
+        """, [customer_id]).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        result = _customer_to_dict(row)
+        result["connections"] = [_connection_to_dict(r) for r in
+            conn.execute("SELECT * FROM connections WHERE customer_id = ?", [customer_id]).fetchall()]
+        return result
+
+
+    # ========== SURRENDER ==========
+# Surrender endpoints moved to routes/surrenders.py
+
+class CustomerCreateRequest(BaseModel):
+    name: str
+    phone: str
+    area: Optional[str] = None
+    address: Optional[str] = None
+    stb_number: Optional[str] = None
+    plan_id: Optional[int] = None
+    activation_date: Optional[str] = None
+
+
+@router.post("/customers", status_code=201)
+def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user)):
+    with get_db() as conn:
+        # Generate customer_id
+        last = conn.execute("SELECT customer_id FROM customers ORDER BY customer_id DESC LIMIT 1").fetchone()
+        if last:
+            m = re.search(r'-(\d+)', last["customer_id"])
+            next_num = int(m.group(1)) + 1 if m else 1
+        else:
+            next_num = 1
+        customer_id = f"SSA-{next_num:06d}"
+
+        # Validate STB uniqueness
+        stb_no = (data.stb_number or "").strip()
+        if stb_no:
+            existing = conn.execute(
+                "SELECT c.customer_id, c.name FROM connections con JOIN customers c ON con.customer_id = c.customer_id WHERE con.stb_no = ? AND con.status = 'Active'",
+                [stb_no]
+            ).fetchone()
+            if existing:
+                raise HTTPException(status_code=400, detail=f"STB {stb_no} is already assigned to {existing['name']} ({existing['customer_id']})")
+
+        try:
+            conn.execute("""
+                INSERT INTO customers (customer_id, name, phone, area, address, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, [customer_id, data.name, data.phone,
+                  data.area or "", data.address or "", "Active"])
+
+            # Add connection if STB provided
+            if stb_no:
+                network = "TACTV" if (stb_no.startswith("172") or stb_no.startswith("173")) else ("SCV" if stb_no.startswith("5000") else "GTPL")
+                conn.execute("""
+                    INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at)
+                    VALUES (?, ?, ?, 'Cable', 'Prepaid', 'Active', ?, datetime('now'))
+                """, [customer_id, stb_no, network, network])
+
+                # Assign plan if provided
+                plan_id = data.plan_id
+                if plan_id:
+                    plan = conn.execute("SELECT * FROM plans WHERE id = ?", [plan_id]).fetchone()
+                    if plan:
+                        act_date = data.activation_date or datetime.now().strftime("%Y-%m-%d")
+                        act_dt = datetime.strptime(act_date, "%Y-%m-%d")
+                        exp_dt = act_dt + timedelta(days=plan["validity_days"] or 30)
+                        conn_obj = conn.execute("SELECT id FROM connections WHERE customer_id = ?", [customer_id]).fetchone()
+                        conn.execute("""
+                            INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount, start_date, expiry_date, status)
+                            VALUES (?, ?, ?, ?, ?, ?, 'Active')
+                        """, [customer_id, conn_obj["id"], plan_id, plan["amount"], act_date, exp_dt.strftime("%Y-%m-%d")])
+
+            conn.commit()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    return {"customer_id": customer_id, "message": "Customer created successfully"}
+
+
+@router.put("/customers/{customer_id}")
+def update_customer(customer_id: str, data: CustomerUpdate, current_user=Depends(get_current_user)):
+    with get_db() as conn:
+        existing = conn.execute("SELECT * FROM customers WHERE customer_id = ?", [customer_id]).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        updates = {}
+        for field in ["name", "phone", "phone2", "area", "address", "city", "pincode", "status"]:
+            val = getattr(data, field, None)
+            if val is not None:
+                updates[field] = val
+
+        if updates:
+            set_clause = ", ".join([f"{k} = ?" for k in updates])
+            conn.execute(f"UPDATE customers SET {set_clause} WHERE customer_id = ?",
+                         list(updates.values()) + [customer_id])
+            conn.commit()
+        return {"message": "Customer updated successfully"}
+
+
+@router.delete("/customers/{customer_id}")
+def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only Admin can delete customers")
+    with get_db() as conn:
+        existing = conn.execute("SELECT * FROM customers WHERE customer_id = ?", [customer_id]).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Delete in order: plans -> payments -> connections -> customer
+        conn.execute("DELETE FROM customer_plans WHERE customer_id = ?", [customer_id])
+        conn.execute("DELETE FROM payments WHERE customer_id = ?", [customer_id])
+        conn.execute("DELETE FROM connections WHERE customer_id = ?", [customer_id])
+        conn.execute("DELETE FROM customers WHERE customer_id = ?", [customer_id])
+        conn.commit()
+        return {"message": "Customer deleted successfully"}
+
+
+class ChangePlanRequest(BaseModel):
+    plan_id: int
+
+@router.put("/customers/{customer_id}/change-plan")
+def change_customer_plan(customer_id: str, data: ChangePlanRequest, current_user=Depends(get_current_user)):
+    with get_db() as conn:
+        # Verify customer exists
+        customer = conn.execute("SELECT * FROM customers WHERE customer_id = ?", [customer_id]).fetchone()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Verify plan exists
+        plan = conn.execute("SELECT * FROM plans WHERE id = ? AND status = 'Active'", [data.plan_id]).fetchone()
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+
+        # Get the active connection
+        connection = conn.execute(
+            "SELECT * FROM connections WHERE customer_id = ? AND status = 'Active' LIMIT 1",
+            [customer_id]
+        ).fetchone()
+        if not connection:
+            raise HTTPException(status_code=400, detail="No active connection found")
+
+        # Update connection with new plan
+        conn.execute("""
+            UPDATE connections 
+            SET plan_name = ?, plan_amount = ?
+            WHERE id = ?
+        """, [plan["name"], plan["amount"], connection["id"]])
+
+        # Update/create customer_plans record
+        existing_plan = conn.execute(
+            "SELECT * FROM customer_plans WHERE customer_id = ? AND status = 'Active' LIMIT 1",
+            [customer_id]
+        ).fetchone()
+        
+        from datetime import datetime, timedelta
+        import calendar
+        today = datetime.now()
+        # Expiry = last day of current paying month
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        exp_date = today.replace(day=last_day).strftime("%Y-%m-%d")
+
+        if existing_plan:
+            conn.execute("""
+                UPDATE customer_plans 
+                SET plan_id = ?, amount = ?, start_date = ?, expiry_date = ?
+                WHERE id = ?
+            """, [plan["id"], plan["amount"], today.strftime("%Y-%m-%d"), exp_date, existing_plan["id"]])
+        else:
+            conn.execute("""
+                INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount, start_date, expiry_date, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'Active')
+            """, [customer_id, connection["id"], plan["id"], plan["amount"], today.strftime("%Y-%m-%d"), exp_date])
+
+        conn.commit()
+    return {"message": f"Plan changed to {plan['name']} (₹{plan['amount']}) successfully"}
+
+
+# Connection endpoints moved to routes/connections.py

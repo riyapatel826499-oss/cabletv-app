@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Selvanaayakki Amman Cables</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e1b4b 0%,#312e81 30%,#4338ca 60%,#6366f1 100%);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;overflow:hidden}
+.login-container{width:100%;max-width:420px;padding:20px;animation:fadeUp .6s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.login-card{background:rgba(255,255,255,.97);border-radius:24px;padding:48px 40px;box-shadow:0 25px 60px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.1)}
+.brand{text-align:center;margin-bottom:36px}
+.brand-icon{width:72px;height:72px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:20px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 8px 24px rgba(99,102,241,.4)}
+.brand-icon svg{width:36px;height:36px;fill:#fff}
+.brand h1{font-size:20px;color:#1e1b4b;font-weight:700;line-height:1.3}
+.brand p{color:#6b7280;font-size:14px;margin-top:4px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input{width:100%;padding:14px 16px 14px 48px;border:2px solid #e5e7eb;border-radius:14px;font-size:16px;transition:all .25s;background:#f9fafb;color:#1f2937}
+.form-group input:focus{outline:none;border-color:#6366f1;background:#fff;box-shadow:0 0 0 4px rgba(99,102,241,.1)}
+.input-wrap{position:relative}
+.input-wrap svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:#9ca3af;transition:fill .25s}
+.form-group input:focus~svg,.input-wrap:focus-within svg{fill:#6366f1}
+.login-btn{width:100%;padding:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 4px 16px rgba(99,102,241,.4);margin-top:8px;letter-spacing:.3px}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.5)}
+.login-btn:active{transform:translateY(0)}
+.login-btn:disabled{opacity:.7;cursor:not-allowed;transform:none}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:#fef2f2;color:#ef4444;padding:12px 16px;border-radius:12px;font-size:14px;margin-bottom:20px;display:none;align-items:center;gap:8px;border:1px solid #fecaca}
+.error-msg.show{display:flex}
+.footer-text{text-align:center;margin-top:24px;color:#9ca3af;font-size:13px}
+.bg-shapes{position:fixed;inset:0;pointer-events:none;z-index:0}
+.bg-shapes div{position:absolute;border-radius:50%;background:rgba(255,255,255,.05)}
+.bg-shapes .s1{width:400px;height:400px;top:-100px;right:-100px}
+.bg-shapes .s2{width:300px;height:300px;bottom:-50px;left:-80px}
+.bg-shapes .s3{width:200px;height:200px;top:50%;left:50%;transform:translate(-50%,-50%)}
+</style>
+</head>
+<body>
+<div class="bg-shapes"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+<div class="login-container">
+<div class="login-card">
+<div class="brand">
+<div class="brand-icon">
+<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12zM8 15l5-3.5L8 8v7z"/></svg>
+</div>
+<h1>Selvanaayakki Amman Cables</h1>
+<p>Admin Dashboard</p>
+</div>
+<div id="errorMsg" class="error-msg">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+<span id="errorText"></span>
+</div>
+<form id="loginForm" onsubmit="handleLogin(event)">
+<div class="form-group">
+<label>Username</label>
+<div class="input-wrap">
+<input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
+<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</div>
+</div>
+<div class="form-group">
+<label>Password</label>
+<div class="input-wrap">
+<input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+</div>
+</div>
+<button type="submit" class="login-btn" id="loginBtn">
+Sign In
+</button>
+</form>
+<div class="footer-text">Secure admin access only</div>
+</div>
+</div>
+<script>
+const API=window.location.origin;
+if(localStorage.getItem('token'))window.location.href='dashboard.html';
+
+function showError(msg){
+const el=document.getElementById('errorMsg');
+document.getElementById('errorText').textContent=msg;
+el.classList.add('show');
+setTimeout(()=>el.classList.remove('show'),5000);
+}
+
+async function handleLogin(e){
+e.preventDefault();
+const btn=document.getElementById('loginBtn');
+const u=document.getElementById('username').value.trim();
+const p=document.getElementById('password').value;
+if(!u||!p)return showError('Please enter both username and password');
+btn.disabled=true;
+btn.innerHTML='<span class="spinner"></span>Signing in...';
+try{
+const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+const d=await r.json();
+if(!r.ok)throw new Error(d.error||d.message||'Login failed');
+localStorage.setItem('token',d.access_token||d.data?.token||d.token);
+localStorage.setItem('user',JSON.stringify(d.user||d.data?.user||{name:u}));
+window.location.href='dashboard.html';
+}catch(err){showError(err.message)}finally{btn.disabled=false;btn.innerHTML='Sign In'}
+}
+</script>
+</body>
+</html>
