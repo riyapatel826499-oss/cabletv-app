@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
 <title>Cable TV Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -44,8 +48,79 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 .pay-history-modal-content h3{margin:0 0 12px;display:flex;justify-content:space-between;align-items:center}
 .pay-history-modal-content table{width:100%;font-size:0.85rem}
 .pay-history-modal-content td,.pay-history-modal-content th{padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)}
-@media(max-width:768px){#sidebar{transform:translateX(-100%)}#sidebar.open{transform:translateX(0)}.main{margin-left:0}.topbar{padding:12px 16px}.content{padding:16px}.stats-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}.modal{width:95%;max-height:95%}.toast-container{top:auto;bottom:20px;right:10px;left:10px}.toast{width:100%}#hamburgerBtn{display:flex}.filter-row{flex-direction:column}.summary-bar{flex-direction:column}.cust-tabs{flex-wrap:nowrap}}
-@media(max-width:480px){.btn{padding:8px 12px;font-size:0.85rem}.form-control{padding:8px 10px}th,td{padding:10px 8px;font-size:0.85rem}}
+/* ===== MOBILE BOTTOM NAV ===== */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);z-index:1200;padding:6px 0 env(safe-area-inset-bottom,6px);box-shadow:0 -2px 10px rgba(0,0,0,0.08)}
+.mob-nav-items{display:flex;justify-content:space-around;align-items:center}
+.mob-nav-item{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;cursor:pointer;color:var(--text-light);font-size:10px;font-weight:500;border:none;background:none;min-width:56px;-webkit-tap-highlight-color:transparent}
+.mob-nav-item .mob-icon{font-size:22px;line-height:1}
+.mob-nav-item.active{color:var(--primary)}
+.mob-nav-item.active .mob-icon{transform:scale(1.1)}
+
+/* Mobile pay success animation */
+.pay-success-anim{animation:payPop 0.5s ease}
+@keyframes payPop{0%{transform:scale(0.8);opacity:0}50%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+
+/* Mobile customer card in search */
+.mob-cust-item{padding:14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;-webkit-tap-highlight-color:transparent}
+.mob-cust-item:active{background:var(--bg)}
+.mob-cust-item .mci-name{font-weight:600;font-size:15px}
+.mob-cust-item .mci-sub{font-size:12px;color:var(--text-light);margin-top:2px}
+.mob-cust-item .mci-stb{font-family:'Courier New',monospace;font-size:11px;background:rgba(59,130,246,0.1);color:var(--info);padding:2px 6px;border-radius:4px}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+  /* Sidebar hidden on mobile, bottom nav instead */
+  #sidebar{transform:translateX(-100%)}#sidebar.open{transform:translateX(0)}
+  .main{margin-left:0;padding-bottom:70px}
+  .topbar{padding:12px 16px;position:sticky;top:0}
+  .content{padding:14px}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .stat-card{padding:14px}
+  .stat-card .value{font-size:1.3rem}
+  .stat-card h3{font-size:0.75rem}
+  .form-row{grid-template-columns:1fr}
+  .modal{width:100%;max-height:100%;border-radius:0}
+  .modal-overlay{padding:0}
+  .toast-container{top:auto;bottom:80px;right:10px;left:10px}
+  .toast{width:100%}
+  #hamburgerBtn{display:flex}
+  .filter-row{flex-direction:column;gap:8px}
+  .filter-row select,.filter-row input{width:100%}
+  .summary-bar{flex-direction:column}
+  .cust-tabs{flex-wrap:nowrap}
+  .mob-nav{display:block}
+  
+  /* Dashboard charts side by side on mobile */
+  #page-dashboard > div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+  
+  /* Tables become card-style on mobile */
+  .table-wrap table{font-size:13px}
+  th,td{padding:10px 8px;font-size:0.85rem}
+  
+  /* Payment page - mobile optimized */
+  .pay-step{padding:14px;border-radius:10px}
+  .pay-step-label{font-size:14px;margin-bottom:12px}
+  .pay-cust-card{padding:14px;flex-direction:column;gap:10px;align-items:flex-start}
+  .pay-now-btn{width:100%;padding:16px;font-size:18px;border-radius:12px}
+  
+  /* Big touch targets */
+  .btn{min-height:44px;padding:10px 16px}
+  .form-control{min-height:44px;font-size:16px} /* 16px prevents iOS zoom */
+  
+  /* Hide desktop-only elements */
+  .desktop-only{display:none!important}
+  
+  /* Topbar simplified */
+  .topbar h1{font-size:1.1rem}
+  .topbar-actions .btn span.desktop-only{display:none}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .stat-card{padding:10px}
+  .stat-card .value{font-size:1.1rem}
+  .btn{padding:10px 14px;font-size:0.85rem}
+  .content{padding:10px}
+}
 </style>
 </head>
 <body>
@@ -388,6 +463,17 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 
 <div id="toastContainer" class="toast-container"></div>
 
+<!-- Mobile Bottom Navigation -->
+<nav class="mob-nav">
+  <div class="mob-nav-items">
+    <button class="mob-nav-item active" onclick="mobNav('dashboard',this)"><span class="mob-icon">📊</span>Home</button>
+    <button class="mob-nav-item" onclick="mobNav('payments',this)"><span class="mob-icon">💳</span>Collect</button>
+    <button class="mob-nav-item" onclick="mobNav('customers',this)"><span class="mob-icon">👥</span>Customers</button>
+    <button class="mob-nav-item" onclick="mobNav('reports',this)"><span class="mob-icon">📈</span>Reports</button>
+    <button class="mob-nav-item" onclick="mobNav('more',this)"><span class="mob-icon">☰</span>More</button>
+  </div>
+</nav>
+
 <!-- Location Map Modal -->
 <div id="mapModalOverlay" class="modal-overlay" onclick="if(event.target===this)closeMapModal()">
 <div class="modal" style="max-width:650px"><div class="modal-header"><h2 id="mapModalTitle">📍 Collection Location</h2><button class="btn btn-outline btn-sm" onclick="closeMapModal()">✕</button></div>
@@ -447,6 +533,8 @@ function fmtRs(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function fmtDate(d) { if (!d) return '--'; return new Date(d).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}); }
 function fmtDateTime(d) { if (!d) return '--'; return new Date(d).toLocaleString('en-IN'); }
 function msoBadge(net) { const n = (net || 'GTPL').toUpperCase(); const cls = n === 'TACTV' ? 'net-tactv' : n === 'SCV' ? 'net-scv' : 'net-gtpl'; return '<span class="net-badge ' + cls + '">' + esc(n) + '</span>'; }
+
+function isMobile() { return window.innerWidth <= 768; }
 function detectMSO(stb) { const s = (stb || '').trim(); if (s.startsWith('172') || s.startsWith('173')) return 'TACTV'; if (s.startsWith('5000')) return 'SCV'; return 'GTPL'; }
 
 function showPage(page) {
@@ -465,6 +553,46 @@ function showPage(page) {
   if (page === 'reports') loadReports();
   if (page === 'settings') loadStbInventory();
 }
+
+// ===== MOBILE BOTTOM NAV =====
+function mobNav(page, el) {
+  document.querySelectorAll('.mob-nav-item').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (page === 'more') {
+    document.getElementById('sidebar').classList.toggle('open');
+    return;
+  }
+  document.getElementById('sidebar').classList.remove('open');
+  showPage(page);
+}
+
+// Update mobile nav on showPage
+const _origShowPage2 = showPage;
+showPage = function(page) {
+  _origShowPage2(page);
+  const pageMap = {'dashboard':0,'payments':1,'customers':2,'reports':3};
+  const idx = pageMap[page];
+  document.querySelectorAll('.mob-nav-item').forEach((b,i) => b.classList.toggle('active', i === idx));
+};
+
+// On mobile, auto-navigate to Payments (agent's primary task)
+if (isMobile() && token) {
+  setTimeout(() => {
+    showPage('payments');
+    const mobBtns = document.querySelectorAll('.mob-nav-item');
+    mobBtns[0].classList.remove('active');
+    mobBtns[1].classList.add('active');
+  }, 150);
+}
+
+// Close sidebar on outside tap
+document.addEventListener('click', function(e) {
+  const sb = document.getElementById('sidebar');
+  const hb = document.getElementById('hamburgerBtn');
+  if (isMobile() && sb.classList.contains('open') && !sb.contains(e.target) && !hb.contains(e.target)) {
+    sb.classList.remove('open');
+  }
+});
 
 async function loadDashboard() {
   try {
@@ -2290,6 +2418,11 @@ if (hamburgerBtn) {
   }
   updateHamburger();
   window.addEventListener('resize', updateHamburger);
+}
+
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 </script>
 </body>
