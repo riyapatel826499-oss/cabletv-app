@@ -80,8 +80,8 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 <div class="stat-card"><h3>Current Month</h3><div class="value" id="statMonth" style="font-size:1.2rem">--</div></div>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px">
-<div class="chart-container"><h3 style="margin-bottom:12px">👤 Collector Performance</h3><div id="collectorChart"></div></div>
-<div class="chart-container"><h3 style="margin-bottom:12px">📡 MSO Summary</h3><div id="msoChart"></div></div>
+<div class="chart-container"><h3 style="margin-bottom:12px">👤 Collector Performance <a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary);float:right">View All-Time →</a></h3><div id="collectorChart"></div></div>
+<div class="chart-container"><h3 style="margin-bottom:12px">📡 MSO Summary <a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary);float:right">View All-Time →</a></h3><div id="msoChart"></div></div>
 </div>
 <div style="margin-top:28px"><h3 style="margin-bottom:16px">Recent Payments</h3><div class="table-wrap"><table><thead><tr><th>Customer</th><th>Area</th><th>Amount</th><th>Mode</th><th>Collector</th><th>Date</th></tr></thead><tbody id="recentPaymentsBody"></tbody></table></div></div>
 </div>
@@ -247,6 +247,18 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
     </div>
   </div>
   <div id="areaCollChart" style="max-height:500px;overflow-y:auto;padding-right:8px"></div>
+</div>
+<div class="chart-container" style="grid-column:1/-1">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+    <h3 style="margin:0">👤 Collector Performance (All-Time)</h3>
+  </div>
+  <div id="rptCollectorChart"></div>
+</div>
+<div class="chart-container" style="grid-column:1/-1">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+    <h3 style="margin:0">📡 MSO Summary (All-Time)</h3>
+  </div>
+  <div id="rptMsoChart"></div>
 </div>
 </div>
 </div>
@@ -467,9 +479,13 @@ async function loadDashboard() {
     if (s.recent_payments && s.recent_payments.length) {
       tbody.innerHTML = s.recent_payments.map(p => '<tr><td><strong>' + esc(p.customer_name || '--') + '</strong><br><small style="color:var(--text-light)">' + esc(p.customer_id || '') + '</small></td><td>' + esc(p.area || '--') + '</td><td><strong>' + fmtRs(p.amount) + '</strong></td><td><span class="badge badge-primary">' + esc(p.mode || '--') + '</span></td><td>' + esc(p.collector_name || '--') + '</td><td>' + fmtDate(p.date) + '</td></tr>').join('');
     } else { tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No recent payments</p></td></tr>'; }
-    // Load collector performance
+    // Load collector performance (current month only)
+    const now = new Date();
+    const cmFrom = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+    const cmLastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+    const cmTo = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + cmLastDay;
     try {
-      const cpData = await api('/api/reports/collector-performance');
+      const cpData = await api('/api/reports/collector-performance?from_date=' + cmFrom + '&to_date=' + cmTo);
       const cpEl = document.getElementById('collectorChart');
       const collectors = cpData.collectors || [];
       if (collectors.length) {
@@ -496,9 +512,9 @@ async function loadDashboard() {
       } else { cpEl.innerHTML = '<div class="empty-state"><p>No collection data</p></div>'; }
     } catch(e) { document.getElementById('collectorChart').innerHTML = '<div class="empty-state"><p>Failed to load</p></div>'; }
 
-    // Load MSO summary
+    // Load MSO summary (current month collection)
     try {
-      const msoData = await api('/api/reports/mso-summary');
+      const msoData = await api('/api/reports/mso-summary?from_date=' + cmFrom + '&to_date=' + cmTo);
       const msoEl = document.getElementById('msoChart');
       const msos = msoData.msos || [];
       if (msos.length) {
@@ -2085,7 +2101,69 @@ async function loadReports() {
     } else { modeChart.innerHTML = '<div class="empty-state"><p>No payment data</p></div>'; }
     // Area collection chart loaded separately
     loadAreaCollection();
+    // All-time collector + MSO on Reports page
+    loadRptCollectorAndMso();
   } catch (e) { toast('Failed to load reports', 'error'); }
+}
+
+async function loadRptCollectorAndMso() {
+  // All-time collector performance
+  try {
+    const cpData = await api('/api/reports/collector-performance');
+    const cpEl = document.getElementById('rptCollectorChart');
+    const collectors = cpData.collectors || [];
+    if (collectors.length) {
+      const maxColl = Math.max(...collectors.map(c => c.total_collected), 1);
+      const colors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444'];
+      let html = '<div style="display:flex;flex-direction:column;gap:10px">';
+      collectors.forEach((c, i) => {
+        const pct = Math.max(5, (c.total_collected / maxColl) * 100);
+        const color = colors[i % colors.length];
+        html += '<div style="display:flex;align-items:center;gap:10px">';
+        html += '<div style="min-width:140px;font-size:13px;font-weight:600">' + esc(c.name || 'Unknown') + '</div>';
+        html += '<div style="flex:1;background:var(--bg-card);border-radius:6px;overflow:hidden;height:26px;position:relative">';
+        html += '<div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,' + color + ',' + color + 'cc);border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">';
+        if (pct > 25) html += '<span style="color:#fff;font-size:12px;font-weight:600">' + fmtRs(c.total_collected) + '</span>';
+        html += '</div>';
+        if (pct <= 25) html += '<span style="position:absolute;left:' + (pct+2) + '%;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600">' + fmtRs(c.total_collected) + '</span>';
+        html += '</div>';
+        html += '<div style="min-width:80px;text-align:right;font-size:12px;color:var(--text-light)">' + c.payment_count + ' payments</div>';
+        html += '</div>';
+      });
+      html += '<div style="text-align:right;font-size:12px;color:var(--text-light);padding-top:4px;border-top:1px solid var(--border)">Total: ' + fmtRs(cpData.total_amount) + ' · ' + cpData.total_payments + ' payments</div>';
+      html += '</div>';
+      cpEl.innerHTML = html;
+    } else { cpEl.innerHTML = '<div class="empty-state"><p>No collection data</p></div>'; }
+  } catch(e) { document.getElementById('rptCollectorChart').innerHTML = '<div class="empty-state"><p>Failed to load</p></div>'; }
+
+  // All-time MSO summary
+  try {
+    const msoData = await api('/api/reports/mso-summary');
+    const msoEl = document.getElementById('rptMsoChart');
+    const msos = msoData.msos || [];
+    if (msos.length) {
+      const msoColors = {'GTPL':'#6366f1','TACTV':'#10b981','SCV':'#f59e0b','JAISD':'#ec4899'};
+      let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">';
+      msos.forEach(m => {
+        const color = msoColors[m.name] || '#8b5cf6';
+        html += '<div style="border:1px solid var(--border);border-radius:10px;padding:16px;border-left:4px solid ' + color + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+        html += '<strong style="font-size:15px">' + esc(m.name) + '</strong>';
+        html += '<span style="font-size:13px;font-weight:600;color:' + color + '">' + m.active_customers + ' active</span>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-light)">';
+        html += '<span>Total: ' + m.total_customers + '</span>';
+        html += '<span>Collected: ' + fmtRs(m.total_collected) + '</span>';
+        html += '</div>';
+        const activePct = m.total_customers > 0 ? Math.round((m.active_customers / m.total_customers) * 100) : 0;
+        html += '<div style="margin-top:8px;background:var(--bg-card);border-radius:4px;height:6px;overflow:hidden">';
+        html += '<div style="width:' + activePct + '%;height:100%;background:' + color + ';border-radius:4px"></div>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      msoEl.innerHTML = html;
+    } else { msoEl.innerHTML = '<div class="empty-state"><p>No MSO data</p></div>'; }
+  } catch(e) { document.getElementById('rptMsoChart').innerHTML = '<div class="empty-state"><p>Failed to load</p></div>'; }
 }
 
 async function loadAreaCollection() {
