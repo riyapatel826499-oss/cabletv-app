@@ -127,7 +127,7 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 <div class="form-row"><div class="form-group"><label>Name</label><input id="custName" class="form-control" required></div><div class="form-group"><label>Phone</label><input id="custPhone" class="form-control" required></div></div>
 <div class="form-row"><div class="form-group"><label>Area</label><input id="custArea" class="form-control"></div><div class="form-group"><label>STB Number</label><input id="custSTB" class="form-control" oninput="onStbInputChange()"></div></div>
 <div class="form-group"><label>Address</label><textarea id="custAddress" class="form-control" rows="3"></textarea></div>
-<div class="form-row"><div class="form-group"><label>Network</label><select id="custNetwork" class="form-control" onchange="loadPlanOptions(this.value)"><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option></select></div><div class="form-group"></div></div>
+<div class="form-row"><div class="form-group"><label>MSO</label><select id="custMSO" class="form-control" onchange="loadPlanOptions(this.value)"><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option></select></div><div class="form-group"></div></div>
 <div class="form-row"><div class="form-group"><label>Plan</label><select id="custPlan" class="form-control"></select></div><div class="form-group"><label>Activation Date</label><input id="custActivation" type="date" class="form-control"></div></div>
 <button type="submit" class="btn btn-primary">Add Customer</button>
 </form>
@@ -136,7 +136,7 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 <!-- Plans Page -->
 <div id="page-plans" class="page">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px"><h2>Plans</h2><button class="btn btn-primary" onclick="openPlanModal()">+ Add Plan</button></div>
-<div class="table-wrap"><table><thead><tr><th>Name</th><th>Network</th><th>Price</th><th>MSO Cost</th><th>MSO (Late)</th><th>Validity</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody id="plansBody"></tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>MSO</th><th>Price</th><th>MSO Cost</th><th>MSO (Late)</th><th>Validity</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead><tbody id="plansBody"></tbody></table></div>
 </div>
 
 <!-- Payments Page -->
@@ -292,7 +292,7 @@ table{width:100%;border-collapse:collapse;background:var(--white);border-radius:
 <div class="modal"><div class="modal-header"><h2 id="planModalTitle">Add Plan</h2><button class="btn btn-outline btn-sm" onclick="closePlanModal()">✕</button></div>
 <div class="modal-body"><form onsubmit="savePlan(event)">
 <div class="form-group"><label>Plan Name</label><input id="planName" class="form-control" required></div>
-<div class="form-group"><label>Network</label><select id="planNetwork" class="form-control"><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option></select></div>
+<div class="form-group"><label>MSO</label><select id="planMSO" class="form-control"><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option></select></div>
 <div class="form-group"><label>Price (₹)</label><input id="planPrice" type="number" step="0.01" class="form-control" required></div>
 <div class="form-row"><div class="form-group"><label>MSO Cost (₹)</label><input id="planMsoCost" type="number" step="1" class="form-control" value="0"></div><div class="form-group"><label>MSO Cost Late (₹)</label><input id="planMsoCostLate" type="number" step="1" class="form-control" value="0"></div></div>
 <div class="form-group"><label>Description</label><textarea id="planDesc" class="form-control" rows="3"></textarea></div>
@@ -420,8 +420,8 @@ function esc(s) {
 function fmtRs(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function fmtDate(d) { if (!d) return '--'; return new Date(d).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}); }
 function fmtDateTime(d) { if (!d) return '--'; return new Date(d).toLocaleString('en-IN'); }
-function netBadge(net) { const n = (net || 'GTPL').toUpperCase(); const cls = n === 'TACTV' ? 'net-tactv' : n === 'SCV' ? 'net-scv' : 'net-gtpl'; return '<span class="net-badge ' + cls + '">' + esc(n) + '</span>'; }
-function detectNetwork(stb) { const s = (stb || '').trim(); if (s.startsWith('172') || s.startsWith('173')) return 'TACTV'; if (s.startsWith('5000')) return 'SCV'; return 'GTPL'; }
+function msoBadge(net) { const n = (net || 'GTPL').toUpperCase(); const cls = n === 'TACTV' ? 'net-tactv' : n === 'SCV' ? 'net-scv' : 'net-gtpl'; return '<span class="net-badge ' + cls + '">' + esc(n) + '</span>'; }
+function detectMSO(stb) { const s = (stb || '').trim(); if (s.startsWith('172') || s.startsWith('173')) return 'TACTV'; if (s.startsWith('5000')) return 'SCV'; return 'GTPL'; }
 
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -696,10 +696,10 @@ function renderCustProfile() {
 function renderCustConnections() {
   const conns = _custData.connections || [];
   if (!conns.length) { document.getElementById('custTabConnections').innerHTML = '<p class="empty-state">No connections</p>'; return; }
-  let html = '<table><thead><tr><th>STB</th><th>Network</th><th>Plan</th><th>Activated</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>STB</th><th>MSO</th><th>Plan</th><th>Activated</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   conns.forEach(cn => {
     const stbBadge = cn.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + esc(cn.stb_no) + '\')">' + esc(cn.stb_no) + '</span>' : '--';
-    html += '<tr><td>' + stbBadge + '</td><td>' + netBadge(cn.network) + '</td><td>' + esc(cn.plan_name || '--') + '</td><td>' + fmtDate(cn.activation_date) + '</td><td>' + fmtDate(cn.expiry_date) + '</td><td><span class="badge ' + (cn.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(cn.status || '--') + '</span></td><td>';
+    html += '<tr><td>' + stbBadge + '</td><td>' + msoBadge(cn.network) + '</td><td>' + esc(cn.plan_name || '--') + '</td><td>' + fmtDate(cn.activation_date) + '</td><td>' + fmtDate(cn.expiry_date) + '</td><td><span class="badge ' + (cn.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(cn.status || '--') + '</span></td><td>';
     if (cn.status === 'Active') {
       html += '<button class="btn btn-outline btn-sm" onclick="openExchangeModal(\'' + esc(_custData.customer_id) + '\',\'' + esc(cn.id) + '\',\'' + esc(cn.stb_no || '') + '\')">🔄 Exchange</button>';
     }
@@ -727,18 +727,18 @@ async function renderCustPlans(category) {
   const container = document.getElementById(containerId);
 
   if (category === 'Base Pack') {
-    // Get current connection's network
+    // Get current connection's MSO
     const conns = _custData.connections || [];
     const activeConn = conns.find(c => c.status === 'Active') || conns[0];
-    const connNetwork = activeConn ? (activeConn.network || detectNetwork(activeConn.stb_no)) : 'GTPL';
+    const connMSO = activeConn ? (activeConn.network || detectMSO(activeConn.stb_no)) : 'GTPL';
 
-    // Load plans filtered by this connection's network
+    // Load plans filtered by this connection's MSO
     let filteredPlans = [];
     try {
-      const d = await api('/api/plans?status=Active&network=' + connNetwork);
+      const d = await api('/api/plans?status=Active&network=' + connMSO);
       filteredPlans = d.plans || [];
     } catch (e) { filteredPlans = []; }
-    if (!filteredPlans.length) { container.innerHTML = '<p class="empty-state">No plans available for ' + esc(connNetwork) + ' network</p>'; return; }
+    if (!filteredPlans.length) { container.innerHTML = '<p class="empty-state">No plans available for ' + esc(connMSO) + ' network</p>'; return; }
 
     // Get current plan from connection
     const currentPlanName = activeConn ? (activeConn.plan_name || '') : '';
@@ -752,7 +752,7 @@ async function renderCustPlans(category) {
     }
 
     let html = '<div style="margin-bottom:12px;padding:10px 14px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">';
-    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><strong>Network:</strong> ' + netBadge(connNetwork) + '&nbsp;&nbsp;<strong>Current Plan:</strong> ';
+    html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><strong>MSO:</strong> ' + msoBadge(connMSO) + '&nbsp;&nbsp;<strong>Current Plan:</strong> ';
     if (currentPlanName) {
       html += '<span class="badge badge-success" style="font-size:14px;padding:6px 14px">' + esc(currentPlanName) + ' — ' + fmtRs(currentPlanAmount) + '/month</span>';
     } else {
@@ -1016,8 +1016,8 @@ async function loadPlanOptions(network) {
 
 function onStbInputChange() {
   const stb = document.getElementById('custSTB').value.trim();
-  const net = detectNetwork(stb);
-  document.getElementById('custNetwork').value = net;
+  const net = detectMSO(stb);
+  document.getElementById('custMSO').value = net;
   loadPlanOptions(net);
 }
 
@@ -1520,13 +1520,13 @@ async function loadPayConnections(custId) {
     
     let activeConn;
     if (conns.length === 1) {
-      connSel.innerHTML = '<option value="' + conns[0].id + '" selected>' + esc(conns[0].stb_no || 'Connection 1') + ' ' + netBadge(conns[0].network || detectNetwork(conns[0].stb_no)) + '</option>';
+      connSel.innerHTML = '<option value="' + conns[0].id + '" selected>' + esc(conns[0].stb_no || 'Connection 1') + ' ' + msoBadge(conns[0].network || detectMSO(conns[0].stb_no)) + '</option>';
       activeConn = conns[0];
     } else {
-      connSel.innerHTML = conns.map(cn => '<option value="' + cn.id + '">' + esc(cn.stb_no || 'Connection ' + cn.id) + ' ' + netBadge(cn.network || detectNetwork(cn.stb_no)) + '</option>').join('');
+      connSel.innerHTML = conns.map(cn => '<option value="' + cn.id + '">' + esc(cn.stb_no || 'Connection ' + cn.id) + ' ' + msoBadge(cn.network || detectMSO(cn.stb_no)) + '</option>').join('');
       activeConn = conns.find(c2 => c2.status === 'Active') || conns[0];
     }
-    const net = activeConn.network || detectNetwork(activeConn.stb_no);
+    const net = activeConn.network || detectMSO(activeConn.stb_no);
     await loadPayPlans(net, activeConn.plan_name);
     autoDetectGap(activeConn);
     
@@ -1540,7 +1540,7 @@ function onPayConnChange() {
   if (connId && _payConnsCache.length) {
     const conn = _payConnsCache.find(c => c.id == connId);
     if (conn) {
-      const net = conn.network || detectNetwork(conn.stb_no);
+      const net = conn.network || detectMSO(conn.stb_no);
       loadPayPlans(net, conn.plan_name);
       autoDetectGap(conn);
     }
@@ -2038,7 +2038,7 @@ async function loadPlans() {
     const plans = data.plans || data.items || data || [];
     const tbody = document.getElementById('plansBody');
     if (plans.length) {
-      tbody.innerHTML = plans.map(p => '<tr><td><strong>' + esc(p.name || '--') + '</strong></td><td>' + netBadge(p.network) + '</td><td><strong>' + fmtRs(p.amount || p.price) + '</strong></td><td>' + fmtRs(p.mso_cost || 0) + '</td><td>' + fmtRs(p.mso_cost_late || 0) + '</td><td>Monthly</td><td>' + esc(p.description || '--') + '</td><td><span class="badge ' + (p.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(p.status || 'Active') + '</span></td><td><button class="btn btn-outline btn-sm" onclick="openPlanModal(' + (p.id || '') + ',\'' + esc(p.name || '').replace(/'/g, "\\'") + '\',' + (p.amount || p.price || 0) + ',\'' + esc(p.description || '').replace(/'/g, "\\'") + '\',\'' + esc(p.network || 'GTPL') + '\',' + (p.mso_cost || 0) + ',' + (p.mso_cost_late || 0) + ')">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deletePlan(' + (p.id || '') + ',\'' + esc(p.name || '').replace(/'/g, "\\'") + '\')">🗑</button></td></tr>').join('');
+      tbody.innerHTML = plans.map(p => '<tr><td><strong>' + esc(p.name || '--') + '</strong></td><td>' + msoBadge(p.network) + '</td><td><strong>' + fmtRs(p.amount || p.price) + '</strong></td><td>' + fmtRs(p.mso_cost || 0) + '</td><td>' + fmtRs(p.mso_cost_late || 0) + '</td><td>Monthly</td><td>' + esc(p.description || '--') + '</td><td><span class="badge ' + (p.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(p.status || 'Active') + '</span></td><td><button class="btn btn-outline btn-sm" onclick="openPlanModal(' + (p.id || '') + ',\'' + esc(p.name || '').replace(/'/g, "\\'") + '\',' + (p.amount || p.price || 0) + ',\'' + esc(p.description || '').replace(/'/g, "\\'") + '\',\'' + esc(p.network || 'GTPL') + '\',' + (p.mso_cost || 0) + ',' + (p.mso_cost_late || 0) + ')">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deletePlan(' + (p.id || '') + ',\'' + esc(p.name || '').replace(/'/g, "\\'") + '\')">🗑</button></td></tr>').join('');
     } else { tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><p>No plans yet. Add your first plan!</p></td></tr>'; }
   } catch (e) { toast('Failed to load plans', 'error'); }
 }
@@ -2047,7 +2047,7 @@ function openPlanModal(id, name, price, desc, network, msoCost, msoCostLate) {
   editingPlanId = id || null;
   document.getElementById('planModalTitle').textContent = id ? 'Edit Plan' : 'Add Plan';
   document.getElementById('planName').value = name || '';
-  document.getElementById('planNetwork').value = network || 'GTPL';
+  document.getElementById('planMSO').value = network || 'GTPL';
   document.getElementById('planPrice').value = price || '';
   document.getElementById('planMsoCost').value = msoCost || 0;
   document.getElementById('planMsoCostLate').value = msoCostLate || 0;
@@ -2059,7 +2059,7 @@ function closePlanModal() { document.getElementById('planModalOverlay').classLis
 
 async function savePlan(e) {
   e.preventDefault();
-  const data = {name: document.getElementById('planName').value, amount: parseFloat(document.getElementById('planPrice').value), validity_days: 30, description: document.getElementById('planDesc').value, network: document.getElementById('planNetwork').value, mso_cost: parseFloat(document.getElementById('planMsoCost').value) || 0, mso_cost_late: parseFloat(document.getElementById('planMsoCostLate').value) || 0};
+  const data = {name: document.getElementById('planName').value, amount: parseFloat(document.getElementById('planPrice').value), validity_days: 30, description: document.getElementById('planDesc').value, network: document.getElementById('planMSO').value, mso_cost: parseFloat(document.getElementById('planMsoCost').value) || 0, mso_cost_late: parseFloat(document.getElementById('planMsoCostLate').value) || 0};
   try {
     if (editingPlanId) await api('/api/plans/' + editingPlanId, {method: 'PUT', body: JSON.stringify(data)});
     else await api('/api/plans', {method: 'POST', body: JSON.stringify(data)});
