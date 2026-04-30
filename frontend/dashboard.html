@@ -596,14 +596,16 @@ function mobNav(page, el) {
   showPage(page);
 }
 
-// Update mobile nav on showPage
+// Override showPage to update mobile nav active state
 const _origShowPage2 = showPage;
 showPage = function(page) {
+  // For agents, redirect "reports" to "my-collections"
+  if (page === 'reports' && (_userRole === 'collection_agent' || _userRole === 'agent')) {
+    page = 'my-collections';
+  }
   _origShowPage2(page);
   const pageMap = {'dashboard':0,'payments':1,'customers':2,'reports':3,'more':4};
-  // For agents, "reports" page is actually "my-collections"
-  const actualPage = (page === 'my-collections' || (page === 'reports' && (_userRole === 'collection_agent' || _userRole === 'agent'))) ? 'my-collections' : page;
-  const idx = pageMap[actualPage];
+  const idx = pageMap[page];
   document.querySelectorAll('.mob-nav-item').forEach((b,i) => b.classList.toggle('active', i === idx));
 };
 

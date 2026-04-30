@@ -324,32 +324,32 @@ def my_collections(
                     "source": "paypakka"
                 })
 
-        # 2. Local payments by this user
+# 2. Local payments by this user
         lp_query = """
             SELECT p.id, p.customer_id, c.name as customer_name, c.area,
-                   p.amount, p.payment_mode, p.created_at, 'local' as source
+                   p.amount, p.payment_mode, p.collected_at, 'local' as source
             FROM payments p
             LEFT JOIN customers c ON p.customer_id = c.customer_id
             WHERE p.collected_by = ?
         """
         lp_params = [user_id]
         if from_date:
-            lp_query += " AND date(p.created_at) >= ?"
+            lp_query += " AND date(p.collected_at) >= ?"
             lp_params.append(from_date)
         if to_date:
-            lp_query += " AND date(p.created_at) <= ?"
+            lp_query += " AND date(p.collected_at) <= ?"
             lp_params.append(to_date)
 
         lp_total = conn.execute(
             "SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as cnt FROM payments WHERE collected_by = ?" +
-            (" AND date(created_at) >= ?" if from_date else "") +
-            (" AND date(created_at) <= ?" if to_date else ""),
+            (" AND date(collected_at) >= ?" if from_date else "") +
+            (" AND date(collected_at) <= ?" if to_date else ""),
             [user_id] + ([from_date] if from_date else []) + ([to_date] if to_date else [])
         ).fetchone()
         total_collected += lp_total["total"] or 0
         payment_count += lp_total["cnt"] or 0
 
-        lp_query += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?"
+        lp_query += " ORDER BY p.collected_at DESC LIMIT ? OFFSET ?"
         lp_params.extend([per_page, (page - 1) * per_page])
         lp_rows = conn.execute(lp_query, lp_params).fetchall()
         for r in lp_rows:
@@ -359,7 +359,7 @@ def my_collections(
                 "area": r["area"] or "",
                 "amount": r["amount"],
                 "mode": r["payment_mode"],
-                "date": r["created_at"],
+                "date": r["collected_at"],
                 "source": "local"
             })
 
