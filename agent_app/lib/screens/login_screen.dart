@@ -45,11 +45,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _login({bool force = false}) async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final data = await ApiService.login(_userCtrl.text.trim(), _passCtrl.text);
+      final data = await ApiService.login(_userCtrl.text.trim(), _passCtrl.text, force: force);
       await ApiService.saveToken(data['access_token']);
       if (data['user'] != null) {
         await ApiService.saveUser(Map<String, dynamic>.from(data['user']));
@@ -57,7 +57,45 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      final msg = e.toString().replaceAll('Exception: ', '');
+      // If "already logged in" error, show confirmation dialog
+      if (!force && msg.toLowerCase().contains('already logged in')) {
+        setState(() => _loading = false);
+        if (!mounted) return;
+        final shouldForce = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 28),
+                SizedBox(width: 10),
+                Text('Already Logged In', style: TextStyle(fontSize: 18)),
+              ],
+            ),
+            content: const Text('This account is already logged in on another device. Do you want to continue?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Yes, Continue'),
+              ),
+            ],
+          ),
+        );
+        if (shouldForce == true) {
+          _login(force: true);
+        }
+        return;
+      }
+      setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
