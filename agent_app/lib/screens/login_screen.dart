@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/role_provider.dart';
 import '../services/api_service.dart';
+import 'main_shell.dart';
 import 'customer_mobile_auth_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -55,7 +58,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         await ApiService.saveUser(Map<String, dynamic>.from(data['user']));
       }
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/home');
+      final roleProvider = Provider.of<RoleProvider>(context, listen: false);
+      await roleProvider.loadUser();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShell()),
+      );
     } catch (e) {
       final msg = e.toString().replaceAll('Exception: ', '');
       // If "already logged in" error, show confirmation dialog
