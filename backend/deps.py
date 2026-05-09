@@ -48,7 +48,6 @@ def create_token(subject: str, token_type: str = "staff",
         payload.update(extra_claims)
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-
 def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
     """Decode and validate a JWT from the Authorization header."""
     token = credentials.credentials
@@ -60,13 +59,12 @@ def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
             detail="Invalid or expired token",
         )
 
-
 # ── Staff Auth Dependency ─────────────────────────────────────────────────
 
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """FastAPI dependency: returns the authenticated staff user dict.
-    Also validates session_id for single-device enforcement."""
+    Includes operator_id for data isolation. Master admin has operator_id=NULL."""
     payload = _decode_token(credentials)
     if payload.get("type") not in ("staff", None):
         raise HTTPException(status_code=401, detail="Staff token required")
@@ -77,10 +75,17 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=401, detail="Invalid token payload")
 
     with get_db() as conn:
-        user = conn.execute(
-            "SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ?",
-            [int(user_id)],
-        ).fetchone()
+        # Try with operator_id (multi-tenant), fallback without (legacy/pre-migration)
+        try:
+            user = conn.execute(
+                "SELECT id, username, name, role, phone, status, permissions, operator_id FROM users WHERE id = ?",
+                [int(user_id)],
+            ).fetchone()
+        except Exception:
+            user = conn.execute(
+                "SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ?",
+                [int(user_id)],
+            ).fetchone()
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
@@ -121,8 +126,8 @@ def require_permission(permission: str):
     """Dependency factory: require user to have a specific permission."""
     def checker(current_user: dict = Depends(get_current_user)) -> dict:
         import json
-        if current_user.get("role") == "admin":
-            return current_user # admin has all permissions
+        if current_user.get("role") in ("admin", "master"):
+            return current_user # admin+master has all permissions
         perms_str = current_user.get("permissions", "") or ""
         try:
             perms = json.loads(perms_str) if perms_str else {}
@@ -133,6 +138,37 @@ def require_permission(permission: str):
             raise HTTPException(status_code=403, detail=f"Missing permission: {permission}")
         return current_user
     return checker
+
+
+def get_operator_id(current_user: dict = Depends(get_current_user)) -> int:
+    """Return operator_id. Master admin can optionally pass ?operator_id=X to scope."""
+    oid = current_user.get("operator_id")
+    if oid is None and current_user.get("role") == "master":
+        # Master has no operator_id — they see everything or can scope via query param
+        return None  # must handle in each route
+    if oid is None:
+        raise HTTPException(status_code=403, detail="No operator assigned")
+    return oid
+
+
+def op_filter(user: dict, alias: str = "") -> str:
+    """Return SQL WHERE clause fragment for operator isolation.
+    Usage: f"SELECT ... WHERE {op_filter(user)} AND ..."
+    Optional alias for table prefix: op_filter(user, "c.") → "c.operator_id = 1"
+    Master/admin with no operator_id sees all (> 0). Others get operator_id = X.
+    """
+    oid = user.get("operator_id")
+    prefix = f"{alias}." if alias and not alias.endswith(".") else alias
+    if oid is None:
+        # master/admin with no operator_id assigned — sees all operators
+        return f"{prefix}operator_id > 0" if prefix else "operator_id > 0"
+    return f"{prefix}operator_id = {oid}"
+
+
+def op_id(user: dict):
+    """Return operator_id as int, or 'NULL' string for SQL interpolation."""
+    oid = user.get("operator_id")
+    return oid if oid is not None else "NULL"
 
 
 # ── Customer Auth Dependency ──────────────────────────────────────────────

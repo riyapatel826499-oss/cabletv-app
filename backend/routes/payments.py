@@ -5,8 +5,11 @@ from typing import Optional
 import asyncio
 import calendar
 
-from deps import get_db, get_current_user, require_role
+from deps import get_db, get_current_user, require_role, op_filter, op_id
 from utils import get_current_month
+from routes.notifications import notify_payment
+from routes.settings import should_notify_payment
+from routes.wa_notify import send_payment_receipt
 
 router = APIRouter(prefix="/api", tags=["Payments"])
 
@@ -22,6 +25,7 @@ class PaymentCreate(BaseModel):
     plan_id: Optional[int] = None
     amount: float
     payment_mode: Optional[str] = "Cash"
+    payment_type: Optional[str] = "regular"  # regular, new_connection, reconnection
     month_year: Optional[str] = None
     months_paid: Optional[int] = 1
     notes: Optional[str] = None
@@ -37,9 +41,11 @@ def create_payment(
     current_user=Depends(get_current_user),
 ):
     with get_db() as conn:
+        _opf = op_filter(current_user)
+
         # Validate customer
         customer = conn.execute(
-            "SELECT * FROM customers WHERE customer_id = ?", (data.customer_id,)
+            f"SELECT * FROM customers WHERE customer_id = ? AND {_opf}", (data.customer_id,)
         ).fetchone()
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
@@ -47,7 +53,7 @@ def create_payment(
         # Auto-detect connection_id if not provided (-1 = auto)
         if not data.connection_id or data.connection_id == -1:
             auto_conn = conn.execute(
-                "SELECT id FROM connections WHERE customer_id = ? AND status = 'Active' ORDER BY id LIMIT 1",
+                f"SELECT id FROM connections WHERE customer_id = ? AND status = 'Active' AND {_opf} ORDER BY id LIMIT 1",
                 (data.customer_id,),
             ).fetchone()
             if auto_conn:
@@ -57,42 +63,71 @@ def create_payment(
 
         # Validate connection
         connection = conn.execute(
-            "SELECT * FROM connections WHERE id = ? AND customer_id = ?",
+            f"SELECT * FROM connections WHERE id = ? AND customer_id = ? AND {_opf}",
             (data.connection_id, data.customer_id),
         ).fetchone()
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
+        connection = dict(connection)  # sqlite3.Row doesn't have .get()
 
         # Auto-fill month_year
         if not data.month_year:
             data.month_year = get_current_month()
 
+        # Check if payment_type column exists
+        has_ptype = conn.execute("SELECT COUNT(*) FROM pragma_table_info('payments') WHERE name='payment_type'").fetchone()[0]
+
         # Insert payment
-        cursor = conn.execute(
-            """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                data.customer_id,
-                data.connection_id,
-                data.plan_id,
-                data.amount,
-                data.payment_mode,
-                current_user["id"],
-                data.month_year,
-                data.months_paid or 1,
-                data.notes,
-                data.latitude,
-                data.longitude,
-                data.previous_balance,
-                data.bill_amount,
-            ),
-        )
+        if has_ptype:
+            cursor = conn.execute(
+                f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
+                (
+                    data.customer_id,
+                    data.connection_id,
+                    data.plan_id,
+                    data.amount,
+                    data.payment_mode,
+                    data.payment_type or "regular",
+                    current_user["id"],
+                    data.month_year,
+                    data.months_paid or 1,
+                    data.notes,
+                    data.latitude,
+                    data.longitude,
+                    data.previous_balance,
+                    data.bill_amount,
+                ),
+            )
+        else:
+            cursor = conn.execute(
+                f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
+                (
+                    data.customer_id,
+                    data.connection_id,
+                    data.plan_id,
+                    data.amount,
+                    data.payment_mode,
+                    current_user["id"],
+                    data.month_year,
+                    data.months_paid or 1,
+                    data.notes,
+                    data.latitude,
+                    data.longitude,
+                    data.previous_balance,
+                    data.bill_amount,
+                ),
+            )
         payment_id = cursor.lastrowid
 
         # Update customer plan expiry if plan provided
+        expiry_date = connection.get("expiry_date") if connection else None  # default from connection
+        plan = None
         if data.plan_id:
-            plan = conn.execute("SELECT * FROM plans WHERE id = ?", (data.plan_id,)).fetchone()
+            plan = conn.execute(f"SELECT * FROM plans WHERE id = ? AND {_opf}", (data.plan_id,)).fetchone()
             if plan:
+                plan = dict(plan)  # sqlite3.Row → dict for .get() support
                 # Deactivate old plans
                 conn.execute(
                     "UPDATE customer_plans SET status = 'Expired' WHERE connection_id = ? AND status = 'Active'",
@@ -112,8 +147,8 @@ def create_payment(
                 expiry_date = f"{expiry_year}-{expiry_month:02d}-{last_day}"
 
                 conn.execute(
-                    """INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount, start_date, expiry_date)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    f"""INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount, start_date, expiry_date, operator_id)
+                       VALUES (?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
                     (data.customer_id, data.connection_id, plan["id"], plan["amount"], start_date, expiry_date),
                 )
 
@@ -127,7 +162,7 @@ def create_payment(
 
         # Fetch the created payment with user info
         payment = conn.execute(
-            """SELECT p.*, c.name as customer_name, c.phone as customer_phone, u.name as collector_name
+            """SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area, c.status as customer_status, u.name as collector_name
                FROM payments p
                JOIN customers c ON p.customer_id = c.customer_id
                LEFT JOIN users u ON p.collected_by = u.id
@@ -147,6 +182,59 @@ def create_payment(
             except Exception:
                 pass
 
+    # Send Telegram notification (based on settings)
+    if payment:
+        try:
+            cust_status = payment.get("customer_status", "active")
+            if should_notify_payment(cust_status):
+                notify_payment(
+                    customer_name=payment.get("customer_name", ""),
+                    customer_id=data.customer_id,
+                    amount=data.amount,
+                    mode=data.payment_mode or "",
+                    source="Local",
+                    collector=payment.get("collector_name", ""),
+                    area=payment.get("area", ""),
+                )
+        except Exception:
+            pass  # notification failure should not break payment
+
+    # Send WhatsApp payment receipt to customer
+    if payment:
+        try:
+            send_payment_receipt(
+                customer_name=payment.get("customer_name", ""),
+                phone=payment.get("customer_phone", ""),
+                amount=data.amount,
+                month_year=data.month_year or "",
+                plan_name=plan.get("name") if plan else None,
+                payment_mode=data.payment_mode,
+                collector_name=payment.get("collector_name", ""),
+                expiry_date=expiry_date,
+            )
+        except Exception:
+            pass  # WA receipt failure should not break payment
+
+    # Push notification: Reconnection alert for disconnected customers
+    if payment:
+        try:
+            from routes.push import send_push_to_roles
+            conn_status = (connection.get("status") or "").lower() if connection else ""
+            # Check if connection was disconnected/suspended before this payment reactivated it
+            was_disconnected = conn_status in ("disconnected", "suspended", "inactive")
+            # Also check payment_type
+            is_reconnection = (data.payment_type or "regular") == "reconnection"
+            if was_disconnected or is_reconnection:
+                send_push_to_roles(
+                    ["master", "admin", "support"],
+                    title="🔌 Reconnection Payment",
+                    body=f"{payment.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
+                    tag="reconnection",
+                    data={"url": "/", "customer_id": data.customer_id}
+                )
+        except Exception:
+            pass
+
     return payment_data
 
 
@@ -160,6 +248,10 @@ def payment_history(
     current_user=Depends(get_current_user),
 ):
     with get_db() as conn:
+        # Agents can only see their own collected payments
+        agent_filter = ""
+        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+            agent_filter = " AND p.collected_by = ?"
         query = """
             SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area,
                    u.name as collector_name, con.stb_no
@@ -170,10 +262,12 @@ def payment_history(
             WHERE 1=1
         """
         params = []
+        if agent_filter:
+            query += agent_filter
+            params.append(current_user["id"])
 
         if customer_id:
             query += " AND p.customer_id = ?"
-            params.append(customer_id)
         if month_year:
             query += " AND p.month_year = ?"
             params.append(month_year)
@@ -204,16 +298,20 @@ def payment_history(
 @router.get("/payments/all")
 def all_payment_history(
     page: int = Query(1, ge=1),
-    per_page: int = Query(10, ge=1, le=200),
+    per_page: int = Query(10, ge=1, le=10000),
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     customer_id: Optional[str] = None,
+    export: bool = Query(False),
     current_user=Depends(get_current_user),
 ):
     """Unified payment history merging Local + Paypakka payments with date filtering."""
     import calendar as cal
+    import traceback
 
-    with get_db() as conn:
+    try:
+     with get_db() as conn:
+
         # Default: current month (skip if customer_id filter is set with wide date range)
         now = datetime.now()
         if not date_from:
@@ -223,8 +321,11 @@ def all_payment_history(
             date_to = f"{now.year}-{now.month:02d}-{last_day}"
 
         # Build local payments query
-        local_query = """
-            SELECT p.id, p.customer_id, p.amount, p.payment_mode, p.collected_at,
+        # NOTE: payments table may not have payment_type column yet — check first
+        has_ptype = conn.execute("SELECT COUNT(*) FROM pragma_table_info('payments') WHERE name='payment_type'").fetchone()[0]
+        ptype_col = ", p.payment_type" if has_ptype else ", 'regular' as payment_type"
+        local_query = f"""
+            SELECT p.id, p.customer_id, p.amount, p.payment_mode{ptype_col}, p.collected_at,
                    p.month_year, p.notes, p.latitude, p.longitude,
                    p.previous_balance, p.bill_amount, p.connection_id,
                    c.name as customer_name, c.area, c.phone as customer_phone,
@@ -236,12 +337,17 @@ def all_payment_history(
             WHERE DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
         """
         local_params = [date_from, date_to]
+        # Agents can only see their own collected payments
+        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+            local_query += " AND p.collected_by = ?"
+            local_params.append(current_user["id"])
         if customer_id:
             local_query += " AND p.customer_id = ?"
             local_params.append(customer_id)
         local_rows = conn.execute(local_query, local_params).fetchall()
 
         # Build paypakka payments query
+        # NOTE: paypakka_payments has no operator_id — filter via emp_ref_id for agents
         pp_query = """
             SELECT pp.id, pp.customer_id, pp.collection_amount, pp.payment_type,
                    pp.paypakka_created_at, pp.bill_amount, pp.plan_amount,
@@ -255,6 +361,10 @@ def all_payment_history(
             WHERE DATE(pp.paypakka_created_at) >= ? AND DATE(pp.paypakka_created_at) <= ?
         """
         pp_params = [date_from, date_to]
+        # Agents can only see their own collected paypakka payments
+        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+            pp_query += " AND pp.emp_ref_id IN (SELECT emp_ref_id FROM paypakka_employees WHERE emp_name = (SELECT name FROM users WHERE id = ?))"
+            pp_params.append(current_user["id"])
         if customer_id:
             pp_query += " AND pp.customer_id = ?"
             pp_params.append(customer_id)
@@ -280,7 +390,8 @@ def all_payment_history(
                 "longitude": r["longitude"],
                 "previous_balance": r["previous_balance"] or 0,
                 "bill_amount": r["bill_amount"] or 0,
-                "deletable": True,
+                "deletable": current_user.get("role") == "master",
+                "payment_type": r["payment_type"] or "regular",
             })
 
         for r in pp_rows:
@@ -304,17 +415,23 @@ def all_payment_history(
                 "transaction_id": r["transaction_id"] or "",
                 "plan_amount": r["plan_amount"] or 0,
                 "discount_amount": r["discount_amount"] or 0,
+                "payment_type": "regular",
             })
 
         # Sort by date descending
         all_payments.sort(key=lambda x: x.get("date") or "", reverse=True)
 
         total = len(all_payments)
+
+        # Export mode: return all payments, no pagination
+        if export:
+            return {"total": total, "payments": all_payments, "date_from": date_from, "date_to": date_to}
+
         total_pages = max(1, (total + per_page - 1) // per_page)
         start = (page - 1) * per_page
         page_items = all_payments[start:start + per_page]
 
-    return {
+     return {
         "total": total,
         "page": page,
         "per_page": per_page,
@@ -322,15 +439,22 @@ def all_payment_history(
         "date_from": date_from,
         "date_to": date_to,
         "payments": page_items,
-    }
+     }
+    except Exception as e:
+     import sys
+     print(f"PAYMENTS/ALL ERROR: {e}", file=sys.stderr)
+     traceback.print_exc(file=sys.stderr)
+     raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 @router.delete("/payments/{payment_id}")
-def delete_payment(payment_id: int, current_user: dict = Depends(require_role("admin"))):
+def delete_payment(payment_id: int, current_user: dict = Depends(require_role("master"))):
     with get_db() as conn:
+        _opf = op_filter(current_user)
+
         # Fetch payment to delete
         payment = conn.execute(
-            "SELECT * FROM payments WHERE id = ?", (payment_id,)
+            f"SELECT * FROM payments WHERE id = ? AND {_opf}", (payment_id,)
         ).fetchone()
         if not payment:
             raise HTTPException(status_code=404, detail="Payment not found")
@@ -341,18 +465,18 @@ def delete_payment(payment_id: int, current_user: dict = Depends(require_role("a
         # Get current expiry before deletion
         old_expiry = None
         cust_plan = conn.execute(
-            "SELECT * FROM customer_plans WHERE customer_id = ? AND connection_id = ? AND status = 'Active' LIMIT 1",
+            f"SELECT * FROM customer_plans WHERE customer_id = ? AND connection_id = ? AND status = 'Active' AND {_opf} LIMIT 1",
             (customer_id, connection_id),
         ).fetchone()
         if cust_plan:
             old_expiry = cust_plan["expiry_date"]
 
         # Delete the payment
-        conn.execute("DELETE FROM payments WHERE id = ?", (payment_id,))
+        conn.execute(f"DELETE FROM payments WHERE id = ? AND {_opf}", (payment_id,))
 
         # Count remaining LOCAL payments for this customer's connection
         remaining = conn.execute(
-            "SELECT id, month_year, collected_at FROM payments WHERE customer_id = ? AND connection_id = ? ORDER BY collected_at ASC",
+            f"SELECT id, month_year, collected_at FROM payments WHERE customer_id = ? AND connection_id = ? AND {_opf} ORDER BY collected_at ASC",
             (customer_id, connection_id),
         ).fetchall()
 
