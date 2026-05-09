@@ -23,6 +23,8 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
   String _activeFilter = 'all'; // all, paid, unpaid, surrendered
   String _sortBy = 'name';
   String _sortOrder = 'asc';
+  String? _selectedArea;
+  List<String> _areas = [];
 
   @override
   bool get wantKeepAlive => true;
@@ -60,6 +62,7 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
         sortOrder: _sortOrder,
         status: status,
         paymentFilter: paymentFilter,
+        area: _selectedArea,
       );
       if (!mounted) return;
       setState(() {
@@ -67,6 +70,9 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
         _total = result['total'] ?? 0;
         _totalPages = (_total / 20).ceil();
         _loading = false;
+        // Update areas list from response
+        final newAreas = List<String>.from(result['areas'] ?? []);
+        if (newAreas.isNotEmpty) _areas = newAreas;
       });
     } catch (e) {
       if (!mounted) return;
@@ -80,6 +86,14 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
   void _setFilter(String filter) {
     setState(() {
       _activeFilter = filter;
+      _currentPage = 1;
+    });
+    _loadCustomers();
+  }
+
+  void _setArea(String? area) {
+    setState(() {
+      _selectedArea = area;
       _currentPage = 1;
     });
     _loadCustomers();
@@ -132,6 +146,46 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
               ),
             ),
           ),
+          // Area filter dropdown
+          if (_areas.isNotEmpty)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 18, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      value: _selectedArea,
+                      hint: Text('All Areas', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      isDense: true,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('All Areas'),
+                        ),
+                        ..._areas.map((a) => DropdownMenuItem<String>(
+                          value: a,
+                          child: Text(a, overflow: TextOverflow.ellipsis),
+                        )),
+                      ],
+                      onChanged: _setArea,
+                    ),
+                  ),
+                  if (_selectedArea != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () => _setArea(null),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                ],
+              ),
+            ),
           // Sort bar
           Container(
             color: Colors.white,
@@ -243,6 +297,13 @@ class _CustomersTabState extends State<CustomersTab> with AutomaticKeepAliveClie
                                                 '${c['customer_id'] ?? '--'} | ${c['phone'] ?? '--'}',
                                                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
                                               ),
+                                              if (c['area'] != null) ...[
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  c['area'],
+                                                  style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),

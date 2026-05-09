@@ -70,6 +70,7 @@ class ApiService {
     String? paymentFilter,
     String? paidFrom,
     String? paidTo,
+    String? area,
   }) async {
     final h = await _headers();
     final params = <String, String>{
@@ -82,6 +83,7 @@ class ApiService {
     if (paymentFilter != null) params['payment_filter'] = paymentFilter;
     if (paidFrom != null) params['paid_from'] = paidFrom;
     if (paidTo != null) params['paid_to'] = paidTo;
+    if (area != null && area.isNotEmpty) params['area'] = area;
 
     final uri = Uri.parse('$baseUrl/customers').replace(queryParameters: params);
     final r = await http.get(uri, headers: h);
