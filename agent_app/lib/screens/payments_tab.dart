@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/role_provider.dart';
 import '../services/api_service.dart';
@@ -27,7 +28,6 @@ class _PaymentsTabState extends State<PaymentsTab> with AutomaticKeepAliveClient
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Collect payment card
           _actionCard(
             icon: Icons.payment_rounded,
             title: 'Collect Payment',
@@ -40,8 +40,6 @@ class _PaymentsTabState extends State<PaymentsTab> with AutomaticKeepAliveClient
             },
           ),
           const SizedBox(height: 12),
-
-          // Unpaid customers
           if (role.canViewUnpaid) ...[
             _actionCard(
               icon: Icons.money_off_rounded,
@@ -56,8 +54,6 @@ class _PaymentsTabState extends State<PaymentsTab> with AutomaticKeepAliveClient
             ),
             const SizedBox(height: 12),
           ],
-
-          // Paid list (Paypakka style)
           _actionCard(
             icon: Icons.receipt_long_rounded,
             title: 'Paid List',
@@ -257,6 +253,8 @@ class _PaidListScreenState extends State<PaidListScreen> {
   List<String> _areas = [];
   double _totalCash = 0;
   double _totalOnline = 0;
+  DateTime? _filterDateFrom;
+  DateTime? _filterDateTo;
 
   @override
   void initState() {
@@ -275,6 +273,13 @@ class _PaidListScreenState extends State<PaidListScreen> {
       if (!mounted) return;
       final payments = List<dynamic>.from(result['customers'] ?? []);
       final areas = List<String>.from(result['areas'] ?? []);
+
+      // Sort by payment date descending (latest first)
+      payments.sort((a, b) {
+        final da = _parseDate(a['payment_date']);
+        final db = _parseDate(b['payment_date']);
+        return db.compareTo(da);
+      });
 
       double cash = 0, online = 0;
       for (var p in payments) {
@@ -301,8 +306,42 @@ class _PaidListScreenState extends State<PaidListScreen> {
     }
   }
 
+  DateTime _parseDate(dynamic dateStr) {
+    if (dateStr == null) return DateTime.fromMillisecondsSinceEpoch(0);
+    try {
+      return DateTime.parse(dateStr.toString());
+    } catch (_) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+  }
+
   void _applyFilters() {
     var filtered = _allPayments;
+
+    // Date range filter
+    if (_filterDateFrom != null) {
+      final from = DateTime(_filterDateFrom!.year, _filterDateFrom!.month, _filterDateFrom!.day);
+      filtered = filtered.where((p) {
+        final d = _parseDate(p['payment_date']);
+        final dd = DateTime(d.year, d.month, d.day);
+        return !dd.isBefore(from);
+      }).toList();
+    }
+    if (_filterDateTo != null) {
+      final to = DateTime(_filterDateTo!.year, _filterDateTo!.month, _filterDateTo!.day);
+      filtered = filtered.where((p) {
+        final d = _parseDate(p['payment_date']);
+        final dd = DateTime(d.year, d.month, d.day);
+        return !dd.isAfter(to);
+      }).toList();
+    }
+
+    // Area filter
+    if (_selectedArea != null) {
+      filtered = filtered.where((p) => p['area'] == _selectedArea).toList();
+    }
+
+    // Search filter
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       filtered = filtered.where((p) {
@@ -313,35 +352,72 @@ class _PaidListScreenState extends State<PaidListScreen> {
                (p['stb_no'] ?? '').toString().toLowerCase().contains(q);
       }).toList();
     }
-    if (_selectedArea != null) {
-      filtered = filtered.where((p) => p['area'] == _selectedArea).toList();
-    }
+
+    // Re-sort filtered results by date desc
+    filtered.sort((a, b) => _parseDate(b['payment_date']).compareTo(_parseDate(a['payment_date'])));
+
     setState(() => _filtered = filtered);
   }
 
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return '--';
     try {
-      final parts = dateStr.split(' ');
-      final datePart = parts[0]; // 2026-05-09
-      final timePart = parts.length > 1 ? parts[1] : '';
-      final dp = datePart.split('-');
+      final dt = DateTime.parse(dateStr);
       final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      final month = months[int.parse(dp[1]) - 1];
-      String time = '';
-      if (timePart.isNotEmpty) {
-        final tp = timePart.split(':');
-        int hr = int.parse(tp[0]);
-        final min = tp[1];
-        final ampm = hr >= 12 ? 'PM' : 'AM';
-        if (hr > 12) hr -= 12;
-        if (hr == 0) hr = 12;
-        time = ', $hr:$min $ampm';
-      }
-      return '$month ${dp[2]}, ${dp[0]}$time';
+      final month = months[dt.month - 1];
+      int hr = dt.hour;
+      final min = dt.minute.toString().padLeft(2, '0');
+      final ampm = hr >= 12 ? 'PM' : 'AM';
+      if (hr > 12) hr -= 12;
+      if (hr == 0) hr = 12;
+      return '$month ${dt.day.toString().padLeft(2, '0')}, $hr:$min $ampm';
     } catch (_) {
       return dateStr;
     }
+  }
+
+  String _dateLabel(DateTime? d) {
+    if (d == null) return '';
+    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}';
+  }
+
+  Future<void> _pickDateFrom() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filterDateFrom ?? DateTime.now(),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked != null) {
+      _filterDateFrom = picked;
+      _applyFilters();
+    }
+  }
+
+  Future<void> _pickDateTo() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filterDateTo ?? DateTime.now(),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked != null) {
+      _filterDateTo = picked;
+      _applyFilters();
+    }
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied: $text'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(8),
+      ),
+    );
   }
 
   @override
@@ -387,66 +463,134 @@ class _PaidListScreenState extends State<PaidListScreen> {
                   ),
                 ),
 
-                // Search + area filter
+                // Search bar
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search name, ID, phone, STB...',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-                            prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400], size: 20),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                          onChanged: (v) {
-                            _searchQuery = v;
-                            _applyFilters();
-                          },
-                        ),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search name, ID, phone, STB...',
+                      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                      prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[400], size: 20),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
                       ),
-                      if (_areas.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: DropdownButton<String>(
-                            value: _selectedArea,
-                            hint: Text('Area', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                            underline: const SizedBox(),
-                            isDense: true,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
-                            items: [
-                              const DropdownMenuItem<String>(value: null, child: Text('All Areas', style: TextStyle(fontSize: 12))),
-                              ..._areas.map((a) => DropdownMenuItem<String>(value: a, child: Text(a, style: const TextStyle(fontSize: 12)))),
-                            ],
-                            onChanged: (v) {
-                              _selectedArea = v;
-                              _applyFilters();
-                            },
-                          ),
-                        ),
-                      ],
-                    ],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                    onChanged: (v) {
+                      _searchQuery = v;
+                      _applyFilters();
+                    },
                   ),
                 ),
 
-                // Count
+                // Filters row: Area + Date
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        // Area filter
+                        if (_areas.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: DropdownButton<String>(
+                              value: _selectedArea,
+                              hint: Text('Area', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                              underline: const SizedBox(),
+                              isDense: true,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+                              items: [
+                                const DropdownMenuItem<String>(value: null, child: Text('All Areas', style: TextStyle(fontSize: 12))),
+                                ..._areas.map((a) => DropdownMenuItem<String>(value: a, child: Text(a, style: const TextStyle(fontSize: 12)))),
+                              ],
+                              onChanged: (v) {
+                                _selectedArea = v;
+                                _applyFilters();
+                              },
+                            ),
+                          ),
+                        const SizedBox(width: 6),
+                        // Date from
+                        GestureDetector(
+                          onTap: _pickDateFrom,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: _filterDateFrom != null ? const Color(0xFF6366F1) : Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(10),
+                              color: _filterDateFrom != null ? const Color(0xFFEEF2FF) : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.calendar_today_rounded, size: 14, color: _filterDateFrom != null ? const Color(0xFF6366F1) : Colors.grey[500]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _filterDateFrom != null ? _dateLabel(_filterDateFrom) : 'From',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _filterDateFrom != null ? const Color(0xFF6366F1) : Colors.grey[500]),
+                                ),
+                                if (_filterDateFrom != null) ...[
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () { _filterDateFrom = null; _applyFilters(); },
+                                    child: Icon(Icons.clear_rounded, size: 14, color: Colors.grey[500]),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // Date to
+                        GestureDetector(
+                          onTap: _pickDateTo,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: _filterDateTo != null ? const Color(0xFF6366F1) : Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(10),
+                              color: _filterDateTo != null ? const Color(0xFFEEF2FF) : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.calendar_today_rounded, size: 14, color: _filterDateTo != null ? const Color(0xFF6366F1) : Colors.grey[500]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _filterDateTo != null ? _dateLabel(_filterDateTo) : 'To',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: _filterDateTo != null ? const Color(0xFF6366F1) : Colors.grey[500]),
+                                ),
+                                if (_filterDateTo != null) ...[
+                                  const SizedBox(width: 4),
+                                  GestureDetector(
+                                    onTap: () { _filterDateTo = null; _applyFilters(); },
+                                    child: Icon(Icons.clear_rounded, size: 14, color: Colors.grey[500]),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Count + filtered total
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -459,7 +603,7 @@ class _PaidListScreenState extends State<PaidListScreen> {
                       if (_filtered.isNotEmpty) ...[
                         const Spacer(),
                         Text(
-                          'Total: ₹${_filtered.fold<double>(0, (sum, p) => sum + (p['paid_amount'] ?? 0).toDouble()).toStringAsFixed(0)}',
+                          'Total: ₹${_filtered.fold<double>(0, (sum, p) => sum + (p["paid_amount"] ?? 0).toDouble()).toStringAsFixed(0)}',
                           style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.w700),
                         ),
                       ],
@@ -494,6 +638,7 @@ class _PaidListScreenState extends State<PaidListScreen> {
                                                mode.toLowerCase().contains('phonepe') ||
                                                mode.toLowerCase().contains('bank');
                               final modeColor = isOnline ? const Color(0xFFEC4899) : const Color(0xFF3B82F6);
+                              final stbNo = (p['stb_no'] ?? '--').toString();
 
                               return Container(
                                 margin: const EdgeInsets.symmetric(vertical: 4),
@@ -577,13 +722,24 @@ class _PaidListScreenState extends State<PaidListScreen> {
                                             ),
                                             child: Row(
                                               children: [
+                                                // STB No — tap to copy
                                                 Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      _detailLabel('STB No'),
-                                                      Text(p['stb_no'] ?? '--', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                                    ],
+                                                  child: GestureDetector(
+                                                    onTap: () => _copyToClipboard(stbNo),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            _detailLabel('STB No'),
+                                                            const SizedBox(width: 2),
+                                                            Icon(Icons.copy_rounded, size: 10, color: Colors.grey[400]),
+                                                          ],
+                                                        ),
+                                                        Text(stbNo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF6366F1))),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                                 Expanded(
