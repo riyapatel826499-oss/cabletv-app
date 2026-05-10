@@ -301,6 +301,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> with Single
       itemCount: _payments.length,
       itemBuilder: (context, index) {
         final p = _payments[index];
+        final mode = (p['mode'] ?? p['payment_mode'] ?? '--').toString();
+        final dateStr = p['date'] ?? p['collected_at'] ?? p['payment_date'] ?? '';
+        final collector = p['collector'] ?? p['collected_by'] ?? '';
+        final payType = p['type'] ?? '';
+        final payId = p['id'] ?? '';
+
         return Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.all(14),
@@ -325,13 +331,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> with Single
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(p['payment_mode'] ?? p['payment_type'] ?? '--', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    Text(p['collected_at'] ?? p['paypakka_created_at'] ?? '--', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                    Text(
+                      '${mode.isNotEmpty ? mode : "--"}${collector.isNotEmpty ? " · $collector" : ""}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_formatPaymentDate(dateStr)}${payType.isNotEmpty ? " · $payType" : ""}${payId.isNotEmpty ? " · $payId" : ""}',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
                   ],
                 ),
               ),
               Text(
-                'Rs ${p['amount'] ?? p['collection_amount'] ?? 0}',
+                '₹${(p['amount'] ?? p['collection_amount'] ?? 0).toDouble().toStringAsFixed(0)}',
                 style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
               ),
             ],
@@ -339,6 +352,23 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> with Single
         );
       },
     );
+  }
+
+  String _formatPaymentDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '--';
+    try {
+      final dt = DateTime.parse(dateStr);
+      final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      final month = months[dt.month - 1];
+      int hr = dt.hour;
+      final min = dt.minute.toString().padLeft(2, '0');
+      final ampm = hr >= 12 ? 'PM' : 'AM';
+      if (hr > 12) hr -= 12;
+      if (hr == 0) hr = 12;
+      return '${dt.day.toString().padLeft(2, '0')} $month ${dt.year} $hr:$min $ampm';
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   Widget _infoSection(String title, List<Widget> children) {
