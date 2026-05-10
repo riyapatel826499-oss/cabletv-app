@@ -4,11 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional, List
 
-from deps import get_db, get_current_user, require_role
+from deps import get_db, get_current_user, require_role, op_filter, op_id
 from utils import hash_password
 
 router = APIRouter(prefix="/api", tags=["Employees"])
-
 
 class EmployeeCreate(BaseModel):
     username: str
@@ -37,15 +36,15 @@ ROLE_LABELS = {
     "service_agent": "Service Agent",
 }
 
-
 @router.get("/employees")
 def list_employees(current_user=Depends(get_current_user)):
     """List all employees. Admin and Support can access."""
     if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
+    flt = op_filter(current_user)
     with get_db() as conn:
-        # Single query with LEFT JOIN + GROUP BY to avoid N+1 per-employee queries
-        rows = conn.execute("""
+        # Single query with LEFT JOIN & GROUP BY to avoid N+1 per-employee queries
+        rows = conn.execute(f"""
             SELECT u.id, u.username, u.name, u.role, u.phone, u.status, u.created_at, u.permissions,
                    COALESCE(pc.cnt, 0) as payment_count
             FROM users u
@@ -53,8 +52,10 @@ def list_employees(current_user=Depends(get_current_user)):
                 SELECT LOWER(pe.emp_name) AS emp_name_lower, COUNT(*) AS cnt
                 FROM paypakka_payments pp
                 JOIN paypakka_employees pe ON pp.emp_ref_id = pe.emp_ref_id
+                WHERE pp.{flt}
                 GROUP BY LOWER(pe.emp_name)
             ) pc ON LOWER(u.name) = pc.emp_name_lower
+            WHERE u.{flt}
             ORDER BY 
                 CASE u.role 
                     WHEN 'admin' THEN 1 
@@ -106,25 +107,29 @@ def create_employee(data: EmployeeCreate, current_user=Depends(get_current_user)
     if data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
 
+    flt = op_filter(current_user)
+    _oid = op_id(current_user)
+
     with get_db() as conn:
         # Check username uniqueness
-        existing = conn.execute("SELECT id FROM users WHERE username = ?", [data.username.strip().lower()]).fetchone()
+        existing = conn.execute(f"SELECT id FROM users WHERE username = ? AND {flt}", [data.username.strip().lower()]).fetchone()
         if existing:
             raise HTTPException(status_code=400, detail=f"Username '{data.username}' already exists")
 
         conn.execute("""
-            INSERT INTO users (username, password, name, role, phone, status)
-            VALUES (?, ?, ?, ?, ?, 'Active')
+            INSERT INTO users (username, password, name, role, phone, status, operator_id)
+            VALUES (?, ?, ?, ?, ?, 'Active', ?)
         """, [
             data.username.strip().lower(),
             hash_password(data.password),
             data.name.strip(),
             data.role,
-            data.phone.strip() if data.phone else None
+            data.phone.strip() if data.phone else None,
+            _oid
         ])
         conn.commit()
 
-        emp = conn.execute("SELECT id, username, name, role, phone, status, created_at FROM users WHERE username = ?",
+        emp = conn.execute(f"SELECT id, username, name, role, phone, status, created_at FROM users WHERE username = ? AND {flt}",
                            [data.username.strip().lower()]).fetchone()
         result = dict(emp)
         result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
@@ -142,8 +147,11 @@ def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_
         if data.role is not None:
             raise HTTPException(status_code=403, detail="Support cannot change employee roles")
 
+    flt = op_filter(current_user)
+    _oid = op_id(current_user)
+
     with get_db() as conn:
-        emp = conn.execute("SELECT id, username, name, role, status FROM users WHERE id = ?", [emp_id]).fetchone()
+        emp = conn.execute(f"SELECT id, username, name, role, status FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -156,13 +164,13 @@ def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_
 
         # Cannot demote the last admin
         if emp["role"] == "admin" and data.role and data.role != "admin":
-            admin_count = conn.execute("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active'").fetchone()
+            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
             if admin_count["cnt"] <= 1:
                 raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
 
         # Cannot deactivate the last admin
         if emp["role"] == "admin" and data.status == "Inactive":
-            admin_count = conn.execute("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active'").fetchone()
+            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
             if admin_count["cnt"] <= 1:
                 raise HTTPException(status_code=400, detail="Cannot deactivate the last active admin")
 
@@ -185,10 +193,10 @@ def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_
             raise HTTPException(status_code=400, detail="No fields to update")
 
         params.append(emp_id)
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ? AND {flt}", params)
         conn.commit()
 
-        updated = conn.execute("SELECT id, username, name, role, phone, status, created_at FROM users WHERE id = ?", [emp_id]).fetchone()
+        updated = conn.execute(f"SELECT id, username, name, role, phone, status, created_at FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         result = dict(updated)
         result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
         return {"message": "Employee updated successfully", "employee": result}
@@ -197,8 +205,8 @@ def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_
 @router.put("/employees/{emp_id}/password")
 def update_password(emp_id: int, data: PasswordUpdate, current_user=Depends(get_current_user)):
     """Set/reset employee password. Admin can set any, users can set their own."""
-    # Admin can change anyone's password
-    if current_user["role"] == "admin":
+    # Admin or master can change anyone's password
+    if current_user["role"] in ("admin", "master"):
         pass
     # User can change their own password
     elif current_user["id"] == emp_id:
@@ -209,12 +217,14 @@ def update_password(emp_id: int, data: PasswordUpdate, current_user=Depends(get_
     if len(data.password) < 4:
         raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
 
+    flt = op_filter(current_user)
+
     with get_db() as conn:
-        emp = conn.execute("SELECT id FROM users WHERE id = ?", [emp_id]).fetchone()
+        emp = conn.execute(f"SELECT id FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-        conn.execute("UPDATE users SET password = ? WHERE id = ?", [hash_password(data.password), emp_id])
+        conn.execute(f"UPDATE users SET password = ? WHERE id = ? AND {flt}", [hash_password(data.password), emp_id])
         conn.commit()
         return {"message": "Password updated successfully"}
 
@@ -225,19 +235,21 @@ def delete_employee(emp_id: int, current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can delete employees")
 
+    flt = op_filter(current_user)
+
     with get_db() as conn:
-        emp = conn.execute("SELECT id, username, name, role, status FROM users WHERE id = ?", [emp_id]).fetchone()
+        emp = conn.execute(f"SELECT id, username, name, role, status FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
         # Cannot delete the last admin
         if emp["role"] == "admin":
-            admin_count = conn.execute("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active'").fetchone()
+            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
             if admin_count["cnt"] <= 1:
                 raise HTTPException(status_code=400, detail="Cannot delete the last active admin")
 
         # Soft delete — set status to Inactive instead of actually deleting
-        conn.execute("UPDATE users SET status = 'Inactive' WHERE id = ?", [emp_id])
+        conn.execute(f"UPDATE users SET status = 'Inactive' WHERE id = ? AND {flt}", [emp_id])
         conn.commit()
         return {"message": f"Employee '{emp['name']}' deactivated successfully"}
 
@@ -279,8 +291,9 @@ def get_permissions(emp_id: int, current_user=Depends(get_current_user)):
     """Get employee permissions. Admin only."""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can manage permissions")
+    flt = op_filter(current_user)
     with get_db() as conn:
-        emp = conn.execute("SELECT id, name, role, permissions FROM users WHERE id = ?", [emp_id]).fetchone()
+        emp = conn.execute(f"SELECT id, name, role, permissions FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -315,8 +328,9 @@ def update_permissions(emp_id: int, data: PermissionsUpdate, current_user=Depend
     """Update employee role and permissions. Admin only."""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can manage permissions")
+    flt = op_filter(current_user)
     with get_db() as conn:
-        emp = conn.execute("SELECT id, name, role FROM users WHERE id = ?", [emp_id]).fetchone()
+        emp = conn.execute(f"SELECT id, name, role FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -329,7 +343,7 @@ def update_permissions(emp_id: int, data: PermissionsUpdate, current_user=Depend
                 raise HTTPException(status_code=400, detail="Invalid role")
             # Cannot demote last admin
             if emp["role"] == "admin" and data.role != "admin":
-                admin_count = conn.execute("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active'").fetchone()
+                admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
                 if admin_count["cnt"] <= 1:
                     raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
             updates.append("role = ?")
@@ -344,10 +358,10 @@ def update_permissions(emp_id: int, data: PermissionsUpdate, current_user=Depend
             raise HTTPException(status_code=400, detail="No fields to update")
 
         params.append(emp_id)
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ? AND {flt}", params)
         conn.commit()
 
-        updated = conn.execute("SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ?", [emp_id]).fetchone()
+        updated = conn.execute(f"SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
         result = dict(updated)
         result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
         if result.get("permissions"):

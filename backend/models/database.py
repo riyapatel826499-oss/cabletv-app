@@ -204,7 +204,8 @@ def init_db():
         status TEXT DEFAULT 'spare',
         notes TEXT,
         added_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        added_by TEXT
+        added_by TEXT,
+        operator_id INTEGER DEFAULT 1
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS surrender_requests (
@@ -221,6 +222,7 @@ def init_db():
         reviewed_by_name TEXT,
         reviewed_at TEXT,
         review_notes TEXT,
+        operator_id INTEGER DEFAULT 1,
         FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
         FOREIGN KEY (requested_by) REFERENCES users(id)
     )''')
@@ -274,6 +276,28 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON active_sessions(user_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON active_sessions(session_id)")
 
+    # ── Operators (Multi-tenant) ──────────────────────────────────────
+    c.execute('''CREATE TABLE IF NOT EXISTS operators (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        business_name TEXT NOT NULL,
+        owner_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT DEFAULT '',
+        area TEXT DEFAULT '',
+        mso TEXT DEFAULT 'GTPL',
+        status TEXT DEFAULT 'active',
+        license_type TEXT DEFAULT 'active',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS notification_settings (
+        key TEXT NOT NULL,
+        operator_id INTEGER NOT NULL DEFAULT 1,
+        value TEXT NOT NULL,
+        PRIMARY KEY (key, operator_id)
+    )''')
+
     # ── Performance Indexes ────────────────────────────────────────────────
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status)",
@@ -299,15 +323,15 @@ def init_db():
     conn.commit()
 
     # ── Seed Data ──────────────────────────────────────────────────────────
-    c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
+    c.execute("SELECT COUNT(*) FROM users WHERE role IN ('admin','master')")
     if c.fetchone()[0] == 0:
         c.execute(
-            "INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)",
-            ('admin', hash_password('admin123'), 'Prabhu (Admin)', 'admin', '9787225577')
+            "INSERT INTO users (username, password, name, role, phone, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+            ('admin', hash_password('admin123'), 'Prabhu (Admin)', 'master', '9787225577', None)
         )
         c.execute(
-            "INSERT INTO users (username, password, name, role, phone) VALUES (?, ?, ?, ?, ?)",
-            ('agent1', hash_password('agent123'), 'Collection Agent 1', 'agent', None)
+            "INSERT INTO users (username, password, name, role, phone, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+            ('agent1', hash_password('agent123'), 'Collection Agent 1', 'agent', None, 1)
         )
 
     c.execute("SELECT COUNT(*) FROM plans")
@@ -394,10 +418,107 @@ def import_customers_from_json():
 
     conn.commit()
     conn.close()
-    print(f"Imported {imported} customers successfully")
     return imported
+
+
+# ── Run Migrations ──
+def run_migrations(db_path: str = None):
+    """Add columns/tables that may not exist in older DBs."""
+    if not db_path:
+        db_path = DB_PATH
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    
+    # Column migrations
+    migrations = [
+        ("payment_type", "ALTER TABLE payments ADD COLUMN payment_type TEXT DEFAULT 'regular'"),
+        ("acknowledged_at", "ALTER TABLE service_requests ADD COLUMN acknowledged_at DATETIME"),
+        ("on_the_way_at", "ALTER TABLE service_requests ADD COLUMN on_the_way_at DATETIME"),
+        ("ack_lat", "ALTER TABLE service_requests ADD COLUMN ack_lat REAL"),
+        ("ack_lng", "ALTER TABLE service_requests ADD COLUMN ack_lng REAL"),
+        ("otw_lat", "ALTER TABLE service_requests ADD COLUMN otw_lat REAL"),
+        ("otw_lng", "ALTER TABLE service_requests ADD COLUMN otw_lng REAL"),
+        ("settled_lat", "ALTER TABLE service_requests ADD COLUMN settled_lat REAL"),
+        ("settled_lng", "ALTER TABLE service_requests ADD COLUMN settled_lng REAL"),
+    ]
+    for col_name, sql in migrations:
+        try:
+            c.execute(sql)
+            conn.commit()
+            print(f"Migration OK: {col_name}")
+        except Exception:
+            pass  # Column already exists
+    
+    # Table migrations
+    c.execute('''CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        endpoint TEXT NOT NULL,
+        p256dh TEXT NOT NULL DEFAULT '',
+        auth TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE(user_id, endpoint)
+    )''')
+
+    # Service Requests tables
+    c.execute('''CREATE TABLE IF NOT EXISTS service_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ticket_no TEXT UNIQUE NOT NULL,
+        customer_id TEXT,
+        type TEXT NOT NULL,
+        category TEXT,
+        priority TEXT NOT NULL DEFAULT 'medium',
+        status TEXT NOT NULL DEFAULT 'open',
+        description TEXT NOT NULL,
+        assigned_to INTEGER,
+        created_by INTEGER NOT NULL,
+        source TEXT NOT NULL DEFAULT 'app',
+        resolution TEXT,
+        resolution_notes TEXT,
+        deadline DATETIME,
+        tg_message_id INTEGER,
+        acknowledged_at DATETIME,
+        on_the_way_at DATETIME,
+        resolved_at DATETIME,
+        closed_at DATETIME,
+        closed_by INTEGER,
+        cancelled_at DATETIME,
+        operator_id INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+        FOREIGN KEY (assigned_to) REFERENCES users(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
+    )''')
+
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sr_customer ON service_requests(customer_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sr_status ON service_requests(status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sr_assigned ON service_requests(assigned_to)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sr_priority ON service_requests(priority)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sr_deadline ON service_requests(deadline)")
+
+    c.execute('''CREATE TABLE IF NOT EXISTS request_timeline (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_id INTEGER NOT NULL,
+        old_status TEXT,
+        new_status TEXT,
+        changed_by INTEGER,
+        changed_by_name TEXT,
+        source TEXT DEFAULT 'app',
+        note TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (request_id) REFERENCES service_requests(id),
+        FOREIGN KEY (changed_by) REFERENCES users(id)
+    )''')
+
+    conn.commit()
+    
+    conn.close()
 
 
 if __name__ == '__main__':
     init_db()
+    run_migrations()
     import_customers_from_json()

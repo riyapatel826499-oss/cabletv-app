@@ -3,10 +3,9 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from deps import get_db, get_current_user
+from deps import get_db, get_current_user, op_filter, op_id
 
 router = APIRouter(prefix="/api", tags=["STB Inventory"])
-
 
 class STBAddRequest(BaseModel):
     stb_no: str
@@ -23,13 +22,17 @@ class STBExchangeRequest(BaseModel):
 # ========== INVENTORY MANAGEMENT ==========
 
 @router.get("/stb-inventory")
-def list_inventory(status: Optional[str] = None, current_user=Depends(get_current_user)):
-    """List all spare/faulty STBs in inventory."""
+def list_inventory(status: Optional[str] = None, operator_id: int = None, current_user=Depends(get_current_user)):
+    """List all spare/faulty STBs in inventory. Master can pass ?operator_id=X."""
+    if current_user.get("role") == "master" and operator_id is not None:
+        flt = f"operator_id = {operator_id}"
+    else:
+        flt = op_filter(current_user)
     with get_db() as conn:
-        query = "SELECT * FROM stb_inventory"
+        query = f"SELECT * FROM stb_inventory WHERE {flt}"
         params = []
         if status:
-            query += " WHERE status = ?"
+            query += " AND status = ?"
             params.append(status)
         query += " ORDER BY added_at DESC"
         rows = conn.execute(query, params).fetchall()
@@ -40,40 +43,49 @@ def list_inventory(status: Optional[str] = None, current_user=Depends(get_curren
 
 
 @router.post("/stb-inventory")
-def add_to_inventory(data: STBAddRequest, current_user=Depends(get_current_user)):
-    """Add a spare STB to inventory."""
+def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=Depends(get_current_user)):
+    """Add a spare STB to inventory. Master can pass ?operator_id=X."""
+    flt = op_filter(current_user)
+    if current_user.get("role") == "master" and operator_id is not None:
+        _oid = operator_id
+    else:
+        _oid = op_id(current_user)
     with get_db() as conn:
         # Check STB is not already with a customer
-        active = conn.execute("""
+        active = conn.execute(f"""
             SELECT c.customer_id, c.name FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.stb_no = ? AND con.status = 'Active'
+            WHERE con.stb_no = ? AND con.status = 'Active' AND con.{flt}
         """, [data.stb_no]).fetchone()
         if active:
             raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is currently assigned to {active['name']} ({active['customer_id']})")
 
         # Check not already in inventory
-        existing = conn.execute("SELECT * FROM stb_inventory WHERE stb_no = ?", [data.stb_no]).fetchone()
+        existing = conn.execute(f"SELECT * FROM stb_inventory WHERE stb_no = ? AND {flt}", [data.stb_no]).fetchone()
         if existing:
             raise HTTPException(status_code=400, detail=f"STB {data.stb_no} already in inventory as '{existing['status']}'")
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute("INSERT INTO stb_inventory (stb_no, status, notes, added_at, added_by) VALUES (?, ?, ?, ?, ?)",
-                     [data.stb_no, data.status, data.notes, now, current_user["name"]])
+        conn.execute("INSERT INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+                     [data.stb_no, data.status, data.notes, now, current_user["name"], _oid])
         conn.commit()
     return {"message": f"STB {data.stb_no} added to inventory", "status": data.status}
 
 
 @router.delete("/stb-inventory/{stb_id}")
-def remove_from_inventory(stb_id: int, current_user=Depends(get_current_user)):
+def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Depends(get_current_user)):
     """Remove an STB from inventory."""
-    if current_user["role"] not in ["admin", "support"]:
+    if current_user["role"] not in ["admin", "master", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can remove STBs")
+    if current_user.get("role") == "master" and operator_id is not None:
+        flt = f"operator_id = {operator_id}"
+    else:
+        flt = op_filter(current_user)
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM stb_inventory WHERE id = ?", [stb_id]).fetchone()
+        row = conn.execute(f"SELECT * FROM stb_inventory WHERE id = ? AND {flt}", [stb_id]).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="STB not found in inventory")
-        conn.execute("DELETE FROM stb_inventory WHERE id = ?", [stb_id])
+        conn.execute(f"DELETE FROM stb_inventory WHERE id = ? AND {flt}", [stb_id])
         conn.commit()
     return {"message": f"STB {row['stb_no']} removed from inventory"}
 
@@ -86,12 +98,15 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
     if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
 
+    flt = op_filter(current_user)
+    _oid = op_id(current_user)
+
     with get_db() as conn:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 1. Validate connection
         connection = conn.execute(
-            "SELECT * FROM connections WHERE id = ? AND customer_id = ?",
+            f"SELECT * FROM connections WHERE id = ? AND customer_id = ? AND {flt}",
             [connection_id, customer_id]
         ).fetchone()
         if not connection:
@@ -100,24 +115,24 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
         old_stb = connection["stb_no"]
 
         # 2. Validate new STB not assigned to another active customer
-        active = conn.execute("""
+        active = conn.execute(f"""
             SELECT c.customer_id, c.name FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.stb_no = ? AND con.status = 'Active' AND con.id != ?
+            WHERE con.stb_no = ? AND con.status = 'Active' AND con.id != ? AND con.{flt}
         """, [data.new_stb_no, connection_id]).fetchone()
         if active:
             raise HTTPException(status_code=400, detail=f"STB {data.new_stb_no} is assigned to {active['name']} ({active['customer_id']})")
 
         # 3. Remove new STB from inventory if it exists there
-        conn.execute("DELETE FROM stb_inventory WHERE stb_no = ?", [data.new_stb_no])
+        conn.execute(f"DELETE FROM stb_inventory WHERE stb_no = ? AND {flt}", [data.new_stb_no])
 
         # 4. Update connection with new STB
-        conn.execute("UPDATE connections SET stb_no = ? WHERE id = ?", [data.new_stb_no, connection_id])
+        conn.execute(f"UPDATE connections SET stb_no = ? WHERE id = ? AND {flt}", [data.new_stb_no, connection_id])
 
         # 5. Add old STB to inventory
         notes = data.old_stb_notes or f"Exchanged from {customer_id}"
-        conn.execute("INSERT OR REPLACE INTO stb_inventory (stb_no, status, notes, added_at, added_by) VALUES (?, ?, ?, ?, ?)",
-                     [old_stb, data.old_stb_status, notes, now, current_user["name"]])
+        conn.execute("INSERT OR REPLACE INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+                     [old_stb, data.old_stb_status, notes, now, current_user["name"], _oid])
 
         conn.commit()
 
@@ -132,8 +147,20 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
 
 
 @router.get("/stb-inventory/available")
-def list_available_stbs(current_user=Depends(get_current_user)):
-    """List only spare STBs available for exchange."""
+def list_available_stbs(network: Optional[str] = None, current_user=Depends(get_current_user)):
+    """List spare/available STBs for assignment, optionally filtered by network/MSO."""
+    flt = op_filter(current_user)
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM stb_inventory WHERE status = 'spare' ORDER BY added_at DESC").fetchall()
+        query = f"SELECT * FROM stb_inventory WHERE status IN ('spare', 'available') AND {flt}"
+        params = []
+        if network:
+            # Filter by STB number prefix (172/173=TACTV, 5000=SCV, rest=GTPL)
+            if network.upper() == "TACTV":
+                query += " AND (stb_no LIKE '172%' OR stb_no LIKE '173%')"
+            elif network.upper() == "SCV":
+                query += " AND stb_no LIKE '5000%'"
+            elif network.upper() == "GTPL":
+                query += " AND stb_no NOT LIKE '172%' AND stb_no NOT LIKE '173%' AND stb_no NOT LIKE '5000%'"
+        query += " ORDER BY stb_no ASC"
+        rows = conn.execute(query, params).fetchall()
     return {"available": [dict(r) for r in rows], "total": len(rows)}

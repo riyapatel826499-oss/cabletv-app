@@ -12,7 +12,7 @@ if not _secret:
     print("⚠️  WARNING: Using default SECRET_KEY. Set SECRET_KEY env var for production!")
 SECRET_KEY = _secret
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+ACCESS_TOKEN_EXPIRE_HOURS = 8760  # 365 days — stay logged in until manual logout
 CUSTOMER_TOKEN_EXPIRE_DAYS = 30
 
 # Razorpay — load from env only, never hardcode
@@ -29,7 +29,21 @@ PASSWORD_MIN_LENGTH = 4
 PIN_LENGTH = 4
 
 # CORS — restrict to actual origins
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://rscloud.live").split(",")
 
 # Rate limiting
-AUTH_RATE_LIMIT = os.getenv("AUTH_RATE_LIMIT", "5/minute")
+AUTH_RATE_LIMIT=os.getenv("AUTH_RATE_LIMIT", "5/minute")
+
+# Telegram notifications
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8738324317:AAE-8zaNhMixSs7cKZHoTtxObm9WiQSrhLk")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1632880933")
+
+# Telegram Service Requests Bot
+SR_BOT_TOKEN = os.getenv("SR_BOT_TOKEN", "8738324317:AAE-8zaNhMixSs7cKZHoTtxObm9WiQSrhLk")
+SR_GROUP_ID = os.getenv("SR_GROUP_ID", "-5136685396")
+SR_ADMIN_IDS = os.getenv("SR_ADMIN_IDS", "1632880933").split(",")  # Prabhu's TG ID
+
+# Web Push Notifications (VAPID)
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "BD1ZpMaOEZfw50sY69dHcXY8rNUIL16KSzIFHVlU3to_sQGjHpAA7EADOfSPE4AHPrKmOUXmCwpHYcsJb1E0hAU")
+VAPID_PRIVATE_KEY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vapid_private.pem")
+VAPID_CLAIMS = {"sub": "mailto:admin@rscloud.live"}

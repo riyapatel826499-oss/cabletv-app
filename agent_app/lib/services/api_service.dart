@@ -61,6 +61,30 @@ class ApiService {
     return jsonDecode(r.body);
   }
 
+  static Future<List<dynamic>> getServiceRequests({String? status}) async {
+    final h = await _headers();
+    final url = status != null
+        ? '$baseUrl/service-requests/?status=$status'
+        : '$baseUrl/service-requests/';
+    final r = await http.get(Uri.parse(url), headers: h);
+    if (r.statusCode == 401) throw Exception('Session expired');
+    return jsonDecode(r.body) as List<dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateServiceRequestStatus(String ticketNo, String status, {String? notes}) async {
+    final h = await _headers();
+    final body = <String, dynamic>{'status': status};
+    if (notes != null) body['resolution_notes'] = notes;
+    final r = await http.put(
+      Uri.parse('$baseUrl/service-requests/$ticketNo/status'),
+      headers: h,
+      body: jsonEncode(body),
+    );
+    if (r.statusCode == 401) throw Exception('Session expired');
+    if (r.statusCode != 200) throw Exception(jsonDecode(r.body)['detail'] ?? 'Failed');
+    return jsonDecode(r.body);
+  }
+
   static Future<Map<String, dynamic>> getCustomers({
     int page = 1,
     int perPage = 20,

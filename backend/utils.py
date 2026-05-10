@@ -76,3 +76,28 @@ def find_customer_by_phone(conn, phone: str) -> Optional[dict]:
         (clean, clean),
     ).fetchone()
     return dict(row) if row else None
+
+
+# ── Ticket Number Generator ────────────────────────────────────────────
+
+import random, time as _time
+
+def gen_ticket_no(prefix: str = 'SR', conn=None) -> str:
+    """Generate a unique ticket number like SR-0001, SR-0002, etc.
+    If conn is provided, queries DB for next sequential number.
+    Otherwise generates a timestamp-based unique number."""
+    if conn is not None:
+        row = conn.execute(
+            "SELECT ticket_no FROM service_requests WHERE ticket_no LIKE ? ORDER BY id DESC LIMIT 1",
+            (prefix + '-%',)
+        ).fetchone()
+        if row:
+            try:
+                num = int(row[0].split('-')[1]) + 1
+            except (ValueError, IndexError):
+                num = random.randint(1000, 9999)
+        else:
+            num = 1
+        return f"{prefix}-{num:04d}"
+    # Fallback without DB connection - use timestamp
+    return f"{prefix}-{_time.strftime('%m%d%H%M')}"

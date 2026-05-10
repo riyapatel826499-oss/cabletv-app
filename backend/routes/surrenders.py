@@ -3,10 +3,9 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from deps import get_db, get_current_user
+from deps import get_db, get_current_user, op_filter, op_id
 
 router = APIRouter(prefix="/api", tags=["Surrenders"])
-
 
 class SurrenderRequest(BaseModel):
     reason: Optional[str] = None
@@ -14,34 +13,48 @@ class SurrenderRequest(BaseModel):
 @router.post("/customers/{customer_id}/surrender")
 def surrender_customer(customer_id: str, req: SurrenderRequest = SurrenderRequest(), current_user=Depends(get_current_user)):
     """Surrender a customer. Admin/Support = immediate. Agent = pending approval."""
+    flt = op_filter(current_user)
+    _oid = op_id(current_user)
+
     with get_db() as conn:
-        cust = conn.execute("SELECT * FROM customers WHERE customer_id = ?", [customer_id]).fetchone()
+        cust = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? AND {flt}", [customer_id]).fetchone()
         if not cust:
             raise HTTPException(status_code=404, detail="Customer not found")
         if cust["status"] in ["Surrendered", "Pending Surrender"]:
             raise HTTPException(status_code=400, detail=f"Customer is already {cust['status']}")
     
+        # Derive operator_id from the customer's record (not the admin's) so
+        # inventory rows are always scoped to the correct operator even when
+        # a master admin (operator_id=NULL) performs the action.
+        cust_oid = cust["operator_id"] if cust["operator_id"] else _oid
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        stbs = conn.execute("SELECT stb_no FROM connections WHERE customer_id = ?", [customer_id]).fetchall()
+        stbs = conn.execute(f"SELECT stb_no, id FROM connections WHERE customer_id = ? AND {flt}", [customer_id]).fetchall()
         stb_list = [row["stb_no"] for row in stbs if row["stb_no"]]
     
         # Admin/Support → immediate surrender
         if current_user["role"] in ["admin", "support"]:
-            conn.execute("UPDATE connections SET status = 'Surrendered' WHERE customer_id = ?", [customer_id])
-            conn.execute("""UPDATE customers SET status = 'Surrendered', 
+            conn.execute(f"UPDATE connections SET status = 'Surrendered' WHERE customer_id = ? AND {flt}", [customer_id])
+            # Release the UNIQUE stb_no on surrendered connections so the STB
+            # can be reused for new customers without renaming later.
+            for row in stbs:
+                if row["stb_no"]:
+                    conn.execute("UPDATE connections SET stb_no = 'SURRENDERED-' || ? WHERE id = ?",
+                                 [row["id"], row["id"]])
+            conn.execute(f"""UPDATE customers SET status = 'Surrendered', 
                             surrendered_date = ?, surrender_reason = ? 
-                            WHERE customer_id = ?""",
+                            WHERE customer_id = ? AND {flt}""",
                          [now, req.reason, customer_id])
             # Add freed STBs to inventory
             for stb_no in stb_list:
                 existing = conn.execute("SELECT id FROM stb_inventory WHERE stb_no = ?", [stb_no]).fetchone()
                 if existing:
-                    conn.execute("UPDATE stb_inventory SET status = 'available', notes = ? WHERE stb_no = ?",
-                                [f"Returned from surrendered customer {customer_id}", stb_no])
+                    conn.execute("UPDATE stb_inventory SET status = 'available', notes = ?, operator_id = ? WHERE stb_no = ?",
+                                [f"Returned from surrendered customer {customer_id}", cust_oid, stb_no])
                 else:
-                    conn.execute("""INSERT INTO stb_inventory (stb_no, status, added_at, notes)
-                                    VALUES (?, 'available', ?, ?)""",
-                                [stb_no, now, f"Returned from surrendered customer {customer_id}"])
+                    conn.execute("""INSERT INTO stb_inventory (stb_no, status, added_at, notes, operator_id)
+                                    VALUES (?, 'available', ?, ?, ?)""",
+                                [stb_no, now, f"Returned from surrendered customer {customer_id}", cust_oid])
             conn.commit()
             return {
                 "message": f"Customer {customer_id} surrendered successfully",
@@ -51,18 +64,18 @@ def surrender_customer(customer_id: str, req: SurrenderRequest = SurrenderReques
             }
     
         # Agent/Service Agent → create pending request, freeze STB
-        conn.execute("UPDATE connections SET status = 'Frozen' WHERE customer_id = ?", [customer_id])
-        conn.execute("""UPDATE customers SET status = 'Pending Surrender',
-                        surrender_reason = ? WHERE customer_id = ?""",
+        conn.execute(f"UPDATE connections SET status = 'Frozen' WHERE customer_id = ? AND {flt}", [customer_id])
+        conn.execute(f"""UPDATE customers SET status = 'Pending Surrender',
+                        surrender_reason = ? WHERE customer_id = ? AND {flt}""",
                      [req.reason, customer_id])
     
         # Create surrender request
-        conn.execute("""INSERT INTO surrender_requests 
+        conn.execute(f"""INSERT INTO surrender_requests 
                         (customer_id, customer_name, stb_no, reason, 
-                         requested_by, requested_by_name, requested_at, status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')""",
+                         requested_by, requested_by_name, requested_at, status, operator_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
                      [customer_id, cust["name"], ",".join(stb_list), req.reason,
-                      current_user["id"], current_user["name"], now])
+                      current_user["id"], current_user["name"], now, cust_oid])
     
         conn.commit()
         return {
@@ -80,14 +93,15 @@ def list_surrender_requests(status: Optional[str] = None, current_user=Depends(g
     if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can view surrender requests")
     
+    flt = op_filter(current_user)
     with get_db() as conn:
         if status and status in ["pending", "approved", "rejected"]:
             rows = conn.execute(
-                "SELECT * FROM surrender_requests WHERE status = ? ORDER BY requested_at DESC", [status]
+                f"SELECT * FROM surrender_requests WHERE status = ? AND {flt} ORDER BY requested_at DESC", [status]
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM surrender_requests ORDER BY requested_at DESC"
+                f"SELECT * FROM surrender_requests WHERE {flt} ORDER BY requested_at DESC"
             ).fetchall()
     
         result = []
@@ -120,8 +134,11 @@ def review_surrender_request(request_id: int, req: ReviewRequest, current_user=D
     if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can review surrender requests")
     
+    flt = op_filter(current_user)
+    _oid = op_id(current_user)
+
     with get_db() as conn:
-        sr = conn.execute("SELECT * FROM surrender_requests WHERE id = ?", [request_id]).fetchone()
+        sr = conn.execute(f"SELECT * FROM surrender_requests WHERE id = ? AND {flt}", [request_id]).fetchone()
         if not sr:
             raise HTTPException(status_code=404, detail="Surrender request not found")
         if sr["status"] != "pending":
@@ -132,27 +149,40 @@ def review_surrender_request(request_id: int, req: ReviewRequest, current_user=D
     
         if req.action == "approve":
             # Full surrender: mark customer, connections, move STBs to inventory
-            conn.execute("UPDATE connections SET status = 'Surrendered' WHERE customer_id = ?", [customer_id])
-            conn.execute("""UPDATE customers SET status = 'Surrendered',
+            # Derive operator_id from the surrender request (set by the agent
+            # who created it), NOT from the reviewing admin, so that inventory
+            # rows are always scoped to the correct operator.
+            cust_oid = sr["operator_id"] if sr["operator_id"] else _oid
+
+            stb_list = [s.strip() for s in sr["stb_no"].split(",") if s.strip()] if sr["stb_no"] else []
+
+            conn.execute(f"UPDATE connections SET status = 'Surrendered' WHERE customer_id = ? AND {flt}", [customer_id])
+            # Release the UNIQUE stb_no on surrendered connections so the STB
+            # can be reused for new customers without renaming later.
+            surrendered_conns = conn.execute(f"SELECT id, stb_no FROM connections WHERE customer_id = ? AND {flt}", [customer_id]).fetchall()
+            for row in surrendered_conns:
+                if row["stb_no"]:
+                    conn.execute("UPDATE connections SET stb_no = 'SURRENDERED-' || ? WHERE id = ?",
+                                 [row["id"], row["id"]])
+            conn.execute(f"""UPDATE customers SET status = 'Surrendered',
                             surrendered_date = ?, surrender_reason = ?
-                            WHERE customer_id = ?""",
+                            WHERE customer_id = ? AND {flt}""",
                          [now, sr["reason"], customer_id])
             # Add STBs to inventory
-            stb_list = [s.strip() for s in sr["stb_no"].split(",") if s.strip()] if sr["stb_no"] else []
             for stb_no in stb_list:
                 existing = conn.execute("SELECT id FROM stb_inventory WHERE stb_no = ?", [stb_no]).fetchone()
                 if existing:
-                    conn.execute("UPDATE stb_inventory SET status = 'available', notes = ? WHERE stb_no = ?",
-                                [f"Approved surrender - customer {customer_id}", stb_no])
+                    conn.execute("UPDATE stb_inventory SET status = 'available', notes = ?, operator_id = ? WHERE stb_no = ?",
+                                [f"Approved surrender - customer {customer_id}", cust_oid, stb_no])
                 else:
-                    conn.execute("""INSERT INTO stb_inventory (stb_no, status, added_at, notes)
-                                    VALUES (?, 'available', ?, ?)""",
-                                [stb_no, now, f"Approved surrender - customer {customer_id}"])
+                    conn.execute("""INSERT INTO stb_inventory (stb_no, status, added_at, notes, operator_id)
+                                    VALUES (?, 'available', ?, ?, ?)""",
+                                [stb_no, now, f"Approved surrender - customer {customer_id}", cust_oid])
         
             # Update request
-            conn.execute("""UPDATE surrender_requests SET status = 'approved',
+            conn.execute(f"""UPDATE surrender_requests SET status = 'approved',
                             reviewed_by = ?, reviewed_by_name = ?, reviewed_at = ?, review_notes = ?
-                            WHERE id = ?""",
+                            WHERE id = ? AND {flt}""",
                          [current_user["id"], current_user["name"], now, req.notes, request_id])
             conn.commit()
             return {
@@ -163,14 +193,14 @@ def review_surrender_request(request_id: int, req: ReviewRequest, current_user=D
     
         elif req.action == "reject":
             # Revert: customer back to Active, connections unfrozen
-            conn.execute("UPDATE connections SET status = 'Active' WHERE customer_id = ?", [customer_id])
-            conn.execute("""UPDATE customers SET status = 'Active',
-                            surrender_reason = NULL WHERE customer_id = ?""",
+            conn.execute(f"UPDATE connections SET status = 'Active' WHERE customer_id = ? AND {flt}", [customer_id])
+            conn.execute(f"""UPDATE customers SET status = 'Active',
+                            surrender_reason = NULL WHERE customer_id = ? AND {flt}""",
                          [customer_id])
             # Update request
-            conn.execute("""UPDATE surrender_requests SET status = 'rejected',
+            conn.execute(f"""UPDATE surrender_requests SET status = 'rejected',
                             reviewed_by = ?, reviewed_by_name = ?, reviewed_at = ?, review_notes = ?
-                            WHERE id = ?""",
+                            WHERE id = ? AND {flt}""",
                          [current_user["id"], current_user["name"], now, req.notes, request_id])
             conn.commit()
             return {
@@ -189,23 +219,31 @@ def reactivate_customer(customer_id: str, current_user=Depends(get_current_user)
     if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can reactivate customers")
     
+    flt = op_filter(current_user)
     with get_db() as conn:
-        cust = conn.execute("SELECT * FROM customers WHERE customer_id = ?", [customer_id]).fetchone()
+        cust = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? AND {flt}", [customer_id]).fetchone()
         if not cust:
             raise HTTPException(status_code=404, detail="Customer not found")
         if cust["status"] not in ["Surrendered"]:
             raise HTTPException(status_code=400, detail="Customer is not surrendered")
     
-        conn.execute("""UPDATE customers SET status = 'Active', 
+        # Before reactivating, find STBs currently in inventory that were
+        # associated with this customer so we can remove them.
+        inv_stbs = conn.execute(
+            f"""SELECT si.stb_no FROM stb_inventory si
+                WHERE si.notes LIKE ? AND {op_filter(current_user, 'si.')}""",
+            [f"%customer {customer_id}%"]
+        ).fetchall()
+        inv_stb_list = [row["stb_no"] for row in inv_stbs]
+
+        conn.execute(f"""UPDATE customers SET status = 'Active', 
                         surrendered_date = NULL, surrender_reason = NULL 
-                        WHERE customer_id = ?""", [customer_id])
-        conn.execute("UPDATE connections SET status = 'Active' WHERE customer_id = ?", [customer_id])
+                        WHERE customer_id = ? AND {flt}""", [customer_id])
+        conn.execute(f"UPDATE connections SET status = 'Active' WHERE customer_id = ? AND {flt}", [customer_id])
     
         # Remove reactivated STBs from inventory (they're back in use)
-        stbs = conn.execute("SELECT stb_no FROM connections WHERE customer_id = ?", [customer_id]).fetchall()
-        for row in stbs:
-            if row["stb_no"]:
-                conn.execute("DELETE FROM stb_inventory WHERE stb_no = ?", [row["stb_no"]])
+        for stb_no in inv_stb_list:
+            conn.execute("DELETE FROM stb_inventory WHERE stb_no = ?", [stb_no])
     
         conn.commit()
     

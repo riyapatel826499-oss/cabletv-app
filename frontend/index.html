@@ -24,8 +24,12 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 .form-group input{width:100%;padding:14px 16px 14px 48px;border:2px solid #e5e7eb;border-radius:14px;font-size:16px;transition:all .25s;background:#f9fafb;color:#1f2937}
 .form-group input:focus{outline:none;border-color:#6366f1;background:#fff;box-shadow:0 0 0 4px rgba(99,102,241,.1)}
 .input-wrap{position:relative}
-.input-wrap svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:#9ca3af;transition:fill .25s}
-.form-group input:focus~svg,.input-wrap:focus-within svg{fill:#6366f1}
+.input-wrap>.lock-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:#9ca3af;transition:fill .25s;pointer-events:none}
+.form-group input:focus~.lock-icon,.input-wrap:focus-within>.lock-icon{fill:#6366f1}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;z-index:2}
+.eye-btn svg{width:22px;height:22px;fill:#9ca3af;position:static!important;left:auto!important;top:auto!important;transform:none!important;transition:fill .25s}
+.eye-btn:hover svg{fill:#6366f1}
+.input-wrap:has(.eye-btn) input{padding-right:48px}
 .login-btn{width:100%;padding:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 4px 16px rgba(99,102,241,.4);margin-top:8px;letter-spacing:.3px}
 .login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.5)}
 .login-btn:active{transform:translateY(0)}
@@ -40,9 +44,6 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 .bg-shapes .s1{width:400px;height:400px;top:-100px;right:-100px}
 .bg-shapes .s2{width:300px;height:300px;bottom:-50px;left:-80px}
 .bg-shapes .s3{width:200px;height:200px;top:50%;left:50%;transform:translate(-50%,-50%)}
-.eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center}
-.eye-btn svg{width:22px;height:22px;fill:#9ca3af;transition:fill .25s}
-.eye-btn:hover svg{fill:#6366f1}
 .confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
 .confirm-overlay.show{display:flex}
 .confirm-box{background:#fff;border-radius:20px;padding:32px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -63,7 +64,7 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12zM8 15l5-3.5L8 8v7z"/></svg>
 </div>
 <h1>Selvanaayakki Amman Cables</h1>
-<p>Admin Dashboard</p>
+<p>Cable TV Management</p>
 </div>
 <div id="errorMsg" class="error-msg">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
@@ -74,7 +75,7 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 <label>Username</label>
 <div class="input-wrap">
 <input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
-<svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+<svg class="lock-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
 </div>
 </div>
 <div class="form-group">
@@ -92,7 +93,7 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 Sign In
 </button>
 </form>
-<div class="footer-text">Secure admin access only</div>
+<div class="footer-text">Secure login</div>
 </div>
 </div>
 <div id="confirmOverlay" class="confirm-overlay">
