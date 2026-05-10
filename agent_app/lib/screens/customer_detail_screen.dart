@@ -231,64 +231,83 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> with Single
   }
 
   Widget _plansTab() {
-    if (_plans == null) return const Center(child: Text('No plan data'));
+    final plansList = (_plans?['plans'] as List?) ?? [];
+    if (plansList.isEmpty) return const Center(child: Text('No active plans'));
 
-    final base = (_plans!['base_pack'] as List?) ?? [];
-    final bouquets = (_plans!['bouquets'] as List?) ?? [];
-    final alacarte = (_plans!['a_la_carte'] as List?) ?? [];
-
-    if (base.isEmpty && bouquets.isEmpty && alacarte.isEmpty) {
-      return const Center(child: Text('No active plans'));
-    }
-
-    return ListView(
+    return ListView.builder(
       padding: const EdgeInsets.all(16),
-      children: [
-        if (base.isNotEmpty) ...[
-          const Text('Base Pack', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 8),
-          ...base.map((p) => _planCard(p)),
-          const SizedBox(height: 16),
-        ],
-        if (bouquets.isNotEmpty) ...[
-          const Text('Bouquets', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 8),
-          ...bouquets.map((p) => _planCard(p)),
-          const SizedBox(height: 16),
-        ],
-        if (alacarte.isNotEmpty) ...[
-          const Text('A la Carte', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-          const SizedBox(height: 8),
-          ...alacarte.map((p) => _planCard(p)),
-        ],
-      ],
-    );
-  }
-
-  Widget _planCard(dynamic plan) {
-    final p = plan as Map<String, dynamic>;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(p['plan_name'] ?? p['name'] ?? '--', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                Text('Exp: ${p['expiry_date'] ?? '--'}', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-              ],
-            ),
+      itemCount: plansList.length,
+      itemBuilder: (context, index) {
+        final p = plansList[index] as Map<String, dynamic>;
+        final isActive = (p['status'] ?? '') == 'Active';
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFE2E8F0)),
           ),
-          Text('Rs ${p['amount'] ?? p['plan_amount'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6366F1))),
-        ],
-      ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isActive ? Icons.check_circle_rounded : Icons.history_rounded,
+                  color: isActive ? const Color(0xFF16A34A) : Colors.grey[400],
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p['plan_name'] ?? p['name'] ?? '--',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${p['start_date'] ?? '--'} → ${p['expiry_date'] ?? '--'}',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '₹${(p['amount'] ?? p['plan_amount'] ?? 0).toDouble().toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF6366F1)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      p['status'] ?? '--',
+                      style: TextStyle(
+                        color: isActive ? const Color(0xFF16A34A) : Colors.grey[500],
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
