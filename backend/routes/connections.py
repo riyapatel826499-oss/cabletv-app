@@ -181,12 +181,19 @@ def temp_disconnect(data: TempDisconnectRequest, current_user=Depends(get_curren
         
         # 1. Update connection status to Temp Disconnected
         conn.execute(f"""
-            UPDATE connections SET status = 'Temp Disconnected',
-            notes = COALESCE(notes, '') || ?,
-            disconnect_date = ?,
-            updated_at = ?
+            UPDATE connections SET status = 'Temp Disconnected'
             WHERE id = ? AND {_opf}
-        """, [f"\n[Temp Disconnected: {now}" + (f" — {data.reason}" if data.reason else "") + "]", now, now, data.connection_id])
+        """, [data.connection_id])
+        
+        # Try to add notes/disconnect_date if columns exist
+        try:
+            conn.execute(f"""
+                UPDATE connections SET notes = COALESCE(notes, '') || ?,
+                disconnect_date = ?, updated_at = ?
+                WHERE id = ? AND {_opf}
+            """, [f"\n[Temp Disconnected: {now}" + (f" — {data.reason}" if data.reason else "") + "]", now, now, data.connection_id])
+        except Exception:
+            pass  # Columns don't exist yet, that's OK
         
         # 2. Release STB number — rename to TEMPDISC-{id} so UNIQUE constraint passes
         conn.execute("UPDATE connections SET stb_no = 'TEMPDISC-' || ? WHERE id = ?",
@@ -272,18 +279,23 @@ def reconnect_customer(data: ReconnectRequest, current_user=Depends(get_current_
             # Reactivate existing connection with new STB
             network = _detect_network(data.stb_no)
             conn.execute(f"""
-                UPDATE connections SET status = 'Active', stb_no = ?, network = ?,
-                notes = COALESCE(notes, '') || ?,
-                updated_at = ?
+                UPDATE connections SET status = 'Active', stb_no = ?, network = ?
                 WHERE id = ? AND {_opf}
-            """, [data.stb_no, network, f"\n[Reconnected: {now} with STB {data.stb_no}]", now, td_conn["id"]])
+            """, [data.stb_no, network, td_conn["id"]])
+            try:
+                conn.execute(f"""
+                    UPDATE connections SET notes = COALESCE(notes, '') || ?, updated_at = ?
+                    WHERE id = ? AND {_opf}
+                """, [f"\n[Reconnected: {now} with STB {data.stb_no}]", now, td_conn["id"]])
+            except Exception:
+                pass
         else:
             # Create new connection
             network = _detect_network(data.stb_no)
             conn.execute(f"""
-                INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at, operator_id, notes)
-                VALUES (?, ?, 'GTPL', 'Cable', 'Prepaid', 'Active', ?, datetime('now'), {_opid or 'NULL'}, ?)
-            """, [data.customer_id, data.stb_no, network, f"Reconnected: {now}"])
+                INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at, operator_id)
+                VALUES (?, ?, 'GTPL', 'Cable', 'Prepaid', 'Active', ?, datetime('now'), {_opid or 'NULL'})
+            """, [data.customer_id, data.stb_no, network])
         
         # Set customer back to Active
         conn.execute(f"UPDATE customers SET status = 'Active' WHERE customer_id = ? AND {_of}",
