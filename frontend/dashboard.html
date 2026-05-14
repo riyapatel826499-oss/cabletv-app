@@ -34,7 +34,22 @@ table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-fil
 .toggle-switch{position:relative;display:inline-block;width:44px;height:24px;margin-right:8px}.toggle-switch input{opacity:0;width:0;height:0}.toggle-switch .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#c7c7cc;border-radius:24px;transition:var(--transition)}.toggle-switch .slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:var(--transition);box-shadow:0 1px 3px rgba(0,0,0,0.15)}.toggle-switch input:checked+.slider{background:var(--success)}.toggle-switch input:disabled+.slider{opacity:0.35;cursor:not-allowed}.perm-group{margin-bottom:16px}.perm-group h4{font-size:0.82rem;color:var(--text-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em}.perm-item{display:flex;align-items:center;gap:8px;padding:6px 0}.perm-item label{font-size:0.88rem;cursor:pointer;flex:1}
 .cust-tabs{display:flex;gap:4px;margin-bottom:16px;background:rgba(245,245,247,0.6);border-radius:var(--radius-sm);padding:4px;overflow-x:auto}.cust-tab{padding:6px 14px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--text-light);border-radius:var(--radius-xs);font-size:0.82rem;white-space:nowrap;transition:var(--transition)}.cust-tab.active{background:var(--white);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08)}.cust-tab:hover:not(.active){color:var(--text)}
 /* Payment step design */
-.pay-step{background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);padding:20px;border-radius:var(--radius);margin-bottom:16px;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}.pay-step-label{font-size:0.82rem;font-weight:600;color:var(--primary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.04em}.pay-search-wrap{position:relative}.pay-search-input{padding-right:40px;font-size:16px}.pay-search-results{position:absolute;top:100%;left:0;right:0;background:rgba(255,255,255,0.95);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border:0.5px solid var(--border);border-radius:var(--radius-sm);max-height:280px;overflow-y:auto;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,0.12);display:none}.pay-search-item{padding:12px 16px;border-bottom:0.5px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.15s ease}.pay-search-item:hover{background:rgba(0,113,227,0.04)}.pay-search-item:last-child{border-bottom:none}.pay-cust-card{background:linear-gradient(135deg,#0071e3,#64d2ff);color:var(--white);padding:18px;border-radius:var(--radius);margin-top:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 16px rgba(0,113,227,0.2)}.pay-cust-card .cust-info{font-size:16px;font-weight:600;letter-spacing:-0.01em}.pay-cust-card .cust-sub{font-size:13px;opacity:0.85;margin-top:4px}.pay-cust-card .cust-actions{display:flex;gap:8px}.pay-cust-card .btn-sm{padding:6px 12px;font-size:13px}
+.pay-step{background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);padding:20px;border-radius:var(--radius);margin-bottom:16px;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}.pay-step-label{font-size:0.82rem;font-weight:600;color:var(--primary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.04em}.pay-search-wrap{position:relative}.pay-search-input{padding-right:40px;font-size:16px}
+.pay-search-table-wrap{margin-top:12px;max-height:360px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card)}
+.pay-search-table-wrap table{width:100%;font-size:13px;border-collapse:collapse}
+.pay-search-table-wrap th{background:var(--bg);padding:10px 14px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;color:var(--text-light);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border)}
+.pay-search-table-wrap td{padding:10px 14px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+.pay-search-table-wrap tr:last-child td{border-bottom:none}
+.pay-search-table-wrap tr{cursor:pointer;transition:background .15s}
+.pay-search-table-wrap tr:hover{background:rgba(99,102,241,0.04)}
+.pay-search-table-wrap tr:active{background:rgba(99,102,241,0.08)}
+.pay-search-table-wrap .ps-name{font-weight:600;color:var(--text)}
+.pay-search-table-wrap .ps-sub{font-size:11px;color:var(--text-light);margin-top:2px}
+.pay-search-table-wrap .ps-area{font-size:12px}
+.pay-search-table-wrap .ps-stb{font-family:'SF Mono','Courier New',monospace;font-size:11px;background:rgba(99,102,241,0.08);color:var(--primary);padding:2px 8px;border-radius:4px}
+.pay-search-table-wrap .ps-count{font-size:11px;color:var(--text-light);text-align:center}
+.pay-search-table-wrap .ps-empty{padding:24px;text-align:center;color:var(--text-light)}
+.pay-search-results{display:none}.pay-cust-card{background:linear-gradient(135deg,#0071e3,#64d2ff);color:var(--white);padding:18px;border-radius:var(--radius);margin-top:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 16px rgba(0,113,227,0.2)}.pay-cust-card .cust-info{font-size:16px;font-weight:600;letter-spacing:-0.01em}.pay-cust-card .cust-sub{font-size:13px;opacity:0.85;margin-top:4px}.pay-cust-card .cust-actions{display:flex;gap:8px}.pay-cust-card .btn-sm{padding:6px 12px;font-size:13px}
 .pay-last-payment{display:flex;justify-content:space-between;align-items:center;background:rgba(245,245,247,0.6);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 16px;margin-top:8px;font-size:0.85rem}
 .pay-last-payment .lp-label{color:var(--text-light)}
 .pay-last-payment .lp-value{font-weight:600}
@@ -172,10 +187,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   .mob-pay-card{display:block}
   #page-dashboard .table-wrap{display:none}
   #mobRecentPayments{display:block}
-  /* Payments page: show mobile cards, hide wide table */
-  #page-payments #payTableWrap{display:none}
-  #page-payments .mob-pay-list{display:block}
-  .mob-pay-list .mp-card{padding:14px;border-bottom:0.5px solid var(--border);display:flex;flex-direction:column;gap:6px}
+  /* Payments page search table responsive */
   .mob-pay-list .mp-top{display:flex;justify-content:space-between;align-items:center}
   .mob-pay-list .mp-name{font-weight:600;font-size:15px}
   .mob-pay-list .mp-amt{font-weight:700;font-size:16px;color:var(--success)}
@@ -379,10 +391,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <!-- Step 1: Search Customer -->
 <div id="payStep1" class="pay-step">
   <div class="pay-step-label">① Find Customer</div>
-  <div class="pay-search-wrap">
-    <input id="paySearchInput" class="form-control pay-search-input" placeholder="Type name, ID or phone..." autocomplete="off" oninput="searchPayCustomer(this.value)" onfocus="searchPayCustomer(this.value)">
-    <div id="paySearchResults" class="pay-search-results"></div>
-  </div>
+  <input id="paySearchInput" class="form-control" placeholder="Type name, ID, phone or STB..." autocomplete="off" oninput="searchPayCustomer(this.value)">
+  <div id="paySearchResults" class="pay-search-table-wrap" style="display:none"></div>
   <div id="payCustCard" class="pay-cust-card" style="display:none"></div>
   <div id="payLastPayment" class="pay-last-payment" style="display:none"></div>
 </div>
@@ -430,36 +440,6 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   </div>
 </div>
 </form>
-<h3 style="margin:28px 0 16px">Payment History</h3>
-<div class="pay-history-filters">
-  <div class="ph-date-row">
-    <button class="btn btn-sm btn-primary" id="phToday" onclick="phDateQuick('today')">Today</button>
-    <button class="btn btn-sm btn-outline" id="phYesterday" onclick="phDateQuick('yesterday')">Yesterday</button>
-    <button class="btn btn-sm btn-outline" id="phMonth" onclick="phDateQuick('month')">This Month</button>
-    <div class="ph-date-range">
-      <div class="ph-date-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <input type="date" id="payDateFrom" class="form-control ph-date-input" onchange="loadAllPaymentHistory()">
-      </div>
-      <span class="ph-sep">→</span>
-      <div class="ph-date-wrap">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <input type="date" id="payDateTo" class="form-control ph-date-input" onchange="loadAllPaymentHistory()">
-      </div>
-    </div>
-    <select id="payPerPage" class="form-control ph-perpage" onchange="loadAllPaymentHistory()">
-      <option value="10">10</option><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
-    </select>
-  </div>
-  <div class="ph-actions">
-    <button class="btn btn-outline btn-sm" onclick="exportPaymentsCSV()">📥 CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="exportPaymentsExcel()">📥 Excel</button>
-    <span id="payTotalInfo" class="ph-total-info"></span>
-  </div>
-</div>
-<div class="table-wrap" id="payTableWrap"><table><thead><tr><th>#</th><th>Source</th><th>Customer</th><th>Area</th><th>Bill Amt</th><th>Collected</th><th>Mode</th><th>Type</th><th>Collector</th><th>Date &amp; Time</th><th>📍</th><th>Action</th></tr></thead><tbody id="payHistoryBody"></tbody></table></div>
-<div id="mobPayHistory" class="mob-pay-list"></div>
-<div class="pagination" id="payPagination" style="display:flex;gap:6px;align-items:center;justify-content:center;margin-top:12px"></div>
 </div>
 
 <!-- Employees Page -->
@@ -1170,7 +1150,7 @@ function showPage(page) {
   if (page === 'customers') { loadCustomers(1); loadPaidFilters(); loadPlanOptions('GTPL'); loadCustPlanFilter(); }
   if (page === 'add-customer') { initAddCustomerForRole(); }
   if (page === 'plans') loadPlans();
-  if (page === 'payments') { initPaymentForm(); if(!document.getElementById('payDateFrom').value) phDateQuick('month'); else loadAllPaymentHistory(1); }
+  if (page === 'payments') { initPaymentForm(); }
   if (page === 'employees') loadEmployees();
   if (page === 'surrender-req') loadSurrenderRequests();
   if (page === 'service-requests') loadServiceRequests();
@@ -2729,18 +2709,24 @@ function searchPayCustomer(query) {
       (c.customer_id && c.customer_id.toLowerCase().includes(q)) ||
       (c.phone && c.phone.includes(q)) ||
       (c.stb_no && c.stb_no.toLowerCase().includes(q))
-    ).slice(0, 8);
+    ).slice(0, 20);
     
     if (matches.length === 0) {
-      resultsEl.style.display = 'none';
+      resultsEl.innerHTML = '<div class="ps-empty">No customers found</div>';
+      resultsEl.style.display = 'block';
       return;
     }
     
-    resultsEl.innerHTML = matches.map(c => 
-      '<div class="pay-search-item" onclick="selectPayCustomer(decodeURIComponent(\'' + escAttr(c.customer_id) + '\'))"> ' +
-      '<div><strong>' + esc(c.name) + '</strong><br><small>' + esc(c.customer_id) + ' | ' + esc(c.phone || 'No phone') + ' | ' + esc(c.area || 'No area') + '</small></div> ' +
-      '<span style="color:var(--primary)">→</span></div>'
-    ).join('');
+    resultsEl.innerHTML = '<table><thead><tr><th>Customer</th><th>Phone</th><th>STB</th><th>Area</th><th>Connections</th></tr></thead><tbody>' +
+      matches.map(c => 
+        '<tr onclick="selectPayCustomer(decodeURIComponent(\'' + escAttr(c.customer_id) + '\'))">' +
+        '<td><div class="ps-name">' + esc(c.name) + '</div><div class="ps-sub">' + esc(c.customer_id) + '</div></td>' +
+        '<td>' + esc(c.phone || '-') + '</td>' +
+        '<td>' + (c.stb_no ? '<span class="ps-stb">' + esc(c.stb_no) + '</span>' : '-') + '</td>' +
+        '<td class="ps-area">' + esc(c.area || '-') + '</td>' +
+        '<td class="ps-count">' + (c.connection_count || c.connections || '-') + '</td>' +
+        '</tr>'
+      ).join('') + '</tbody></table>';
     resultsEl.style.display = 'block';
   }, 150);
 }
