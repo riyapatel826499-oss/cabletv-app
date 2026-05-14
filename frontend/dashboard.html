@@ -5373,35 +5373,37 @@ async function loadAuditLog(page) {
 
 // ===== PRINT RECEIPT =====
 function printPaymentReceipt(data) {
-  const w = window.open('', '_blank', 'width=400,height=600');
-  const dt = data.date ? new Date(data.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : new Date().toLocaleDateString('en-IN');
-  w.document.write(`<!DOCTYPE html><html><head><title>Payment Receipt</title>
-  <style>
-    body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#000;max-width:320px;margin:0 auto}
-    .logo{text-align:center;font-weight:700;font-size:16px;margin-bottom:4px}
-    .sub{text-align:center;font-size:11px;color:#555;margin-bottom:16px}
-    .divider{border-top:1px dashed #999;margin:12px 0}
-    .row{display:flex;justify-content:space-between;margin:5px 0}
-    .label{color:#555}.value{font-weight:600}
-    .total-row{font-size:16px;font-weight:700;margin:8px 0}
-    .footer{text-align:center;font-size:10px;color:#888;margin-top:16px}
-    @media print{.no-print{display:none}}
-  </style></head><body>
-  <div class="logo">Sree Selvanaayakki Amman Cables</div>
-  <div class="sub">Payment Receipt</div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">Customer</span><span class="value">${data.customer_name || ''}</span></div>
-  <div class="row"><span class="label">Customer ID</span><span class="value">${data.customer_id || ''}</span></div>
-  <div class="row"><span class="label">STB No</span><span class="value">${data.stb_no || '--'}</span></div>
-  <div class="row"><span class="label">Date</span><span class="value">${dt}</span></div>
-  <div class="row"><span class="label">Mode</span><span class="value">${data.payment_mode || 'Cash'}</span></div>
-  <div class="row"><span class="label">Collector</span><span class="value">${data.collector || ''}</span></div>
-  <div class="divider"></div>
-  <div class="row total-row"><span>Amount Paid</span><span>₹${(data.amount||0).toLocaleString('en-IN')}</span></div>
-  <div class="divider"></div>
-  <div class="footer">Thank you for your payment!</div>
-  <br><button class="no-print" onclick="window.print()" style="width:100%;padding:8px;background:#0071e3;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨 Print</button>
-  </body></html>`);
+  var w = window.open('', '_blank', 'width=400,height=600');
+  var dt = data.date ? new Date(data.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) : new Date().toLocaleDateString('en-IN');
+  var amt = (data.amount||0).toLocaleString('en-IN');
+  var html = '<!DOCTYPE html><html><head><title>Payment Receipt</title>'
+    + '<style>'
+    + 'body{font-family:Arial,sans-serif;padding:20px;font-size:13px;color:#000;max-width:320px;margin:0 auto}'
+    + '.logo{text-align:center;font-weight:700;font-size:16px;margin-bottom:4px}'
+    + '.sub{text-align:center;font-size:11px;color:#555;margin-bottom:16px}'
+    + '.divider{border-top:1px dashed #999;margin:12px 0}'
+    + '.row{display:flex;justify-content:space-between;margin:5px 0}'
+    + '.label{color:#555}.value{font-weight:600}'
+    + '.total-row{font-size:16px;font-weight:700;margin:8px 0}'
+    + '.footer{text-align:center;font-size:10px;color:#888;margin-top:16px}'
+    + '@media print{.no-print{display:none}}'
+    + '</style></head><body>'
+    + '<div class="logo">Sree Selvanaayakki Amman Cables</div>'
+    + '<div class="sub">Payment Receipt</div>'
+    + '<div class="divider"></div>'
+    + '<div class="row"><span class="label">Customer</span><span class="value">' + (data.customer_name||'') + '</span></div>'
+    + '<div class="row"><span class="label">Customer ID</span><span class="value">' + (data.customer_id||'') + '</span></div>'
+    + '<div class="row"><span class="label">STB No</span><span class="value">' + (data.stb_no||'--') + '</span></div>'
+    + '<div class="row"><span class="label">Date</span><span class="value">' + dt + '</span></div>'
+    + '<div class="row"><span class="label">Mode</span><span class="value">' + (data.payment_mode||'Cash') + '</span></div>'
+    + '<div class="row"><span class="label">Collector</span><span class="value">' + (data.collector||'') + '</span></div>'
+    + '<div class="divider"></div>'
+    + '<div class="row total-row"><span>Amount Paid</span><span>\u20B9' + amt + '</span></div>'
+    + '<div class="divider"></div>'
+    + '<div class="footer">Thank you for your payment!</div>'
+    + '<br><button class="no-print" onclick="window.print()" style="width:100%;padding:8px;background:#0071e3;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨 Print</button>'
+    + '</body></html>';
+  w.document.write(html);
   w.document.close();
 }
 
