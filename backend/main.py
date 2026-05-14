@@ -31,6 +31,7 @@ from routes.settings import router as settings_router
 from routes.operators import router as operators_router
 from routes.push import router as push_router
 from routes.service_requests import router as service_requests_router
+from routes.gtpl import router as gtpl_router
 from config import CORS_ORIGINS
 
 # Rate limiter (shared instance from limiter.py)
@@ -101,6 +102,7 @@ app.include_router(settings_router)
 app.include_router(operators_router)
 app.include_router(push_router)
 app.include_router(service_requests_router)
+app.include_router(gtpl_router, prefix="/api")
 
 
 @app.get("/")

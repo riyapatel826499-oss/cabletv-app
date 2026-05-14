@@ -1043,6 +1043,54 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 
 <!-- Edit Expiry Date Modal -->
 <div id="editExpiryOverlay" class="modal-overlay" onclick="if(event.target===this)closeEditExpiryModal()">
+
+<!-- GTPL Renew Modal -->
+<div id="gtplRenewOverlay" class="modal-overlay" onclick="if(event.target===this)closeGtplRenewModal()">
+<div class="modal"><div class="modal-header"><h2>🔁 Renew on GTPL</h2><button class="btn btn-outline btn-sm" onclick="closeGtplRenewModal()">✕</button></div>
+<div class="modal-body">
+<div class="form-group"><label>STB Number</label><div id="gtplRenewStb" style="font-weight:600;font-family:monospace;font-size:1.1em"></div></div>
+<div class="form-group"><label>Customer</label><div id="gtplRenewCust" style="font-weight:600"></div></div>
+<div class="form-group"><label>Renewal Period</label>
+<select id="gtplRenewMonths" class="form-control">
+  <option value="1">1 Month</option>
+  <option value="2">2 Months</option>
+  <option value="3">3 Months</option>
+  <option value="6">6 Months</option>
+  <option value="12">12 Months</option>
+</select></div>
+<div style="background:var(--card-bg);border-radius:8px;padding:12px;border-left:3px solid var(--warning)">
+<p style="margin:0;font-size:0.85em;color:var(--muted)">⚠️ Amount will be deducted from your GTPL wallet. Ensure sufficient balance before renewing.</p>
+</div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeGtplRenewModal()">Cancel</button><button class="btn btn-primary" id="gtplRenewBtn" onclick="doGtplRenew()">🔁 Renew</button></div>
+</div></div>
+
+<!-- GTPL Pack Change Modal -->
+<div id="gtplPackOverlay" class="modal-overlay" onclick="if(event.target===this)closeGtplPackModal()">
+<div class="modal"><div class="modal-header"><h2>📦 Change Pack on GTPL</h2><button class="btn btn-outline btn-sm" onclick="closeGtplPackModal()">✕</button></div>
+<div class="modal-body">
+<div class="form-group"><label>STB Number</label><div id="gtplPackStb" style="font-weight:600;font-family:monospace;font-size:1.1em"></div></div>
+<div class="form-group"><label>Customer</label><div id="gtplPackCust" style="font-weight:600"></div></div>
+<div class="form-group"><label>Current Pack</label><div id="gtplPackCurrent" style="color:var(--muted)"></div></div>
+<div class="form-group"><label>New Pack</label>
+<select id="gtplPackSelect" class="form-control">
+  <option value="">-- Select new pack --</option>
+  <option value="FTA_CC">TAMIL FTA</option>
+  <option value="PRIME_CC">TAMIL PRIME (₹250)</option>
+  <option value="POWER_CC">TAMIL POWER (₹280)</option>
+  <option value="ROYALHD_CC">TAMIL ROYAL HD (₹330)</option>
+  <option value="POWRPLS_CC">TAMIL POWER PLUS</option>
+  <option value="TP_TMML_PP">TAMIL MALAYALAM POWER PLUS (₹300)</option>
+  <option value="TP_TMTL_PP">TAMIL TELUGU POWER PLUS (₹300)</option>
+  <option value="TP_TMTP_PP">TAMIL KANNADA POWER PLUS</option>
+  <option value="TP_TMHN_PP">TAMIL HINDI POWER PLUS</option>
+</select></div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeGtplPackModal()">Cancel</button><button class="btn btn-primary" id="gtplPackBtn" onclick="doGtplPackChange()">📦 Change Pack</button></div>
+</div></div>
+
+<!-- (original) Edit Expiry Date Modal -->
+<div id="editExpiryOverlay" class="modal-overlay" onclick="if(event.target===this)closeEditExpiryModal()">
 <div class="modal"><div class="modal-header"><h2>Edit Expiry Date</h2><button class="btn btn-outline btn-sm" onclick="closeEditExpiryModal()">✕</button></div>
 <div class="modal-body">
 <input type="hidden" id="expCustId"><input type="hidden" id="expConnId">
@@ -1150,10 +1198,104 @@ function escAttr(s) {
 
 function fmtRs(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function fmtDate(d) { if (!d) return '--'; return new Date(d).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}); }
+
+/* ---------- Table Export Helpers ---------- */
+function _tableToRows(sel) {
+  const table = document.querySelector(sel);
+  if (!table) { toast('No table found', 'error'); return null; }
+  const rows = [];
+  table.querySelectorAll('tr').forEach(tr => {
+    const cells = [];
+    tr.querySelectorAll('th, td').forEach(td => cells.push(td.textContent.trim()));
+    if (cells.length) rows.push(cells);
+  });
+  return rows;
+}
+
+function _rowsToCSV(rows) {
+  return rows.map(r => r.map(c => '"' + c.replace(/"/g, '""') + '"').join(',')).join('\r\n');
+}
+
+function _rowsToExcel(rows) {
+  // Simple HTML-table based XLS that Excel opens natively
+  const C = String.fromCharCode; // avoid literal close tags - hosting auto-injects before them
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>'
+    + '<body><table border="1">' + rows.map((r, ri) => {
+        const tag = ri === 0 ? 'th' : 'td';
+        const style = ri === 0 ? ' style="background:#4f46e5;color:#fff;font-weight:bold;padding:8px;"' : ' style="padding:6px;"';
+        return '<tr>' + r.map(c => '<' + tag + style + '>' + esc(c) + '</' + tag + '>').join('') + '</tr>';
+      }).join('') + '</table>' + C(60) + '/body' + C(62) + C(60) + '/html' + C(62);
+  return html;
+}
+
+function _downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime + ';charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+function exportTableCSV(sel, name) {
+  const rows = _tableToRows(sel);
+  if (!rows) return;
+  _downloadFile('\uFEFF' + _rowsToCSV(rows), name + '.csv', 'text/csv');
+  toast('CSV exported: ' + (rows.length - 1) + ' rows', 'success');
+}
+
+function exportTableExcel(sel, name) {
+  const rows = _tableToRows(sel);
+  if (!rows) return;
+  _downloadFile(_rowsToExcel(rows), name + '.xls', 'application/vnd.ms-excel');
+  toast('Excel exported: ' + (rows.length - 1) + ' rows', 'success');
+}
+
 function payTypeBadge(t) {
   if (!t) return '<span class="badge" style="background:#6c757d;color:#fff;font-size:10px">—</span>';
   const map = {regular:'background:#28a745',advance:'background:#007bff',partial:'background:#fd7e14',adjustment:'background:#6f42c1',reconnection:'background:#17a2b8'};
   return '<span class="badge" style="'+(map[t]||'background:#6c757d')+';color:#fff;font-size:10px">'+esc(t)+'</span>';
+}
+
+/* ---------- Payments Export Helpers ---------- */
+async function _fetchPaymentsForExport() {
+  const fromEl = document.getElementById('payDateFrom');
+  const toEl = document.getElementById('payDateTo');
+  const from = fromEl ? fromEl.value : '';
+  const to = toEl ? toEl.value : '';
+  if (!from || !to) { toast('Select date range first', 'error'); return null; }
+  const data = await api('/api/payments/all?per_page=10000&date_from=' + from + '&date_to=' + to);
+  if (!data || !data.payments) { toast('No payments to export', 'error'); return null; }
+  return { payments: data.payments, total: data.total || data.payments.length };
+}
+
+function _paymentsToCSV(payments) {
+  const hdr = ['Date','Customer','ID','Phone','STB','Plan','Amount','Type','Collected By','Note'];
+  const rows = [hdr];
+  payments.forEach(p => {
+    rows.push([
+      p.collected_at || p.date || '', p.customer_name || p.name || '', p.customer_id || '',
+      p.phone || '', p.stb_no || '', p.plan_name || '', p.amount || '',
+      p.payment_type || p.type || '', p.collected_by_name || p.collected_by || '', p.note || ''
+    ]);
+  });
+  return _rowsToCSV(rows);
+}
+
+function _paymentsToExcel(payments) {
+  const hdr = ['Date','Customer','ID','Phone','STB','Plan','Amount','Type','Collected By','Note'];
+  const rows = [hdr];
+  payments.forEach(p => {
+    rows.push([
+      p.collected_at || p.date || '', p.customer_name || p.name || '', p.customer_id || '',
+      p.phone || '', p.stb_no || '', p.plan_name || '', p.amount || '',
+      p.payment_type || p.type || '', p.collected_by_name || p.collected_by || '', p.note || ''
+    ]);
+  });
+  return _rowsToExcel(rows);
 }
 
 async function exportPaymentsCSV() {
@@ -1716,6 +1858,14 @@ function renderCustConnections() {
         html += ' <button class="btn btn-outline btn-sm" onclick="openEditExpiryModal(\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(cn.id) + '\',\'' + escAttr(_custData.name || '') + '\',\'' + escAttr(cn.expiry_date || '') + '\')">📅 Expiry</button>';
       }
       html += ' <button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="tempDisconnectConn(' + cn.id + ',\'' + escAttr(cn.stb_no || '') + '\',\'' + escAttr(_custData.name || '') + '\')">📦 Reclaim STB</button>';
+      if (cn.network === 'GTPL' && cn.stb_no && cn.stb_no.startsWith('338')) {
+        html += ' <span style="display:inline-flex;gap:4px;margin-top:4px">';
+        html += '<button class="btn btn-sm" style="background:#dc3545;color:#fff;border:none" title="Suspend on GTPL" onclick="gtplSuspend(\'' + escAttr(cn.stb_no) + '\',\'' + escAttr(_custData.name || '') + '\')">⛔ Suspend</button>';
+        html += '<button class="btn btn-sm" style="background:#28a745;color:#fff;border:none" title="Activate on GTPL" onclick="gtplActivate(\'' + escAttr(cn.stb_no) + '\',\'' + escAttr(_custData.name || '') + '\')">✅ Activate</button>';
+        html += '<button class="btn btn-sm" style="background:#007bff;color:#fff;border:none" title="Renew on GTPL" onclick="openGtplRenewModal(\'' + escAttr(cn.stb_no) + '\',\'' + escAttr(_custData.name || '') + '\')">🔁 Renew</button>';
+        html += '<button class="btn btn-sm" style="background:#6f42c1;color:#fff;border:none" title="Change Pack on GTPL" onclick="openGtplPackModal(\'' + escAttr(cn.stb_no) + '\',\'' + escAttr(_custData.name || '') + '\',\'' + escAttr(cn.plan_name || '') + '\')">📦 Pack</button>';
+        html += '</span>';
+      }
     } else if (cn.status === 'Temp Disconnected') {
       html += '<span style="color:var(--warning);font-size:0.85em">STB reclaimed — use Reconnect button below</span>';
     }
@@ -3907,7 +4057,7 @@ function agLoadNR(page = 1) {
 
   api(url).then(data => {
     const custs = data.customers || [];
-    const totalRev = custs.reduce((s, c) => s + (c.plan_amount || 0), 0);
+    const totalRev = data.lost_revenue || 0;
     document.getElementById('agNrCount').textContent = data.total || 0;
     document.getElementById('agNrAmt').textContent = fmtRs(totalRev);
 
@@ -5136,8 +5286,8 @@ function loadNotRenewed(page = 1) {
   api(url).then(data => {
     // Month label
     document.getElementById('nrMonthLabel').textContent = '— ' + data.month_label;
-    // Stats
-    const totalRev = data.customers.reduce((s, c) => s + (c.plan_amount || 0), 0);
+    // Stats — use backend aggregate (covers ALL pages)
+    const totalRev = data.lost_revenue || 0;
     document.getElementById('nrCount').textContent = data.total;
     document.getElementById('nrTotalAmt').textContent = fmtRs(totalRev);
 
@@ -5405,6 +5555,109 @@ function printPaymentReceipt(data) {
     + '</' + 'body></' + 'html>';
   w.document.write(html);
   w.document.close();
+}
+
+// ── GTPL Integration ─────────────────────────────────────────────
+
+async function gtplSuspend(stbNo, custName) {
+  if (!confirm('⛔ Suspend STB ' + stbNo + ' on GTPL?\n\nCustomer: ' + custName + '\nThis will cut their cable TV signal immediately.')) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await api('/api/gtpl/suspend', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ stb_no: stbNo, customer_id: _custData.customer_id })
+    });
+    toast('✅ ' + (r.message || 'STB suspended on GTPL'), 'success');
+  } catch (e) {
+    toast('❌ ' + (e.detail || e.message || 'GTPL suspend failed'), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '⛔ Suspend';
+  }
+}
+
+async function gtplActivate(stbNo, custName) {
+  if (!confirm('✅ Activate STB ' + stbNo + ' on GTPL?\n\nCustomer: ' + custName + '\nThis will restore their cable TV signal.')) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    const r = await api('/api/gtpl/activate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ stb_no: stbNo, customer_id: _custData.customer_id })
+    });
+    toast('✅ ' + (r.message || 'STB activated on GTPL'), 'success');
+  } catch (e) {
+    toast('❌ ' + (e.detail || e.message || 'GTPL activate failed'), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ Activate';
+  }
+}
+
+function openGtplRenewModal(stbNo, custName) {
+  document.getElementById('gtplRenewStb').textContent = stbNo;
+  document.getElementById('gtplRenewCust').textContent = custName;
+  document.getElementById('gtplRenewMonths').value = '1';
+  document.getElementById('gtplRenewBtn').disabled = false;
+  document.getElementById('gtplRenewBtn').textContent = '🔁 Renew';
+  document.getElementById('gtplRenewOverlay').classList.add('show');
+}
+function closeGtplRenewModal() { document.getElementById('gtplRenewOverlay').classList.remove('show'); }
+
+async function doGtplRenew() {
+  const stbNo = document.getElementById('gtplRenewStb').textContent;
+  const months = parseInt(document.getElementById('gtplRenewMonths').value);
+  const btn = document.getElementById('gtplRenewBtn');
+  if (!confirm('🔁 Renew STB ' + stbNo + ' for ' + months + ' month(s) on GTPL?\n\nAmount will be deducted from your GTPL wallet.')) return;
+  btn.disabled = true; btn.textContent = '⏳ Processing...';
+  try {
+    const r = await api('/api/gtpl/renew', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ stb_no: stbNo, months: months, customer_id: _custData.customer_id })
+    });
+    toast('✅ ' + (r.message || 'Renewal successful'), 'success');
+    closeGtplRenewModal();
+    await viewCustomer(_custData.customer_id);
+  } catch (e) {
+    toast('❌ ' + (e.detail || e.message || 'GTPL renewal failed'), 'error');
+    btn.disabled = false; btn.textContent = '🔁 Renew';
+  }
+}
+
+function openGtplPackModal(stbNo, custName, currentPlan) {
+  document.getElementById('gtplPackStb').textContent = stbNo;
+  document.getElementById('gtplPackCust').textContent = custName;
+  document.getElementById('gtplPackCurrent').textContent = currentPlan || 'Unknown';
+  document.getElementById('gtplPackSelect').value = '';
+  document.getElementById('gtplPackBtn').disabled = false;
+  document.getElementById('gtplPackBtn').textContent = '📦 Change Pack';
+  document.getElementById('gtplPackOverlay').classList.add('show');
+}
+function closeGtplPackModal() { document.getElementById('gtplPackOverlay').classList.remove('show'); }
+
+async function doGtplPackChange() {
+  const stbNo = document.getElementById('gtplPackStb').textContent;
+  const planCode = document.getElementById('gtplPackSelect').value;
+  const planName = document.getElementById('gtplPackSelect').options[document.getElementById('gtplPackSelect').selectedIndex].text;
+  if (!planCode) { toast('Please select a new pack', 'error'); return; }
+  const btn = document.getElementById('gtplPackBtn');
+  if (!confirm('📦 Change pack for STB ' + stbNo + ' to:\n' + planName + '?\n\nThis will change the package on GTPL portal.')) return;
+  btn.disabled = true; btn.textContent = '⏳ Processing...';
+  try {
+    const r = await api('/api/gtpl/change-plan', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ stb_no: stbNo, plan_code: planCode, customer_id: _custData.customer_id })
+    });
+    toast('✅ ' + (r.message || 'Pack changed successfully'), 'success');
+    closeGtplPackModal();
+    await viewCustomer(_custData.customer_id);
+  } catch (e) {
+    toast('❌ ' + (e.detail || e.message || 'Pack change failed'), 'error');
+    btn.disabled = false; btn.textContent = '📦 Change Pack';
+  }
 }
 
 </script>
