@@ -503,6 +503,52 @@ def run_migrations(db_path: str = None):
     c.execute("CREATE INDEX IF NOT EXISTS idx_sr_priority ON service_requests(priority)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sr_deadline ON service_requests(deadline)")
 
+    # -- Additional Indexes (performance) ---
+    extra_indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_connections_expiry ON connections(expiry_date)",
+        "CREATE INDEX IF NOT EXISTS idx_connections_mso ON connections(mso)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_collected_at ON payments(collected_at)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_deleted ON payments(deleted)",
+    ]
+    for idx_sql in extra_indexes:
+        try:
+            c.execute(idx_sql)
+        except Exception:
+            pass
+
+    # -- Audit Log Table ---
+    c.execute('''CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        entity TEXT NOT NULL,
+        entity_id TEXT,
+        old_value TEXT,
+        new_value TEXT,
+        performed_by INTEGER,
+        performed_by_name TEXT,
+        operator_id INTEGER,
+        ip_address TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (performed_by) REFERENCES users(id)
+    )''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity, entity_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(performed_by)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at)")
+
+    # -- Soft-delete migration for payments ---
+    migrations_v2 = [
+        ("deleted", "ALTER TABLE payments ADD COLUMN deleted INTEGER DEFAULT 0"),
+        ("deleted_by", "ALTER TABLE payments ADD COLUMN deleted_by INTEGER"),
+        ("deleted_at", "ALTER TABLE payments ADD COLUMN deleted_at TEXT"),
+        ("delete_reason", "ALTER TABLE payments ADD COLUMN delete_reason TEXT"),
+    ]
+    for col_name, sql in migrations_v2:
+        try:
+            c.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+
     # One-time fix: set status='assigned' for SRs that are open but already have assigned_to
     try:
         updated = c.execute(

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import calendar
 
 from deps import get_db, get_current_user, require_role, op_filter, op_id
+from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month
 import re
@@ -1009,6 +1010,9 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
             conn.commit()
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
+    log_action("customer_create", "customers", customer_id,
+               new_value={"name": data.name, "phone": data.phone, "area": data.area or ""},
+               user=current_user)
     return {"customer_id": customer_id, "message": "Customer created successfully"}
 
 
@@ -1063,6 +1067,9 @@ def update_customer(customer_id: str, data: CustomerUpdate, current_user=Depends
             conn.execute(f"UPDATE customers SET {set_clause} WHERE customer_id = ? {_of_c}",
                          list(updates.values()) + [customer_id])
             conn.commit()
+            log_action("customer_update", "customers", customer_id,
+                       old_value={k: dict(existing).get(k) for k in updates},
+                       new_value=updates, user=current_user)
         return {"message": "Customer updated successfully"}
 
 
@@ -1078,11 +1085,14 @@ def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
             raise HTTPException(status_code=404, detail="Customer not found")
 
         # Delete in order: plans -> payments -> connections -> customer
+        snap = dict(existing)
         conn.execute(f"DELETE FROM customer_plans WHERE customer_id = ? {_of_c}", [customer_id])
         conn.execute("DELETE FROM payments WHERE customer_id = ?", [customer_id])
         conn.execute(f"DELETE FROM connections WHERE customer_id = ? {_of_c}", [customer_id])
         conn.execute(f"DELETE FROM customers WHERE customer_id = ? {_of_c}", [customer_id])
         conn.commit()
+        log_action("customer_delete", "customers", customer_id,
+                   old_value=snap, user=current_user)
         return {"message": "Customer deleted successfully"}
 
 

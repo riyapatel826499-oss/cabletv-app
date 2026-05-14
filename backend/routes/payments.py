@@ -10,6 +10,7 @@ from utils import get_current_month
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
 from routes.wa_notify import send_payment_receipt
+from audit import log_action
 
 router = APIRouter(prefix="/api", tags=["Payments"])
 
@@ -160,6 +161,12 @@ def create_payment(
 
         conn.commit()
 
+        # Audit log
+        log_action("payment_create", "payments", str(payment_id),
+                   new_value={"customer_id": data.customer_id, "amount": data.amount,
+                              "mode": data.payment_mode, "month": data.month_year},
+                   user=current_user)
+
         # Fetch the created payment with user info
         payment = conn.execute(
             """SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area, c.status as customer_status, u.name as collector_name
@@ -259,7 +266,7 @@ def payment_history(
             JOIN customers c ON p.customer_id = c.customer_id
             LEFT JOIN users u ON p.collected_by = u.id
             LEFT JOIN connections con ON p.connection_id = con.id
-            WHERE 1=1
+            WHERE (p.deleted IS NULL OR p.deleted = 0)
         """
         params = []
         if agent_filter:
@@ -335,7 +342,8 @@ def all_payment_history(
             JOIN customers c ON p.customer_id = c.customer_id
             LEFT JOIN users u ON p.collected_by = u.id
             LEFT JOIN connections con ON p.connection_id = con.id
-            WHERE DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
+            WHERE (p.deleted IS NULL OR p.deleted = 0)
+              AND DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
         """
         local_params = [date_from, date_to]
         # Agents can only see their own collected payments
@@ -462,19 +470,26 @@ def all_payment_history(
 
 
 @router.delete("/payments/{payment_id}")
-def delete_payment(payment_id: int, current_user: dict = Depends(require_role("master", "admin"))):
+def delete_payment(
+    payment_id: int,
+    reason: Optional[str] = Query(None),
+    current_user: dict = Depends(require_role("master", "admin"))
+):
     with get_db() as conn:
         _opf = op_filter(current_user)
 
-        # Fetch payment to delete
+        # Fetch payment to delete (exclude already-deleted)
         payment = conn.execute(
-            f"SELECT * FROM payments WHERE id = ? AND {_opf}", (payment_id,)
+            f"SELECT * FROM payments WHERE id = ? AND (deleted IS NULL OR deleted = 0) AND {_opf}", (payment_id,)
         ).fetchone()
         if not payment:
             raise HTTPException(status_code=404, detail="Payment not found")
 
         customer_id = payment["customer_id"]
         connection_id = payment["connection_id"]
+
+        # Snapshot before deletion for audit
+        payment_snapshot = dict(payment)
 
         # Get current expiry before deletion
         old_expiry = None
@@ -485,12 +500,22 @@ def delete_payment(payment_id: int, current_user: dict = Depends(require_role("m
         if cust_plan:
             old_expiry = cust_plan["expiry_date"]
 
-        # Delete the payment
-        conn.execute(f"DELETE FROM payments WHERE id = ? AND {_opf}", (payment_id,))
+        # Soft-delete the payment (mark deleted, keep row)
+        conn.execute(
+            """UPDATE payments SET deleted = 1, deleted_by = ?, deleted_at = CURRENT_TIMESTAMP,
+               delete_reason = ? WHERE id = ?""",
+            (current_user["id"], reason or "", payment_id)
+        )
 
-        # Count remaining LOCAL payments for this customer's connection
+        # Audit log
+        log_action("payment_delete", "payments", str(payment_id),
+                   old_value=payment_snapshot,
+                   new_value={"reason": reason, "deleted_by": current_user.get("name")},
+                   user=current_user)
+
+        # Count remaining LOCAL payments for this customer's connection (exclude soft-deleted)
         remaining = conn.execute(
-            f"SELECT id, month_year, collected_at FROM payments WHERE customer_id = ? AND connection_id = ? AND {_opf} ORDER BY collected_at ASC",
+            f"SELECT id, month_year, collected_at FROM payments WHERE customer_id = ? AND connection_id = ? AND (deleted IS NULL OR deleted = 0) AND {_opf} ORDER BY collected_at ASC",
             (customer_id, connection_id),
         ).fetchall()
 

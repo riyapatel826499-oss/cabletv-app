@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
-from deps import get_db, get_current_user, op_filter, op_id
+from deps import get_db, get_current_user, require_role, op_filter, op_id
 
 router = APIRouter(prefix="/api", tags=["Plans"])
 
@@ -69,7 +69,7 @@ def get_plan(plan_id: int, current_user=Depends(get_current_user)):
 
 
 @router.post("/plans", status_code=201)
-def create_plan(data: PlanCreate, current_user=Depends(get_current_user)):
+def create_plan(data: PlanCreate, current_user=Depends(require_role("admin", "master"))):
     _opf = op_filter(current_user)
     _opid = op_id(current_user)
     with get_db() as conn:
@@ -85,7 +85,7 @@ def create_plan(data: PlanCreate, current_user=Depends(get_current_user)):
 
 
 @router.put("/plans/{plan_id}")
-def update_plan(plan_id: int, data: PlanUpdate, current_user=Depends(get_current_user)):
+def update_plan(plan_id: int, data: PlanUpdate, current_user=Depends(require_role("admin", "master"))):
     with get_db() as conn:
         _opf = op_filter(current_user)
         plan = conn.execute(f"SELECT * FROM plans WHERE id = ? AND {_opf}", (plan_id,)).fetchone()
@@ -102,7 +102,7 @@ def update_plan(plan_id: int, data: PlanUpdate, current_user=Depends(get_current
 
 
 @router.delete("/plans/{plan_id}")
-def delete_plan(plan_id: int, current_user=Depends(get_current_user)):
+def delete_plan(plan_id: int, current_user=Depends(require_role("admin", "master"))):
     with get_db() as conn:
         _opf = op_filter(current_user)
         plan = conn.execute(f"SELECT * FROM plans WHERE id = ? AND {_opf}", (plan_id,)).fetchone()

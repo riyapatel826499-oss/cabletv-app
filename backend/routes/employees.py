@@ -99,10 +99,8 @@ def get_roles(current_user=Depends(get_current_user)):
 
 
 @router.post("/employees")
-def create_employee(data: EmployeeCreate, current_user=Depends(get_current_user)):
-    """Create a new employee. Admin only."""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only Admin can create employees")
+def create_employee(data: EmployeeCreate, current_user=Depends(require_role("admin", "master"))):
+    """Create a new employee. Admin/master only."""
 
     if data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
@@ -230,10 +228,8 @@ def update_password(emp_id: int, data: PasswordUpdate, current_user=Depends(get_
 
 
 @router.delete("/employees/{emp_id}")
-def delete_employee(emp_id: int, current_user=Depends(get_current_user)):
-    """Delete/deactivate employee. Admin only."""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only Admin can delete employees")
+def delete_employee(emp_id: int, current_user=Depends(require_role("admin", "master"))):
+    """Delete/deactivate employee. Admin/master only."""
 
     flt = op_filter(current_user)
 

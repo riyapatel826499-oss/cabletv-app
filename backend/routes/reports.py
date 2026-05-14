@@ -384,3 +384,110 @@ def my_collections(
             "per_page": per_page,
             "payments": payments
         }
+
+
+@router.get("/mom-trend")
+def mom_trend(
+    months: int = Query(6, ge=2, le=24),
+    current_user=Depends(get_current_user),
+):
+    """Month-over-month revenue trend for the last N months (local + Paypakka combined)."""
+    from datetime import datetime, date
+    import calendar
+
+    flt = op_filter(current_user)
+    now = datetime.now()
+
+    # Build list of months to query
+    month_list = []
+    for i in range(months - 1, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        label = date(y, m, 1).strftime("%b %Y")
+        first = f"{y}-{m:02d}-01"
+        last_day = calendar.monthrange(y, m)[1]
+        last = f"{y}-{m:02d}-{last_day}"
+        month_list.append({"label": label, "first": first, "last": last})
+
+    results = []
+    with get_db() as conn:
+        for mo in month_list:
+            # Local payments
+            local = conn.execute(
+                f"""SELECT COALESCE(SUM(p.amount), 0) as total, COUNT(*) as cnt
+                    FROM payments p
+                    JOIN customers c ON p.customer_id = c.customer_id
+                    WHERE (p.deleted IS NULL OR p.deleted = 0)
+                      AND DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
+                      AND c.{flt}""",
+                (mo["first"], mo["last"])
+            ).fetchone()
+
+            # Paypakka payments
+            pp = conn.execute(
+                f"""SELECT COALESCE(SUM(pp.collection_amount), 0) as total, COUNT(*) as cnt
+                    FROM paypakka_payments pp
+                    LEFT JOIN customers c ON pp.customer_id = c.customer_id
+                    WHERE DATE(pp.paypakka_created_at) >= ? AND DATE(pp.paypakka_created_at) <= ?
+                      AND pp.{flt}""",
+                (mo["first"], mo["last"])
+            ).fetchone()
+
+            local_total = local["total"] if local else 0
+            pp_total = pp["total"] if pp else 0
+            results.append({
+                "month": mo["label"],
+                "local": round(local_total, 2),
+                "paypakka": round(pp_total, 2),
+                "total": round(local_total + pp_total, 2),
+                "count": (local["cnt"] if local else 0) + (pp["cnt"] if pp else 0),
+            })
+
+    return {"months": months, "data": results}
+
+
+@router.get("/audit-log")
+def audit_log(
+    entity: Optional[str] = Query(None),
+    entity_id: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    current_user=Depends(get_current_user),
+):
+    """Fetch audit log entries. Admin/master only."""
+    from deps import require_role
+    if current_user.get("role") not in ("admin", "master"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    with get_db() as conn:
+        where = ["1=1"]
+        params = []
+        if entity:
+            where.append("entity = ?")
+            params.append(entity)
+        if entity_id:
+            where.append("entity_id = ?")
+            params.append(entity_id)
+        if action:
+            where.append("action = ?")
+            params.append(action)
+
+        where_sql = " AND ".join(where)
+        total = conn.execute(f"SELECT COUNT(*) FROM audit_log WHERE {where_sql}", params).fetchone()[0]
+        rows = conn.execute(
+            f"""SELECT * FROM audit_log WHERE {where_sql}
+                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+            params + [per_page, (page - 1) * per_page]
+        ).fetchall()
+
+    return {
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "entries": [dict(r) for r in rows],
+    }
