@@ -32,7 +32,7 @@ def dashboard_stats(current_user=Depends(get_current_user)):
 
         # Total active customers
         total_customers = conn.execute(
-            f"SELECT COUNT(*) FROM customers WHERE status = 'Active' AND {flt}"
+            f"SELECT COUNT(*) FROM customers WHERE {flt}"
         ).fetchone()[0]
 
         # Total connections
@@ -309,7 +309,7 @@ def master_dashboard(current_user=Depends(get_current_user)):
         operators = conn.execute(
             """SELECT o.id, o.business_name, o.owner_name, o.phone, o.area, o.mso,
                       o.customer_prefix, o.status, o.created_at,
-                      (SELECT COUNT(*) FROM customers WHERE operator_id = o.id AND status = 'Active') as customer_count,
+                      (SELECT COUNT(*) FROM customers WHERE operator_id = o.id) as customer_count,
                       (SELECT COUNT(*) FROM connections WHERE operator_id = o.id AND status = 'Active') as connection_count,
                       (SELECT COUNT(DISTINCT customer_id) FROM (
                           SELECT customer_id FROM payments WHERE operator_id = o.id AND collected_at >= ? AND collected_at <= ?
