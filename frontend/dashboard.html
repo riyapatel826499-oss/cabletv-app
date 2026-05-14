@@ -90,6 +90,35 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 .mob-pay-details{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-light)}
 .mob-pay-details span{display:flex;align-items:center;gap:3px}
 
+/* Modern Report Cards (mobile) */
+.mob-rpt-cards{display:none}
+.rcard{background:var(--bg-card);border-radius:14px;padding:16px;margin-bottom:12px;border:0.5px solid var(--border);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden}
+.rcard:active{transform:scale(0.985);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.rcard-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px}
+.rcard-cust{flex:1;min-width:0}
+.rcard-name{font-weight:700;font-size:15px;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcard-id{font-size:11px;color:var(--text-light);margin-top:1px}
+.rcard-amt{font-weight:800;font-size:18px;color:var(--success);white-space:nowrap;letter-spacing:-0.3px}
+.rcard-stb-wrap{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.rcard-stb{font-family:'SF Mono','Courier New',monospace;font-size:13px;font-weight:600;color:var(--primary);background:rgba(99,102,241,0.08);padding:6px 12px;border-radius:10px;border:1.5px dashed rgba(99,102,241,0.25);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .2s;-webkit-tap-highlight-color:transparent;user-select:none;position:relative}
+.rcard-stb:active{background:var(--primary);color:#fff;border-color:var(--primary);transform:scale(0.96)}
+.rcard-stb .copy-icon{font-size:14px;opacity:0.6;transition:opacity .2s}
+.rcard-stb:active .copy-icon{opacity:1}
+.rcard-stb.copied{background:var(--success)!important;color:#fff!important;border-color:var(--success)!important}
+.rcard-stb.copied .copy-icon{opacity:1}
+.rcard-no-stb{font-size:12px;color:var(--text-light);font-style:italic}
+.rcard-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.rcard-tag{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;display:inline-flex;align-items:center;gap:3px}
+.rcard-tag.mode{background:rgba(99,102,241,0.1);color:var(--primary)}
+.rcard-tag.source{background:rgba(34,197,94,0.1);color:var(--success)}
+.rcard-tag.area{background:rgba(245,158,11,0.1);color:#b45309}
+.rcard-tag.plan{background:rgba(139,92,246,0.1);color:#7c3aed}
+.rcard-footer{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:0.5px solid var(--border);font-size:12px;color:var(--text-light)}
+.rcard-footer-left{display:flex;align-items:center;gap:4px}
+.rcard-footer-right{display:flex;align-items:center;gap:8px}
+.rcard-loc{color:var(--primary);text-decoration:none;font-size:16px}
+.rcard-del{font-size:14px}
+
 /* Mobile pull-to-refresh */
 .ptr-wrapper{position:relative;overflow:hidden}
 .ptr-indicator{position:absolute;top:-50px;left:50%;transform:translateX(-50%);width:40px;height:40px;border-radius:50%;background:var(--white);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;font-size:20px;transition:top 0.3s;z-index:100}
@@ -153,6 +182,9 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   .mob-pay-list .mp-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-light);align-items:center}
   .mob-pay-list .mp-meta .badge{font-size:10px;padding:2px 8px}
   .mob-pay-list .mp-actions{display:flex;gap:8px;margin-top:4px}
+  /* Reports: mobile card view */
+  #agRptPaid .table-wrap{display:none}
+  .mob-rpt-cards{display:block!important}
   /* Hide on desktop */
   .desktop-only-hide{display:none}
   /* Hamburger bigger touch target */
@@ -452,8 +484,10 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <select id="svcStatusFilter" class="form-control" style="width:auto;padding:4px 8px;font-size:13px" onchange="loadServiceRequests()">
       <option value="">All</option>
       <option value="open">Open</option>
+      <option value="assigned">Assigned</option>
       <option value="acknowledged">Acknowledged</option>
       <option value="on_the_way">On the way</option>
+      <option value="in_progress">In Progress</option>
       <option value="settled">Settled</option>
       <option value="resolved">Resolved</option>
       <option value="closed">Closed</option>
@@ -464,6 +498,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </div>
 <div class="stats-grid" style="margin-bottom:20px">
   <div class="stat-card"><h3>Open</h3><div class="value" id="svcStatOpen">0</div></div>
+  <div class="stat-card"><h3>Assigned</h3><div class="value" id="svcStatAssigned">0</div></div>
   <div class="stat-card"><h3>In Progress</h3><div class="value" id="svcStatInProgress">0</div></div>
   <div class="stat-card success"><h3>Resolved</h3><div class="value" id="svcStatResolved">0</div></div>
   <div class="stat-card warning"><h3>Total</h3><div class="value" id="svcStatTotal">0</div></div>
@@ -628,7 +663,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
       <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
     </select>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
+  <div id="mobAgPaid" class="mob-rpt-cards"></div>
   <div class="pagination" id="agPaidPagination"></div>
 </div>
 
@@ -983,6 +1019,18 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeExchangeModal()">Cancel</button><button class="btn btn-primary" onclick="submitExchange()">Exchange</button></div></div>
 </div>
 
+<!-- Edit Expiry Date Modal -->
+<div id="editExpiryOverlay" class="modal-overlay" onclick="if(event.target===this)closeEditExpiryModal()">
+<div class="modal"><div class="modal-header"><h2>Edit Expiry Date</h2><button class="btn btn-outline btn-sm" onclick="closeEditExpiryModal()">✕</button></div>
+<div class="modal-body">
+<input type="hidden" id="expCustId"><input type="hidden" id="expConnId">
+<div class="form-group"><label>Customer</label><input id="expCustName" class="form-control" readonly></div>
+<div class="form-group"><label>Current Expiry</label><input id="expCurrentDate" class="form-control" readonly></div>
+<div class="form-group"><label>New Expiry Date</label><input type="date" id="expNewDate" class="form-control" required></div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeEditExpiryModal()">Cancel</button><button class="btn btn-primary" onclick="submitEditExpiry()">Update</button></div></div>
+</div>
+
 <!-- Add STB Modal -->
 <div id="addStbOverlay" class="modal-overlay" onclick="if(event.target===this)closeAddStbModal()">
 <div class="modal"><div class="modal-header"><h2>Add STB to Inventory</h2><button class="btn btn-outline btn-sm" onclick="closeAddStbModal()">✕</button></div>
@@ -1115,6 +1163,7 @@ function showPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => { n.classList.toggle('active', n.dataset.page === page); });
+  document.getElementById('sidebar').classList.remove('open');
   const titles = {'dashboard': 'Dashboard', 'customers': 'Customers', 'add-customer': 'Add Customer', 'plans': 'Plans', 'payments': 'Payments', 'unpaid': 'Unpaid Customers', 'not-renewed': 'Not Renewed', 'employees': 'Employees', 'surrender-req': 'Surrender Requests', 'service-requests': 'Service Requests', 'reports': 'Reports', 'reminders': 'Payment Reminders', 'settings': 'Settings', 'operators': 'Operators'};
   document.getElementById('pageTitle').textContent = titles[page] || page;
   if (page === 'dashboard') loadDashboard();
@@ -1633,6 +1682,9 @@ function renderCustConnections() {
     html += '<tr><td>' + stbBadge + '</td><td>' + msoBadge(cn.network) + '</td><td>' + esc(cn.plan_name || '--') + '</td><td>' + fmtDate(cn.activation_date) + '</td><td>' + fmtDate(cn.expiry_date) + '</td><td><span class="badge ' + (cn.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(cn.status || '--') + '</span></td><td>';
     if (cn.status === 'Active') {
       html += '<button class="btn btn-outline btn-sm" onclick="openExchangeModal(\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(cn.id) + '\',\'' + escAttr(cn.stb_no || '') + '\')">🔄 Exchange</button>';
+      if (_userRole === 'admin' || _userRole === 'master') {
+        html += ' <button class="btn btn-outline btn-sm" onclick="openEditExpiryModal(\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(cn.id) + '\',\'' + escAttr(_custData.name || '') + '\',\'' + escAttr(cn.expiry_date || '') + '\')">📅 Expiry</button>';
+      }
     }
     html += '</td></tr>';
   });
@@ -2084,9 +2136,48 @@ async function submitExchange() {
   } catch (e) { toast('Exchange failed: ' + e.message, 'error'); }
 }
 
+// EDIT EXPIRY DATE
+function openEditExpiryModal(custId, connId, custName, currentExpiry) {
+  custId = decodeURIComponent(custId); connId = decodeURIComponent(connId);
+  custName = decodeURIComponent(custName); currentExpiry = decodeURIComponent(currentExpiry);
+  document.getElementById('expCustId').value = custId;
+  document.getElementById('expConnId').value = connId;
+  document.getElementById('expCustName').value = custName || '--';
+  document.getElementById('expCurrentDate').value = currentExpiry || '--';
+  document.getElementById('expNewDate').value = currentExpiry || '';
+  document.getElementById('editExpiryOverlay').classList.add('show');
+}
+
+function closeEditExpiryModal() { document.getElementById('editExpiryOverlay').classList.remove('show'); }
+
+async function submitEditExpiry() {
+  const custId = document.getElementById('expCustId').value;
+  const connId = document.getElementById('expConnId').value;
+  const newDate = document.getElementById('expNewDate').value;
+  if (!newDate) { toast('Select a new expiry date', 'error'); return; }
+  try {
+    await api('/api/customers/' + custId + '/connections/' + connId + '/expiry', {
+      method: 'PUT',
+      body: JSON.stringify({ expiry_date: newDate })
+    });
+    toast('Expiry date updated!', 'success');
+    closeEditExpiryModal();
+    viewCustomer(custId);
+  } catch (e) { toast('Update failed: ' + e.message, 'error'); }
+}
+
 function copyText(text) {
   text = decodeURIComponent(text);
   navigator.clipboard.writeText(text).then(() => { toast('Copied: ' + text, 'success'); }).catch(() => { toast('Copy failed', 'error'); });
+}
+
+function copyStbMobile(el, stb) {
+  navigator.clipboard.writeText(stb).then(() => {
+    el.classList.add('copied');
+    el.querySelector('.copy-icon').textContent = '✅';
+    toast('STB copied: ' + stb, 'success');
+    setTimeout(() => { el.classList.remove('copied'); el.querySelector('.copy-icon').textContent = '📋'; }, 1500);
+  }).catch(() => { toast('Copy failed', 'error'); });
 }
 
 // SURRENDER REQUESTS PAGE
@@ -2143,6 +2234,7 @@ async function loadSvcReqStats() {
   try {
     const stats = await api('/api/service-requests/stats/summary');
     document.getElementById('svcStatOpen').textContent = stats.open_count || 0;
+    document.getElementById('svcStatAssigned').textContent = stats.assigned_count || 0;
     document.getElementById('svcStatInProgress').textContent = stats.in_progress_count || 0;
     document.getElementById('svcStatResolved').textContent = stats.resolved_count || 0;
     document.getElementById('svcStatTotal').textContent = stats.total || 0;
@@ -2277,7 +2369,15 @@ async function showSvcDetail(ticketNo) {
       acts.innerHTML += '<button class="btn btn-sm btn-primary" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'assigned' + q + ')">Assign</button>';
       acts.innerHTML += '<button class="btn btn-sm" style="background:#e53e3e1a;color:#e53e3e" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'cancelled' + q + ')">Cancel</button>';
     }
-    if (r.status === 'assigned' || r.status === 'open') {
+    if (r.status === 'assigned') {
+      acts.innerHTML += '<button class="btn btn-sm" style="background:#805ad51a;color:#805ad5" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'acknowledged' + q + ')">Acknowledge</button>';
+      acts.innerHTML += '<button class="btn btn-sm" style="background:#d69e2e1a;color:#d69e2e" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'in_progress' + q + ')">Start Progress</button>';
+    }
+    if (r.status === 'acknowledged') {
+      acts.innerHTML += '<button class="btn btn-sm" style="background:#dd6b20a;color:#dd6b20" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'on_the_way' + q + ')">On the Way</button>';
+      acts.innerHTML += '<button class="btn btn-sm" style="background:#d69e2e1a;color:#d69e2e" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'in_progress' + q + ')">Start Progress</button>';
+    }
+    if (r.status === 'on_the_way') {
       acts.innerHTML += '<button class="btn btn-sm" style="background:#d69e2e1a;color:#d69e2e" onclick="updateSvcStatus(' + q + ticketNo + q + ',' + q + 'in_progress' + q + ')">Start Progress</button>';
     }
     if (r.status === 'in_progress') {
@@ -2585,12 +2685,12 @@ let _payPlansCache = [];
 // Initialize payment form
 async function initPaymentForm() {
   try {
-    // Load all customers for search (paginate through all)
+    // Load ONLY unpaid customers (expired connections = not paid this month)
     _payAllCustomers = [];
     let page = 1;
     while (true) {
       try {
-        const d = await api('/api/customers?per_page=200&page=' + page);
+        const d = await api('/api/customers/unpaid?per_page=200&page=' + page);
         const items = d.customers || d.items || [];
         _payAllCustomers = _payAllCustomers.concat(items);
         if (items.length < 200 || _payAllCustomers.length >= (d.total || 9999)) break;
@@ -3436,16 +3536,17 @@ function agLoadPaid(page = 1) {
   const perPage = document.getElementById('agPaidPerPage').value;
   const dateFrom = document.getElementById('agPaidFrom').value;
   const dateTo = document.getElementById('agPaidTo').value;
+  const q = document.getElementById('agPaidSearch').value.trim();
 
   let url = `/api/payments/all?page=${page}&per_page=${perPage}`;
   if (dateFrom) url += '&date_from=' + encodeURIComponent(dateFrom);
   if (dateTo) url += '&date_to=' + encodeURIComponent(dateTo);
+  if (q) url += '&q=' + encodeURIComponent(q);
 
   api(url).then(data => {
     const payments = data.payments || [];
-    const totalAmt = payments.reduce((s, p) => s + (p.amount || 0), 0);
     document.getElementById('agPaidCount').textContent = data.total || 0;
-    document.getElementById('agPaidAmt').textContent = fmtRs(totalAmt);
+    document.getElementById('agPaidAmt').textContent = fmtRs(data.total_amount || 0);
 
     // Populate area dropdown from results
     if (document.getElementById('agPaidArea').options.length <= 1) {
@@ -3454,22 +3555,32 @@ function agLoadPaid(page = 1) {
       areas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
     }
 
-    // Apply client-side search/area filter
-    const q = document.getElementById('agPaidSearch').value.trim().toLowerCase();
+    // Apply client-side area filter only
     const areaFilter = document.getElementById('agPaidArea').value;
     let filtered = payments;
-    if (q) filtered = filtered.filter(p => (p.customer_name||'').toLowerCase().includes(q) || (p.customer_id||'').toLowerCase().includes(q) || (p.stb_no||'').includes(q) || (p.customer_phone||'').includes(q));
     if (areaFilter) filtered = filtered.filter(p => p.area === areaFilter);
 
     const tbody = document.getElementById('agPaidBody');
+    const canDelete = (_userRole === 'admin' || _userRole === 'master');
+    // Show/hide delete column header
+    const delTh = document.getElementById('agPaidDelTh');
+    if (delTh) delTh.textContent = canDelete ? '🗑' : '';
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No payments found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="' + (canDelete ? 11 : 10) + '" class="empty-state">No payments found</td></tr>';
     } else {
       tbody.innerHTML = filtered.map((p, i) => {
         const phone = p.customer_phone || '';
         const stb = esc(p.stb_no || '-');
         const stbCell = stb !== '-' ? '<span class="stb-badge" onclick="navigator.clipboard.writeText(\'' + esc(p.stb_no) + '\');toast(\'STB copied!\',\'success\')" title="Click to copy">' + stb + '</span>' : '-';
         const dt = p.date ? new Date(p.date + (p.date.endsWith('Z') ? '' : 'Z')).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}) : '-';
+        const isLocal = p.source !== 'paypakka';
+        const localId = p.id || p.payment_id;
+        let delCell = '';
+        if (canDelete && isLocal && localId) {
+          delCell = '<td><button class="btn btn-sm btn-danger" onclick="agDeletePayment(' + localId + ',\'' + escAttr(p.customer_name || '') + '\')" title="Delete this payment">🗑</button></td>';
+        } else if (canDelete) {
+          delCell = '<td><span class="badge" style="background:#6c757d;color:#fff;font-size:10px">Paypakka</span></td>';
+        }
         return '<tr>' +
           '<td>' + ((data.page - 1) * parseInt(perPage) + i + 1) + '</td>' +
           '<td><strong>' + esc(p.customer_name || '--') + '</strong><br><span style="font-size:11px;color:var(--text-light)">' + esc(p.customer_id || '') + '</span></td>' +
@@ -3481,8 +3592,54 @@ function agLoadPaid(page = 1) {
           '<td style="font-size:12px">' + dt + '</td>' +
           '<td style="font-size:12px">' + esc(p.collector || '-') + '</td>' +
           '<td>' + (p.latitude && p.longitude ? '<a href="https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude + '" target="_blank" class="btn btn-outline btn-sm" title="View location">📍</a>' : '-') + '</td>' +
+          delCell +
           '</tr>';
       }).join('');
+    }
+
+    // Mobile card view for Reports Paid tab
+    const mobPaidEl = document.getElementById('mobAgPaid');
+    if (mobPaidEl) {
+      if (!filtered.length) {
+        mobPaidEl.innerHTML = '<div style="text-align:center;padding:30px 16px;color:var(--text-light)"><div style="font-size:40px;margin-bottom:8px">📭</div>No payments found</div>';
+      } else {
+        mobPaidEl.innerHTML = filtered.map(p => {
+          const dt = p.date ? new Date(p.date + (p.date.endsWith('Z') ? '' : 'Z')).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '-';
+          const isLocal = p.source !== 'paypakka';
+          const localId = p.id || p.payment_id;
+          // STB touch-to-copy
+          let stbHtml = '';
+          if (p.stb_no) {
+            stbHtml = '<div class="rcard-stb-wrap"><div class="rcard-stb" onclick="copyStbMobile(this,\'' + escAttr(p.stb_no) + '\')" title="Touch to copy"><span class="copy-icon">📋</span>' + esc(p.stb_no) + '</div></div>';
+          }
+          // Tags
+          let tags = '';
+          tags += '<span class="rcard-tag mode">' + esc(p.payment_mode || '--') + '</span>';
+          if (p.area) tags += '<span class="rcard-tag area">📍 ' + esc(p.area) + '</span>';
+          if (p.month_year) tags += '<span class="rcard-tag plan">📅 ' + esc(p.month_year) + '</span>';
+          // Footer
+          let footerRight = '';
+          if (p.latitude && p.longitude) footerRight += '<a href="https://www.google.com/maps?q=' + p.latitude + ',' + p.longitude + '" target="_blank" class="rcard-loc" title="View location">📍</a>';
+          if (canDelete && isLocal && localId) footerRight += '<button class="rcard-del" onclick="agDeletePayment(' + localId + ',\'' + escAttr(p.customer_name || '') + '\')" title="Delete">🗑️</button>';
+          else if (canDelete) footerRight += '<span class="badge" style="background:#6c757d;color:#fff;font-size:9px">PP</span>';
+
+          return '<div class="rcard">'
+            + '<div class="rcard-header">'
+            + '<div class="rcard-cust">'
+            + '<div class="rcard-name">' + esc(p.customer_name || '--') + '</div>'
+            + '<div class="rcard-id">' + esc(p.customer_id || '') + '</div>'
+            + '</div>'
+            + '<div class="rcard-amt">₹' + (p.amount || 0) + '</div>'
+            + '</div>'
+            + stbHtml
+            + '<div class="rcard-tags">' + tags + '</div>'
+            + '<div class="rcard-footer">'
+            + '<div class="rcard-footer-left">👤 ' + esc(p.collector || '-') + ' · ' + dt + '</div>'
+            + '<div class="rcard-footer-right">' + footerRight + '</div>'
+            + '</div>'
+            + '</div>';
+        }).join('');
+      }
     }
 
     // Pagination
@@ -3496,6 +3653,31 @@ function agLoadPaid(page = 1) {
   }).catch(() => {
     document.getElementById('agPaidBody').innerHTML = '<tr><td colspan="10" class="empty-state">Failed to load</td></tr>';
   });
+}
+
+// ── Delete Payment (admin/master only) ──
+async function agDeletePayment(paymentId, customerName) {
+  const confirmed = confirm('⚠️ Delete this payment?\n\nCustomer: ' + customerName + '\nPayment ID: ' + paymentId + '\n\nThe expiry date will be automatically adjusted after deletion.');
+  if (!confirmed) return;
+
+  try {
+    const res = await api('/api/payments/' + paymentId, { method: 'DELETE' });
+
+    if (res.old_expiry && res.new_expiry && res.old_expiry !== res.new_expiry) {
+      const oldDate = new Date(res.old_expiry).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+      const newDate = new Date(res.new_expiry).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+      alert('✅ Payment deleted!\n\n📅 Expiry Updated:\n   Old: ' + oldDate + '\n   New: ' + newDate + '\n\nRemaining payments: ' + res.remaining_payments);
+    } else {
+      toast('Payment deleted successfully', 'success');
+    }
+
+    // Reload paid list
+    agLoadPaid(1);
+    // Also refresh dashboard stats
+    if (typeof loadDashboard === 'function') loadDashboard();
+  } catch (e) {
+    toast('Failed to delete: ' + (e.message || 'Unknown error'), 'error');
+  }
 }
 
 // ── Unpaid ──
