@@ -330,7 +330,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="custSortBy" onchange="loadCustomers(1)"><option value="name">Sort: Name</option><option value="customer_id">Sort: ID</option><option value="area">Sort: Area</option></select>
 <select id="custSortOrder" onchange="loadCustomers(1)"><option value="asc">ASC</option><option value="desc">DESC</option></select>
 <select id="custPerPage" onchange="loadCustomers(1)"><option value="10" selected>10/page</option><option value="20">20/page</option><option value="50">50/page</option></select>
-<select id="custStatusFilter" onchange="loadCustomers(1)"><option value="">All Status</option><option value="Active" selected>Active</option><option value="Surrendered">Surrendered</option><option value="Pending Surrender">Pending Surrender</option></select>
+<select id="custStatusFilter" onchange="loadCustomers(1)"><option value="">All Status</option><option value="Active" selected>Active</option><option value="Temp Disconnected">Temp Disconnected</option><option value="Surrendered">Surrendered</option><option value="Pending Surrender">Pending Surrender</option></select>
 <select id="custPlanFilter" onchange="loadCustomers(1)"><option value="">All Plans</option></select>
 <button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')">📥 CSV</button>
 <button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')">📥 Excel</button>
@@ -999,6 +999,21 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeExchangeModal()">Cancel</button><button class="btn btn-primary" onclick="submitExchange()">Exchange</button></div></div>
 </div>
 
+<!-- Reconnect Modal -->
+<div id="reconnectOverlay" class="modal-overlay" onclick="if(event.target===this)closeReconnectModal()">
+<div class="modal"><div class="modal-header"><h2>⚡ Reconnect Customer</h2><button class="btn btn-outline btn-sm" onclick="closeReconnectModal()">✕</button></div>
+<div class="modal-body">
+<input type="hidden" id="reconnectCustId">
+<div class="form-group"><label>Customer</label><div id="reconnectCustName" style="font-weight:600;font-size:1.1em"></div></div>
+<div class="form-group"><label>Assign STB Number</label><input id="reconnectStbNo" class="form-control" placeholder="Enter STB number or pick from available below"></div>
+<div id="reconnectAvailStbs" style="margin-bottom:12px"></div>
+<div style="background:var(--card-bg);border-radius:8px;padding:12px;margin-top:12px;border-left:3px solid var(--success)">
+<p style="margin:0;font-size:0.9em;color:var(--success)">✅ No installation charges — customer only pays monthly subscription going forward</p>
+</div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeReconnectModal()">Cancel</button><button class="btn btn-primary" onclick="doReconnect()">⚡ Reconnect</button></div></div>
+</div>
+
 <!-- Edit Expiry Date Modal -->
 <div id="editExpiryOverlay" class="modal-overlay" onclick="if(event.target===this)closeEditExpiryModal()">
 <div class="modal"><div class="modal-header"><h2>Edit Expiry Date</h2><button class="btn btn-outline btn-sm" onclick="closeEditExpiryModal()">✕</button></div>
@@ -1461,6 +1476,9 @@ async function loadCustomers(page = 1) {
         }
         if (c.status === 'Surrendered') {
           actions += '<button class="btn btn-success btn-sm" title="Reactivate Customer" onclick="reactivateCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">↩️</button>';
+        } else if (c.status === 'Temp Disconnected') {
+          actions += '<button class="btn btn-primary btn-sm" title="Reconnect" onclick="openReconnectModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⚡</button>';
+          actions += '<button class="btn btn-warning btn-sm" title="Surrender" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
         } else if (c.status === 'Active') {
           actions += '<button class="btn btn-warning btn-sm" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
         }
@@ -1604,6 +1622,8 @@ async function viewCustomer(id) {
     document.getElementById('custDetailFooter').innerHTML = '';
     if (c.status === 'Surrendered') {
       document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-success" onclick="reactivateCustomer(\'' + escAttr(id) + '\')">Reactivate</button>';
+    } else if (c.status === 'Temp Disconnected') {
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-primary" onclick="openReconnectModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button> <button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
     } else if (c.status === 'Active') {
       document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
     }
@@ -1646,7 +1666,7 @@ function renderCustProfile() {
     '<div><strong>Phone 2:</strong><br>' + esc(c.phone2 || '--') + '</div>' +
     '<div><strong>Area:</strong><br>' + esc(c.area || '--') + '</div>' +
     '<div><strong>Address:</strong><br>' + esc(c.address || '--') + '</div>' +
-    '<div><strong>Status:</strong><br><span class="badge ' + (c.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(c.status || '--') + '</span></div>' +
+    '<div><strong>Status:</strong><br><span class="badge ' + (c.status === 'Active' ? 'badge-success' : (c.status === 'Temp Disconnected' ? 'badge-warning' : 'badge-danger')) + '">' + esc(c.status || '--') + '</span></div>' +
     '<div><strong>Paid This Month:</strong><br><span class="badge ' + (c.is_paid ? 'badge-success' : 'badge-danger') + '">' + (c.is_paid ? 'Yes' : 'No') + '</span></div>' +
     (c.surrendered_date ? '<div><strong>Surrendered:</strong><br>' + fmtDate(c.surrendered_date) + '</div>' : '') +
     '</div>';
@@ -1659,17 +1679,81 @@ function renderCustConnections() {
   let html = '<table><thead><tr><th>STB</th><th>MSO</th><th>Plan</th><th>Activated</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
   conns.forEach(cn => {
     const stbBadge = cn.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + escAttr(cn.stb_no) + '\')">' + esc(cn.stb_no) + '</span>' : '--';
-    html += '<tr><td>' + stbBadge + '</td><td>' + msoBadge(cn.network) + '</td><td>' + esc(cn.plan_name || '--') + '</td><td>' + fmtDate(cn.activation_date) + '</td><td>' + fmtDate(cn.expiry_date) + '</td><td><span class="badge ' + (cn.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(cn.status || '--') + '</span></td><td>';
+    html += '<tr><td>' + stbBadge + '</td><td>' + msoBadge(cn.network) + '</td><td>' + esc(cn.plan_name || '--') + '</td><td>' + fmtDate(cn.activation_date) + '</td><td>' + fmtDate(cn.expiry_date) + '</td><td><span class="badge ' + (cn.status === 'Active' ? 'badge-success' : (cn.status === 'Temp Disconnected' ? 'badge-warning' : 'badge-danger')) + '">' + esc(cn.status || '--') + '</span></td><td>';
     if (cn.status === 'Active') {
       html += '<button class="btn btn-outline btn-sm" onclick="openExchangeModal(\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(cn.id) + '\',\'' + escAttr(cn.stb_no || '') + '\')">🔄 Exchange</button>';
       if (_userRole === 'admin' || _userRole === 'master') {
         html += ' <button class="btn btn-outline btn-sm" onclick="openEditExpiryModal(\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(cn.id) + '\',\'' + escAttr(_custData.name || '') + '\',\'' + escAttr(cn.expiry_date || '') + '\')">📅 Expiry</button>';
       }
+      html += ' <button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="tempDisconnectConn(' + cn.id + ',\'' + escAttr(cn.stb_no || '') + '\',\'' + escAttr(_custData.name || '') + '\')">📦 Reclaim STB</button>';
+    } else if (cn.status === 'Temp Disconnected') {
+      html += '<span style="color:var(--warning);font-size:0.85em">STB reclaimed — use Reconnect button below</span>';
     }
     html += '</td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('custTabConnections').innerHTML = html;
+}
+
+// ── Temp Disconnect (Reclaim STB) ────────────────────────────────
+async function tempDisconnectConn(connId, stbNo, custName) {
+  if (!confirm('Reclaim STB ' + stbNo + ' from ' + custName + '?\n\n• STB will be available for other customers\n• No refund will be given\n• Customer can reconnect anytime without extra charges')) return;
+  try {
+    const r = await api('/api/connections/temp-disconnect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ connection_id: connId })
+    });
+    toast(r.message || 'STB reclaimed successfully', 'success');
+    // Reload customer detail
+    await viewCustomer(_custData.customer_id);
+  } catch (e) {
+    toast(e.detail || e.message || 'Failed to reclaim STB', 'error');
+  }
+}
+
+// ── Reconnect Modal ──────────────────────────────────────────────
+function openReconnectModal(custId, custName) {
+  document.getElementById('reconnectCustId').value = custId;
+  document.getElementById('reconnectCustName').textContent = custName;
+  document.getElementById('reconnectStbNo').value = '';
+  document.getElementById('reconnectAvailStbs').innerHTML = '<p style="color:var(--muted);font-size:0.9em">Loading available STBs...</p>';
+  document.getElementById('reconnectOverlay').classList.add('show');
+  loadReconnectAvailStbs();
+}
+function closeReconnectModal() { document.getElementById('reconnectOverlay').classList.remove('show'); }
+
+async function loadReconnectAvailStbs() {
+  try {
+    const d = await api('/api/stb-inventory?status=available');
+    const stbs = (d.items || d.inventory || []);
+    const el = document.getElementById('reconnectAvailStbs');
+    if (!stbs.length) { el.innerHTML = '<p style="color:var(--muted);font-size:0.9em">No spare STBs in inventory. Enter STB number manually.</p>'; return; }
+    let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+    stbs.forEach(s => {
+      html += '<button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById(\'reconnectStbNo\').value=\'' + escAttr(s.stb_no) + '\'">' + esc(s.stb_no) + '</button>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) { document.getElementById('reconnectAvailStbs').innerHTML = '<p style="color:var(--muted);font-size:0.9em">Could not load inventory.</p>'; }
+}
+
+async function doReconnect() {
+  const custId = document.getElementById('reconnectCustId').value;
+  const stbNo = document.getElementById('reconnectStbNo').value.trim();
+  if (!stbNo) { toast('Enter an STB number', 'error'); return; }
+  try {
+    const r = await api('/api/connections/reconnect', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ customer_id: custId, stb_no: stbNo })
+    });
+    toast(r.message || 'Customer reconnected!', 'success');
+    closeReconnectModal();
+    await viewCustomer(custId);
+  } catch (e) {
+    toast(e.detail || e.message || 'Reconnect failed', 'error');
+  }
 }
 
 let _allPlansCache = null;
