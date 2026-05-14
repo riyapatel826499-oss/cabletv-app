@@ -403,11 +403,36 @@ def get_unpaid_customers(
 
         offset = (page - 1) * per_page
 
-        # Base query: active connections with expiry before ref_date
+        # Base query: active connections with expired expiry OR
+        # active connections with future expiry but no payment this month
+        # (imported customers may have future expiry_date from Paypakka but haven't actually paid)
         _of_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
         _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
-        where = f"WHERE conn.status = 'Active' AND conn.expiry_date < ? AND {_of_conn} AND {_of_c}"
-        params: list = [ref_str]
+        month_start = ref_date.strftime("%Y-%m-01")
+        # month_end for payment check = end of ref_date's month
+        if ref_date.month == 12:
+            month_end_dt = ref_date.replace(year=ref_date.year, month=12, day=31)
+        else:
+            month_end_dt = ref_date.replace(month=ref_date.month + 1, day=1)
+            month_end_dt = month_end_dt.replace(day=1)  # first of next month minus 1 day
+            from datetime import timedelta as _td
+            month_end_dt = (month_end_dt - _td(days=1)).replace(hour=23, minute=59, second=59)
+        month_end_str = month_end_dt.strftime("%Y-%m-%d 23:59:59")
+
+        where = f"""WHERE conn.status = 'Active' AND {_of_conn} AND {_of_c}
+            AND (
+                (conn.expiry_date != '' AND conn.expiry_date IS NOT NULL AND conn.expiry_date < ?)
+                OR (
+                    conn.customer_id NOT IN (
+                        SELECT DISTINCT customer_id FROM (
+                            SELECT customer_id FROM payments WHERE collected_at >= ? AND collected_at <= ?
+                            UNION
+                            SELECT customer_id FROM paypakka_payments WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?
+                        )
+                    )
+                )
+            )"""
+        params: list = [ref_str, month_start, month_end_str, month_start, month_end_str]
 
         if q:
             where += " AND (c.name LIKE ? OR c.customer_id LIKE ? OR c.phone LIKE ? OR conn.stb_no LIKE ?)"
@@ -616,6 +641,189 @@ def get_not_renewed_customers(
             "month_label": month_label,
             "first_day": first_day,
             "last_day": last_day,
+        }
+
+
+@router.get("/customers/collection-list")
+def get_collection_list(
+    filter: str = Query("all", regex="^(due_today|due_tomorrow|unpaid|paid|all)$"),
+    q: Optional[str] = None,
+    area: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=200),
+    current_user: dict = Depends(get_current_user),
+):
+    """Get customers grouped by payment status for collection screen.
+    Filters: due_today, due_tomorrow, unpaid, paid, all."""
+    with get_db() as db:
+        _of = op_filter(current_user)
+        today = datetime.now().strftime("%Y-%m-%d")
+        tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+        current_month_start = datetime.now().replace(day=1).strftime("%Y-%m-%d")
+        current_month_end_fmt = datetime.now().strftime("%Y-%m-%d")
+        # For "paid" filter: check if payment exists this month
+        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
+
+        offset = (page - 1) * per_page
+
+        # Build WHERE clause based on filter
+        if filter == "due_today":
+            where = f"WHERE conn.status = 'Active' AND conn.expiry_date = ? AND {_of_conn} AND {_of_c}"
+            params: list = [today]
+        elif filter == "due_tomorrow":
+            where = f"WHERE conn.status = 'Active' AND conn.expiry_date = ? AND {_of_conn} AND {_of_c}"
+            params: list = [tomorrow]
+        elif filter == "unpaid":
+            where = f"WHERE conn.status = 'Active' AND conn.expiry_date != '' AND conn.expiry_date IS NOT NULL AND conn.expiry_date < ? AND {_of_conn} AND {_of_c}"
+            params: list = [today]
+        elif filter == "paid":
+            # Customers who have a payment this month
+            where = f"""WHERE conn.status = 'Active' AND {_of_conn} AND {_of_c}
+                AND EXISTS (
+                    SELECT 1 FROM payments p
+                    WHERE p.customer_id = c.customer_id
+                    AND p.collected_at >= ?
+                )"""
+            params: list = [current_month_start]
+        else:  # "all"
+            where = f"WHERE conn.status = 'Active' AND {_of_conn} AND {_of_c}"
+            params: list = []
+
+        # Search filter
+        if q:
+            where += " AND (c.name LIKE ? OR c.phone LIKE ? OR c.customer_id LIKE ? OR conn.stb_no LIKE ? OR c.area LIKE ?)"
+            params += [f"%{q}%"] * 5
+
+        # Area filter
+        if area:
+            where += " AND c.area = ?"
+            params.append(area)
+
+        # Count total
+        count_row = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM connections conn JOIN customers c ON c.customer_id = conn.customer_id {where}",
+            params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Fetch data with last payment info
+        rows = db.execute(f"""
+            SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address,
+                   conn.id as conn_id, conn.stb_no, conn.can_id, conn.mso,
+                   conn.plan_name, conn.plan_amount, conn.expiry_date, conn.network,
+                   COALESCE(
+                     (SELECT MAX(p.collected_at) FROM payments p
+                      WHERE p.customer_id = conn.customer_id AND p.connection_id = conn.id),
+                     (SELECT MAX(pp.paypakka_created_at) FROM paypakka_payments pp
+                      WHERE pp.customer_id = conn.customer_id),
+                     NULL
+                   ) as last_payment_date,
+                   COALESCE(
+                     (SELECT p.amount FROM payments p
+                      WHERE p.customer_id = conn.customer_id AND p.connection_id = conn.id
+                      ORDER BY p.collected_at DESC LIMIT 1),
+                     (SELECT pp.collection_amount FROM paypakka_payments pp
+                      WHERE pp.customer_id = conn.customer_id
+                      ORDER BY pp.paypakka_created_at DESC LIMIT 1),
+                     NULL
+                   ) as last_payment_amount,
+                   CASE WHEN EXISTS (
+                       SELECT 1 FROM payments p
+                       WHERE p.customer_id = c.customer_id AND p.collected_at >= ?
+                   ) THEN 1 ELSE 0 END as is_paid
+            FROM connections conn
+            JOIN customers c ON c.customer_id = conn.customer_id
+            {where}
+            ORDER BY conn.expiry_date ASC, c.area, c.name
+            LIMIT ? OFFSET ?
+        """, [current_month_start] + params + [per_page, offset]).fetchall()
+
+        # Calculate pending amount for each customer
+        ref_date = datetime.now()
+        results = []
+        for r in rows:
+            exp = r["expiry_date"]
+            gap_months = 0
+            if exp:
+                try:
+                    exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+                    gap_months = (ref_date.year - exp_dt.year) * 12 + (ref_date.month - exp_dt.month)
+                    if gap_months < 0:
+                        gap_months = 0
+                except ValueError:
+                    pass
+
+            plan_amt = r["plan_amount"] or 0
+            is_paid = bool(r["is_paid"])
+            pending = round(plan_amt * (gap_months + 1), 2) if (not is_paid and plan_amt and gap_months >= 0) else 0
+
+            results.append({
+                "customer_id": r["customer_id"],
+                "name": r["name"],
+                "phone": r["phone"],
+                "phone2": r["phone2"],
+                "area": r["area"],
+                "address": r["address"],
+                "conn_id": r["conn_id"],
+                "stb_no": r["stb_no"],
+                "can_id": r["can_id"],
+                "mso": r["mso"],
+                "plan_name": r["plan_name"],
+                "plan_amount": plan_amt,
+                "expiry_date": exp,
+                "is_paid": is_paid,
+                "pending_amount": pending,
+                "last_payment_amount": r["last_payment_amount"],
+                "last_payment_date": r["last_payment_date"],
+                "network": r["network"],
+                "gap_months": gap_months,
+            })
+
+        # Get counts for each filter tab
+        _of_count_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_count_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
+        base_join = f"connections conn JOIN customers c ON c.customer_id = conn.customer_id"
+
+        count_due_today = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM {base_join} WHERE conn.status = 'Active' AND conn.expiry_date = ? AND {_of_count_conn} AND {_of_count_c}",
+            [today]
+        ).fetchone()[0]
+
+        count_due_tomorrow = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM {base_join} WHERE conn.status = 'Active' AND conn.expiry_date = ? AND {_of_count_conn} AND {_of_count_c}",
+            [tomorrow]
+        ).fetchone()[0]
+
+        count_unpaid = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM {base_join} WHERE conn.status = 'Active' AND conn.expiry_date < ? AND {_of_count_conn} AND {_of_count_c}",
+            [today]
+        ).fetchone()[0]
+
+        count_paid = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) FROM {base_join} WHERE conn.status = 'Active' AND {_of_count_conn} AND {_of_count_c} AND EXISTS (SELECT 1 FROM payments p WHERE p.customer_id = c.customer_id AND p.collected_at >= ?)",
+            [current_month_start]
+        ).fetchone()[0]
+
+        # Get distinct areas
+        _of_area = "" if _of == "1=1" else f"AND {_of}"
+        areas = [a["area"] for a in db.execute(
+            f"SELECT DISTINCT area FROM customers WHERE area IS NOT NULL AND area != '' {_of_area} ORDER BY area"
+        ).fetchall() if a["area"]]
+
+        return {
+            "customers": results,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page,
+            "areas": areas,
+            "counts": {
+                "due_today": count_due_today,
+                "due_tomorrow": count_due_tomorrow,
+                "unpaid": count_unpaid,
+                "paid": count_paid,
+            },
         }
 
 
@@ -846,6 +1054,37 @@ def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
         conn.execute(f"DELETE FROM customers WHERE customer_id = ? {_of_c}", [customer_id])
         conn.commit()
         return {"message": "Customer deleted successfully"}
+
+
+class UpdateExpiryRequest(BaseModel):
+    expiry_date: str
+
+@router.put("/customers/{customer_id}/connections/{conn_id}/expiry")
+def update_connection_expiry(customer_id: str, conn_id: int, data: UpdateExpiryRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] not in ("admin", "master"):
+        raise HTTPException(status_code=403, detail="Only Admin can update expiry date")
+    # Validate date format
+    try:
+        from datetime import datetime
+        datetime.strptime(data.expiry_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    with get_db() as conn:
+        _of = op_filter(current_user)
+        _of_conn = "" if _of == "1=1" else f"AND {_of}"
+        # Verify connection belongs to this customer
+        connection = conn.execute(
+            f"SELECT * FROM connections WHERE id = ? AND customer_id = ? {_of_conn}",
+            [conn_id, customer_id]
+        ).fetchone()
+        if not connection:
+            raise HTTPException(status_code=404, detail="Connection not found")
+        conn.execute(
+            f"UPDATE connections SET expiry_date = ? WHERE id = ? {_of_conn}",
+            [data.expiry_date, conn_id]
+        )
+        conn.commit()
+        return {"message": f"Expiry date updated to {data.expiry_date}", "expiry_date": data.expiry_date}
 
 
 class ChangePlanRequest(BaseModel):

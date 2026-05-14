@@ -140,10 +140,9 @@ class _UnpaidListScreenState extends State<UnpaidListScreen> {
 
   Future<void> _load() async {
     try {
-      final result = await ApiService.getCustomers(
+      final result = await ApiService.getUnpaidCustomers(
         page: 1,
         perPage: 100,
-        paymentFilter: 'unpaid',
       );
       if (!mounted) return;
       setState(() {

@@ -441,6 +441,10 @@ def run_migrations(db_path: str = None):
         ("otw_lng", "ALTER TABLE service_requests ADD COLUMN otw_lng REAL"),
         ("settled_lat", "ALTER TABLE service_requests ADD COLUMN settled_lat REAL"),
         ("settled_lng", "ALTER TABLE service_requests ADD COLUMN settled_lng REAL"),
+        # Connections table — temp disconnect / reconnect support
+        ("con_notes", "ALTER TABLE connections ADD COLUMN notes TEXT DEFAULT ''"),
+        ("con_updated_at", "ALTER TABLE connections ADD COLUMN updated_at TEXT"),
+        ("con_disconnect_date", "ALTER TABLE connections ADD COLUMN disconnect_date TEXT"),
     ]
     for col_name, sql in migrations:
         try:
@@ -498,6 +502,18 @@ def run_migrations(db_path: str = None):
     c.execute("CREATE INDEX IF NOT EXISTS idx_sr_assigned ON service_requests(assigned_to)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sr_priority ON service_requests(priority)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_sr_deadline ON service_requests(deadline)")
+
+    # One-time fix: set status='assigned' for SRs that are open but already have assigned_to
+    try:
+        updated = c.execute(
+            "UPDATE service_requests SET status = 'assigned', updated_at = CURRENT_TIMESTAMP "
+            "WHERE status = 'open' AND assigned_to IS NOT NULL"
+        )
+        conn.commit()
+        if updated.rowcount > 0:
+            print(f"Migration OK: fixed {updated.rowcount} SRs from open -> assigned")
+    except Exception:
+        pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS request_timeline (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

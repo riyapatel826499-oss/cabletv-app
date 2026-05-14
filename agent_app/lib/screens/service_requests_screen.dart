@@ -61,6 +61,7 @@ class _ServiceRequestsScreenState extends State<ServiceRequestsScreen> {
   Color _statusColor(String? status) {
     switch (status) {
       case 'open': return const Color(0xFFEF4444);
+      case 'assigned': return const Color(0xFF8B5CF6);
       case 'in_progress': return const Color(0xFFF59E0B);
       case 'resolved': return const Color(0xFF10B981);
       case 'closed': return const Color(0xFF6B7280);
@@ -135,6 +136,8 @@ class _ServiceRequestsScreenState extends State<ServiceRequestsScreen> {
                   _statusChip('All', 'all'),
                   const SizedBox(width: 6),
                   _statusChip('Open', 'open'),
+                  const SizedBox(width: 6),
+                  _statusChip('Assigned', 'assigned'),
                   const SizedBox(width: 6),
                   _statusChip('In Progress', 'in_progress'),
                   const SizedBox(width: 6),
@@ -407,6 +410,15 @@ class _SRDetailSheetState extends State<_SRDetailSheet> {
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white),
                     ),
                   ),
+                if (status == 'assigned')
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _updateStatus('in_progress'),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                      label: const Text('Start Work'),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white),
+                    ),
+                  ),
                 if (status == 'in_progress')
                   Expanded(
                     child: ElevatedButton.icon(
@@ -441,6 +453,7 @@ class _SRDetailSheetState extends State<_SRDetailSheet> {
   Color _statusColor(String? status) {
     switch (status) {
       case 'open': return const Color(0xFFEF4444);
+      case 'assigned': return const Color(0xFF8B5CF6);
       case 'in_progress': return const Color(0xFFF59E0B);
       case 'resolved': return const Color(0xFF10B981);
       case 'closed': return const Color(0xFF6B7280);

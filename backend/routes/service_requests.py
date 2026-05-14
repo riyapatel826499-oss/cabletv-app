@@ -309,7 +309,7 @@ async def assign_service_request(
             raise HTTPException(status_code=400, detail="Cannot assign service request that is not open")
 
         conn.execute(
-            f"UPDATE service_requests SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP WHERE ticket_no = ? AND {_opf}",
+            f"UPDATE service_requests SET assigned_to = ?, status = 'assigned', updated_at = CURRENT_TIMESTAMP WHERE ticket_no = ? AND {_opf}",
             (data.assigned_to, ticket_no),
         )
         conn.commit()

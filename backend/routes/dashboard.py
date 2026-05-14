@@ -194,7 +194,7 @@ def dashboard_stats(current_user=Depends(get_current_user)):
             # SR count for agent
             my_open_sr = 0
             try:
-                sr_row = conn.execute("SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','in_progress') AND assigned_to=?", (uid,)).fetchone()
+                sr_row = conn.execute("SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND assigned_to=?", (uid,)).fetchone()
                 my_open_sr = dict(sr_row)["cnt"] if sr_row else 0
             except Exception:
                 pass
@@ -225,10 +225,10 @@ def dashboard_stats(current_user=Depends(get_current_user)):
 
     # Add open SR count
     try:
-        sr_rows = db.execute(f"SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','in_progress') AND {_opf}").fetchone()
+        sr_rows = db.execute(f"SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND {_opf}").fetchone()
         result["open_sr_count"] = dict(sr_rows)["cnt"] if sr_rows else 0
         if is_agent:
-            sr_my = db.execute("SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','in_progress') AND assigned_to=?", (current_user["id"],)).fetchone()
+            sr_my = db.execute("SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND assigned_to=?", (current_user["id"],)).fetchone()
             result["my_open_sr_count"] = dict(sr_my)["cnt"] if sr_my else 0
     except Exception:
         result["open_sr_count"] = 0

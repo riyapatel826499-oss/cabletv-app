@@ -302,6 +302,7 @@ def all_payment_history(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     customer_id: Optional[str] = None,
+    q: Optional[str] = None,
     export: bool = Query(False),
     current_user=Depends(get_current_user),
 ):
@@ -379,6 +380,7 @@ def all_payment_history(
                 "source": "Local",
                 "customer_id": r["customer_id"],
                 "customer_name": r["customer_name"],
+                "customer_phone": r["customer_phone"] or "",
                 "area": r["area"] or "",
                 "amount": r["amount"],
                 "payment_mode": r["payment_mode"] or "Cash",
@@ -400,6 +402,7 @@ def all_payment_history(
                 "source": "Paypakka",
                 "customer_id": r["customer_id"],
                 "customer_name": r["customer_name"],
+                "customer_phone": r["customer_phone"] or "",
                 "area": r["area"] or "",
                 "amount": r["collection_amount"],
                 "payment_mode": (r["payment_type"] or "cash").title(),
@@ -421,11 +424,21 @@ def all_payment_history(
         # Sort by date descending
         all_payments.sort(key=lambda x: x.get("date") or "", reverse=True)
 
+        # Search filter (name, customer_id, stb_no, phone)
+        if q:
+            ql = q.lower()
+            all_payments = [p for p in all_payments if
+                ql in (p.get("customer_name") or "").lower() or
+                ql in (p.get("customer_id") or "").lower() or
+                ql in (p.get("stb_no") or "") or
+                ql in (p.get("customer_phone") or "")]
+
         total = len(all_payments)
+        total_amount = sum(p.get("amount", 0) or 0 for p in all_payments)
 
         # Export mode: return all payments, no pagination
         if export:
-            return {"total": total, "payments": all_payments, "date_from": date_from, "date_to": date_to}
+            return {"total": total, "total_amount": total_amount, "payments": all_payments, "date_from": date_from, "date_to": date_to}
 
         total_pages = max(1, (total + per_page - 1) // per_page)
         start = (page - 1) * per_page
@@ -433,6 +446,7 @@ def all_payment_history(
 
      return {
         "total": total,
+        "total_amount": total_amount,
         "page": page,
         "per_page": per_page,
         "total_pages": total_pages,
@@ -448,7 +462,7 @@ def all_payment_history(
 
 
 @router.delete("/payments/{payment_id}")
-def delete_payment(payment_id: int, current_user: dict = Depends(require_role("master"))):
+def delete_payment(payment_id: int, current_user: dict = Depends(require_role("master", "admin"))):
     with get_db() as conn:
         _opf = op_filter(current_user)
 

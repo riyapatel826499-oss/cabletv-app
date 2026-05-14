@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/role_provider.dart';
 import '../services/api_service.dart';
+import 'collection_list_screen.dart';
 import 'customer_detail_screen.dart';
 import 'customers_manage_screen.dart';
 import 'customers_tab.dart';
@@ -189,7 +190,7 @@ class _DashboardTabState extends State<DashboardTab> with AutomaticKeepAliveClie
                           color: const Color(0xFF10B981),
                           size: cardSize,
                           onTap: () => Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => const CustomerSearchScreen(forPayment: true),
+                            builder: (_) => const CollectionListScreen(),
                           )),
                         ),
                         const SizedBox(width: 16),

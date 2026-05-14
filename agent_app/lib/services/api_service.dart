@@ -298,6 +298,60 @@ class ApiService {
     return d;
   }
 
+  // ==================== UNPAID CUSTOMERS API ====================
+
+  static Future<Map<String, dynamic>> getUnpaidCustomers({
+    String? q,
+    String? area,
+    int page = 1,
+    int perPage = 100,
+  }) async {
+    final h = await _headers();
+    final params = <String, String>{
+      'page': '$page',
+      'per_page': '$perPage',
+    };
+    if (q != null && q.isNotEmpty) params['q'] = q;
+    if (area != null && area.isNotEmpty) params['area'] = area;
+
+    final uri = Uri.parse('$baseUrl/customers/unpaid').replace(queryParameters: params);
+    final r = await http.get(uri, headers: h);
+    if (r.statusCode == 401) throw Exception('Session expired');
+    return jsonDecode(r.body);
+  }
+
+  // ==================== COLLECTION LIST APIs ====================
+
+  static Future<Map<String, dynamic>> getCollectionList({
+    String filter = 'all',
+    String? q,
+    String? area,
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    final h = await _headers();
+    final params = <String, String>{
+      'filter': filter,
+      'page': '$page',
+      'per_page': '$perPage',
+    };
+    if (q != null && q.isNotEmpty) params['q'] = q;
+    if (area != null && area.isNotEmpty) params['area'] = area;
+
+    final uri = Uri.parse('$baseUrl/customers/collection-list').replace(queryParameters: params);
+    final r = await http.get(uri, headers: h);
+    if (r.statusCode == 401) throw Exception('Session expired');
+    return jsonDecode(r.body);
+  }
+
+  static Future<Map<String, dynamic>> getCustomerCollectionDetail(String customerId) async {
+    final h = await _headers();
+    final r = await http.get(Uri.parse('$baseUrl/customers/$customerId'), headers: h);
+    if (r.statusCode == 401) throw Exception('Session expired');
+    if (r.statusCode != 200) throw Exception('Customer not found');
+    return jsonDecode(r.body);
+  }
+
   // ==================== CUSTOMER SELF-SERVICE APIs ====================
 
   /// Verify mobile number exists in our customer database
@@ -353,6 +407,22 @@ class ApiService {
     final d = jsonDecode(r.body);
     if (r.statusCode != 200) {
       throw Exception(d['message'] ?? d['error'] ?? 'Failed to load profile');
+    }
+    return d;
+  }
+
+  /// Change customer base pack
+  static Future<Map<String, dynamic>> changePlan(String customerId, int planId) async {
+    final h = await _headers();
+    final r = await http.put(
+      Uri.parse('$baseUrl/customers/$customerId/change-plan'),
+      headers: h,
+      body: jsonEncode({'plan_id': planId}),
+    );
+    if (r.statusCode == 401) throw Exception('Session expired');
+    final d = jsonDecode(r.body);
+    if (r.statusCode != 200) {
+      throw Exception(d['detail'] ?? d['error'] ?? 'Failed to change plan');
     }
     return d;
   }

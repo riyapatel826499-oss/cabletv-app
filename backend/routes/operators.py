@@ -281,6 +281,31 @@ def run_migration(user=Depends(require_master)):
         results.append("Promoted first admin to master")
     results.append("Master user cleaned (operator_id=NULL)")
 
+    # SR fix: set status='assigned' for open SRs that have assigned_to
+    try:
+        # Debug: check what's actually in the DB
+        debug_rows = conn.execute(
+            "SELECT id, ticket_no, status, assigned_to FROM service_requests WHERE status = 'open'"
+        ).fetchall()
+        results.append(f"SR debug: found {len(debug_rows)} open SRs")
+        for r in debug_rows:
+            results.append(f"  SR id={r['id']} ticket={r['ticket_no']} assigned_to={r['assigned_to']!r}")
+
+        # Check if assigned_to column has empty strings instead of NULL
+        debug2 = conn.execute(
+            "SELECT id, ticket_no, status, assigned_to FROM service_requests WHERE status = 'open' AND (assigned_to IS NOT NULL AND assigned_to != '' AND assigned_to != 0)"
+        ).fetchall()
+        results.append(f"SR debug2: {len(debug2)} open SRs with non-null/non-empty assigned_to")
+
+        updated = conn.execute(
+            "UPDATE service_requests SET status = 'assigned', updated_at = CURRENT_TIMESTAMP "
+            "WHERE status = 'open' AND assigned_to IS NOT NULL AND assigned_to != '' AND assigned_to != 0"
+        )
+        conn.commit()
+        results.append(f"SR fix: updated {updated.rowcount} rows")
+    except Exception as e:
+        results.append(f"SR fix error: {e}")
+
     # Ensure each operator has an admin (LCO) login
     all_ops = conn.execute("SELECT id, business_name, phone FROM operators WHERE status != 'suspended'").fetchall()
     for op in all_ops:
@@ -736,6 +761,36 @@ def import_confirm(data: ImportConfirmRequest, user=Depends(require_master)):
 
 
 # --- CSV TEMPLATE DOWNLOAD ---
+
+@router.post("/fix-sr-status")
+def fix_sr_status(user=Depends(require_master)):
+    """Force-fix all open SRs that have an assigned_to value."""
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    results = []
+
+    # Debug: show what's in the DB
+    debug = conn.execute("SELECT id, ticket_no, status, assigned_to FROM service_requests WHERE status = 'open'").fetchall()
+    results.append("Open SRs: {}".format(len(debug)))
+    for r in debug:
+        results.append("  id={} ticket={} assigned_to={} (type={})".format(r['id'], r['ticket_no'], r['assigned_to'], type(r['assigned_to']).__name__))
+
+    # Fix
+    cur = conn.execute(
+        "UPDATE service_requests SET status = 'assigned', updated_at = CURRENT_TIMESTAMP "
+        "WHERE status = 'open' AND assigned_to IS NOT NULL AND assigned_to != '' AND CAST(assigned_to AS INTEGER) != 0"
+    )
+    conn.commit()
+    results.append("Updated {} rows to assigned".format(cur.rowcount))
+
+    # Verify
+    still_open = conn.execute("SELECT COUNT(*) as c FROM service_requests WHERE status = 'open'").fetchone()['c']
+    now_assigned = conn.execute("SELECT COUNT(*) as c FROM service_requests WHERE status = 'assigned'").fetchone()['c']
+    results.append("After: open={}, assigned={}".format(still_open, now_assigned))
+    conn.close()
+    return {"ok": True, "results": results}
+
 
 @router.get("/import/template")
 def download_csv_template(user=Depends(require_master)):
