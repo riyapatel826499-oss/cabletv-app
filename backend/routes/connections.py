@@ -300,23 +300,3 @@ def reconnect_customer(data: ReconnectRequest, current_user=Depends(get_current_
             "customer_id": data.customer_id,
             "stb_no": data.stb_no
         }
-
-
-# ── List Temp Disconnected customers ──
-
-@router.get("/customers/temp-disconnected")
-def list_temp_disconnected(current_user=Depends(get_current_user)):
-    """List all Temp Disconnected customers with their reclaimed STBs."""
-    with get_db() as conn:
-        _of = op_filter(current_user, "c.")
-        rows = conn.execute(f"""
-            SELECT c.customer_id, c.name, c.phone, c.area,
-                   con.id as connection_id, con.stb_no as original_stb_placeholder,
-                   con.mso, con.disconnect_date,
-                   (SELECT stb_no FROM stb_inventory WHERE notes LIKE '%' || c.customer_id || '%' AND status = 'available' LIMIT 1) as reclaimed_stb
-            FROM customers c
-            LEFT JOIN connections con ON con.customer_id = c.customer_id AND con.status = 'Temp Disconnected'
-            WHERE c.status = 'Temp Disconnected' AND {_of}
-            ORDER BY c.name
-        """).fetchall()
-        return {"customers": [dict(r) for r in rows]}

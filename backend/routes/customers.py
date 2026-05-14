@@ -854,6 +854,26 @@ def search_customers(
         return [_customer_to_dict(r) for r in rows]
 
 
+# ── Temp Disconnected customers (must be before {customer_id} route) ──
+
+@router.get("/customers/temp-disconnected")
+def list_temp_disconnected(current_user=Depends(get_current_user)):
+    """List all Temp Disconnected customers with their reclaimed STBs."""
+    with get_db() as conn:
+        _of = op_filter(current_user, "c.")
+        rows = conn.execute(f"""
+            SELECT c.customer_id, c.name, c.phone, c.area, c.address,
+                   con.id as connection_id,
+                   con.mso, con.disconnect_date, con.notes as conn_notes,
+                   (SELECT stb_no FROM stb_inventory si WHERE si.notes LIKE '%' || c.customer_id || '%' AND si.status = 'available' LIMIT 1) as reclaimed_stb
+            FROM customers c
+            LEFT JOIN connections con ON con.customer_id = c.customer_id AND con.status = 'Temp Disconnected'
+            WHERE c.status = 'Temp Disconnected' AND {_of}
+            ORDER BY c.name
+        """).fetchall()
+        return {"customers": [dict(r) for r in rows]}
+
+
 @router.get("/customers/{customer_id}")
 def get_customer(customer_id: str, current_user=Depends(get_current_user)):
     with get_db() as conn:
