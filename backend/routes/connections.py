@@ -158,16 +158,16 @@ def temp_disconnect(data: TempDisconnectRequest, current_user=Depends(get_curren
         raise HTTPException(status_code=403, detail="Not authorized")
     
     with get_db() as conn:
-        _opf = op_filter(current_user, "con.")
-        _of = op_filter(current_user)
+        _of = op_filter(current_user, "c.")
+        _of_base = op_filter(current_user)
         _opid = op_id(current_user)
         
-        # Get the connection
+        # Get the connection (filter via customer's operator_id)
         row = conn.execute(f"""
             SELECT con.*, c.name as customer_name, c.customer_id
             FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.id = ? AND {_opf}
+            WHERE con.id = ? AND {_of}
         """, [data.connection_id]).fetchone()
         
         if not row:
@@ -180,17 +180,15 @@ def temp_disconnect(data: TempDisconnectRequest, current_user=Depends(get_curren
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # 1. Update connection status to Temp Disconnected
-        conn.execute(f"""
-            UPDATE connections SET status = 'Temp Disconnected'
-            WHERE id = ? AND {_opf}
-        """, [data.connection_id])
+        conn.execute("UPDATE connections SET status = 'Temp Disconnected' WHERE id = ?",
+                     [data.connection_id])
         
         # Try to add notes/disconnect_date if columns exist
         try:
-            conn.execute(f"""
+            conn.execute("""
                 UPDATE connections SET notes = COALESCE(notes, '') || ?,
                 disconnect_date = ?, updated_at = ?
-                WHERE id = ? AND {_opf}
+                WHERE id = ?
             """, [f"\n[Temp Disconnected: {now}" + (f" — {data.reason}" if data.reason else "") + "]", now, now, data.connection_id])
         except Exception:
             pass  # Columns don't exist yet, that's OK
@@ -212,14 +210,12 @@ def temp_disconnect(data: TempDisconnectRequest, current_user=Depends(get_curren
                         [stb_no, now, note, cust_oid])
         
         # 4. Check if customer has any remaining Active connections
-        remaining = conn.execute(f"""
-            SELECT COUNT(*) as cnt FROM connections
-            WHERE customer_id = ? AND status = 'Active' AND {_opf}
-        """, [customer_id]).fetchone()
+        remaining = conn.execute("SELECT COUNT(*) as cnt FROM connections WHERE customer_id = ? AND status = 'Active'",
+                                [customer_id]).fetchone()
         
         # If no active connections left, mark customer as 'Temp Disconnected' too
         if remaining["cnt"] == 0:
-            conn.execute(f"UPDATE customers SET status = 'Temp Disconnected' WHERE customer_id = ? AND {_of}",
+            conn.execute(f"UPDATE customers SET status = 'Temp Disconnected' WHERE customer_id = ? AND {_of_base}",
                         [customer_id])
         
         conn.commit()
@@ -247,58 +243,54 @@ def reconnect_customer(data: ReconnectRequest, current_user=Depends(get_current_
         raise HTTPException(status_code=403, detail="Not authorized")
     
     with get_db() as conn:
-        _opf = op_filter(current_user, "con.")
-        _of = op_filter(current_user)
+        _of = op_filter(current_user, "c.")
+        _of_base = op_filter(current_user)
         _opid = op_id(current_user)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Get customer
-        cust = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? AND {_of}", [data.customer_id]).fetchone()
+        cust = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? AND {_of_base}", [data.customer_id]).fetchone()
         if not cust:
             raise HTTPException(status_code=404, detail="Customer not found")
         if cust["status"] != "Temp Disconnected":
             raise HTTPException(status_code=400, detail=f"Customer status is '{cust['status']}', not 'Temp Disconnected'. Use normal connection add instead.")
         
-        # Validate STB is available
+        # Validate STB is not in active use (filter via customer JOIN)
         stb_in_use = conn.execute(f"""
             SELECT c.name FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.stb_no = ? AND con.status = 'Active' AND {_opf}
+            WHERE con.stb_no = ? AND con.status = 'Active' AND {_of}
         """, [data.stb_no]).fetchone()
         if stb_in_use:
             raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is already assigned to {stb_in_use['name']}")
         
         # Find the temp disconnected connection for this customer
-        td_conn = conn.execute(f"""
+        td_conn = conn.execute("""
             SELECT * FROM connections
-            WHERE customer_id = ? AND status = 'Temp Disconnected' AND {_opf}
+            WHERE customer_id = ? AND status = 'Temp Disconnected'
             ORDER BY id DESC LIMIT 1
         """, [data.customer_id]).fetchone()
         
         if td_conn:
             # Reactivate existing connection with new STB
             network = _detect_network(data.stb_no)
-            conn.execute(f"""
-                UPDATE connections SET status = 'Active', stb_no = ?, network = ?
-                WHERE id = ? AND {_opf}
-            """, [data.stb_no, network, td_conn["id"]])
+            conn.execute("UPDATE connections SET status = 'Active', stb_no = ?, network = ? WHERE id = ?",
+                        [data.stb_no, network, td_conn["id"]])
             try:
-                conn.execute(f"""
-                    UPDATE connections SET notes = COALESCE(notes, '') || ?, updated_at = ?
-                    WHERE id = ? AND {_opf}
-                """, [f"\n[Reconnected: {now} with STB {data.stb_no}]", now, td_conn["id"]])
+                conn.execute("UPDATE connections SET notes = COALESCE(notes, '') || ?, updated_at = ? WHERE id = ?",
+                            [f"\n[Reconnected: {now} with STB {data.stb_no}]", now, td_conn["id"]])
             except Exception:
                 pass
         else:
             # Create new connection
             network = _detect_network(data.stb_no)
             conn.execute(f"""
-                INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at, operator_id)
-                VALUES (?, ?, 'GTPL', 'Cable', 'Prepaid', 'Active', ?, datetime('now'), {_opid or 'NULL'})
+                INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at)
+                VALUES (?, ?, 'GTPL', 'Cable', 'Prepaid', 'Active', ?, datetime('now'))
             """, [data.customer_id, data.stb_no, network])
         
         # Set customer back to Active
-        conn.execute(f"UPDATE customers SET status = 'Active' WHERE customer_id = ? AND {_of}",
+        conn.execute(f"UPDATE customers SET status = 'Active' WHERE customer_id = ? AND {_of_base}",
                     [data.customer_id])
         
         # Remove STB from inventory (or mark as assigned)
