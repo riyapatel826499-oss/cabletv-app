@@ -1,5 +1,4 @@
 """Shared FastAPI dependencies: DB connections, auth, pagination."""
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Generator
@@ -8,28 +7,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 
-from config import DB_PATH, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_HOURS, CUSTOMER_TOKEN_EXPIRE_DAYS
+from config import DB_ENGINE, DB_PATH, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_HOURS, CUSTOMER_TOKEN_EXPIRE_DAYS
+from db import get_db  # Use the engine-aware connection from db.py
+from db import placeholder as _ph
 
 security = HTTPBearer()
-
-
-# ── Database ──────────────────────────────────────────────────────────────
-
-@contextmanager
-def get_db() -> Generator[sqlite3.Connection, None, None]:
-    """Yield a DB connection with auto-close (prevents leaks). WAL mode for concurrency."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA synchronous = NORMAL")
-    conn.execute("PRAGMA cache_size = -64000") # 64MB cache
-    conn.execute("PRAGMA temp_store = MEMORY")
-    try:
-        yield conn
-    finally:
-        conn.close()
 
 
 # ── JWT Token Creation ────────────────────────────────────────────────────
@@ -78,12 +60,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         # Try with operator_id (multi-tenant), fallback without (legacy/pre-migration)
         try:
             user = conn.execute(
-                "SELECT id, username, name, role, phone, status, permissions, operator_id FROM users WHERE id = ?",
+                "SELECT id, username, name, role, phone, status, permissions, operator_id FROM users WHERE id = " + _ph(),
                 [int(user_id)],
             ).fetchone()
         except Exception:
             user = conn.execute(
-                "SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ?",
+                "SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = " + _ph(),
                 [int(user_id)],
             ).fetchone()
 
@@ -97,7 +79,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         # Validate session_id (single-device enforcement)
         if session_id:
             session = conn.execute(
-                "SELECT session_id FROM active_sessions WHERE user_id = ? AND session_id = ?",
+                "SELECT session_id FROM active_sessions WHERE user_id = " + _ph() + " AND session_id = " + _ph(),
                 [int(user_id), session_id]
             ).fetchone()
             if not session:
@@ -105,7 +87,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
             # Update last activity
             conn.execute(
-                "UPDATE active_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = ?",
+                "UPDATE active_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = " + _ph(),
                 [session_id]
             )
             conn.commit()
@@ -186,7 +168,7 @@ def get_current_customer(credentials: HTTPAuthorizationCredentials = Depends(sec
 
     with get_db() as conn:
         customer = conn.execute(
-            "SELECT * FROM customers WHERE customer_id = ?",
+            "SELECT * FROM customers WHERE customer_id = " + _ph(),
             [customer_id],
         ).fetchone()
 
