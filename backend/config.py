@@ -1,8 +1,14 @@
 """Single source of truth for all application configuration."""
 import os
 
-# Database
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cabletv.db")
+# Database — auto-detect SQLite vs PostgreSQL
+DATABASE_URL_PG = os.getenv("DATABASE_URL", "")
+if DATABASE_URL_PG:
+    DB_ENGINE = "postgresql"
+    DB_PATH = None
+else:
+    DB_ENGINE = "sqlite"
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cabletv.db")
 
 # JWT Authentication — MUST set env var in production
 _secret = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET")
