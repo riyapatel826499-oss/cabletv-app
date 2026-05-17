@@ -48,6 +48,14 @@ def _bool_default(val):
         return str(val)
     return "true" if val else "false"
 
+def _ts():
+    """Timestamp type: TEXT for SQLite, TIMESTAMP for PostgreSQL"""
+    return "TEXT" if DB_ENGINE == "sqlite" else "TIMESTAMP"
+
+def _datetime():
+    """Datetime type: TEXT for SQLite, TIMESTAMP for PostgreSQL"""
+    return "TEXT" if DB_ENGINE == "sqlite" else "TIMESTAMP"
+
 def _safe_alter(table, column, col_type):
     """Safe ALTER TABLE — catches 'column already exists' on both engines."""
     sql = f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
@@ -491,8 +499,8 @@ def run_migrations(db_path: str = None):
     # Column migrations
     migrations = [
         ("payment_type", "ALTER TABLE payments ADD COLUMN payment_type TEXT DEFAULT 'regular'"),
-        ("acknowledged_at", "ALTER TABLE service_requests ADD COLUMN acknowledged_at DATETIME"),
-        ("on_the_way_at", "ALTER TABLE service_requests ADD COLUMN on_the_way_at DATETIME"),
+        ("acknowledged_at", f"ALTER TABLE service_requests ADD COLUMN acknowledged_at {_datetime()}"),
+        ("on_the_way_at", f"ALTER TABLE service_requests ADD COLUMN on_the_way_at {_datetime()}"),
         ("ack_lat", "ALTER TABLE service_requests ADD COLUMN ack_lat REAL"),
         ("ack_lng", "ALTER TABLE service_requests ADD COLUMN ack_lng REAL"),
         ("otw_lat", "ALTER TABLE service_requests ADD COLUMN otw_lat REAL"),
@@ -519,7 +527,7 @@ def run_migrations(db_path: str = None):
         endpoint TEXT NOT NULL,
         p256dh TEXT NOT NULL DEFAULT '',
         auth TEXT NOT NULL DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at {_ts()} DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, endpoint)
     )''')
 
@@ -537,14 +545,14 @@ def run_migrations(db_path: str = None):
         source TEXT NOT NULL DEFAULT 'app',
         resolution TEXT,
         resolution_notes TEXT,
-        deadline DATETIME,
+        deadline {_ts()},
         tg_message_id INTEGER,
-        acknowledged_at DATETIME,
-        on_the_way_at DATETIME,
-        resolved_at DATETIME,
-        closed_at DATETIME,
+        acknowledged_at {_ts()},
+        on_the_way_at {_ts()},
+        resolved_at {_ts()},
+        closed_at {_ts()},
         closed_by INTEGER,
-        cancelled_at DATETIME,
+        cancelled_at {_ts()},
         operator_id INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
