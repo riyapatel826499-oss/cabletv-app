@@ -31,6 +31,7 @@ def init_db():
         name TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'agent',
         phone TEXT,
+        operator_id INTEGER DEFAULT 1,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
@@ -184,6 +185,7 @@ def init_db():
 
     # ── Migrations (safe ALTER TABLE) ──────────────────────────────────────
     _safe_alter = [
+        "ALTER TABLE users ADD COLUMN operator_id INTEGER DEFAULT 1",
         "ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'Active'",
         "ALTER TABLE users ADD COLUMN permissions TEXT",
         "ALTER TABLE customers ADD COLUMN status TEXT DEFAULT 'Active'",
