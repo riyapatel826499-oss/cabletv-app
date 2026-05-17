@@ -70,23 +70,65 @@ else:
 
     _pool: Optional[ThreadedConnectionPool] = None
 
+    class PgRow(dict):
+        """Dict subclass that also supports integer index access (row[0], row[1]...)."""
+        def __getitem__(self, key):
+            if isinstance(key, int):
+                return list(self.values())[key]
+            return super().__getitem__(key)
+
+    class PgCursor:
+        """Cursor wrapper that returns PgRow objects supporting both dict and tuple access."""
+        def __init__(self, cur):
+            self._cur = cur
+
+        def fetchone(self):
+            row = self._cur.fetchone()
+            if row is None:
+                return None
+            if isinstance(row, dict):
+                return PgRow(row)
+            return row
+
+        def fetchall(self):
+            rows = self._cur.fetchall()
+            if rows and isinstance(rows[0], dict):
+                return [PgRow(r) for r in rows]
+            return rows
+
+        @property
+        def description(self):
+            return self._cur.description
+
+        @property
+        def rowcount(self):
+            return self._cur.rowcount
+
     class PgConnection:
         """Wrapper around psycopg2 connection that mimics sqlite3.Connection API.
         - conn.execute(sql, params) → returns cursor (with fetchone/fetchall)
         - conn.commit() / conn.rollback() → delegates to underlying connection
+        - Automatically converts ? placeholders to %s for compatibility
+        - Results are dict-like (via RealDictCursor)
+        - fetchone()[0] works (returns tuple, not dict)
         """
         def __init__(self, raw_conn):
             self._conn = raw_conn
 
         def execute(self, sql, params=None):
+            # Auto-convert SQLite ? placeholders to PostgreSQL %s
+            if sql and '?' in sql:
+                sql = sql.replace('?', '%s')
             cur = self._conn.cursor()
             cur.execute(sql, params)
-            return cur
+            return PgCursor(cur)
 
         def executemany(self, sql, params_list):
+            if sql and '?' in sql:
+                sql = sql.replace('?', '%s')
             cur = self._conn.cursor()
             cur.executemany(sql, params_list)
-            return cur
+            return PgCursor(cur)
 
         def commit(self):
             self._conn.commit()
@@ -99,7 +141,7 @@ else:
 
         @property
         def row_factory(self):
-            return None  # Already using RealDictCursor
+            return None
 
     def _get_pool() -> ThreadedConnectionPool:
         global _pool
