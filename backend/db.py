@@ -259,12 +259,13 @@ else:
             if parts:
                 interval = " + ".join([f"INTERVAL {p}" for p in parts])
                 if base == "CURRENT_DATE":
-                    base = f"CURRENT_DATE + {interval}"
+                    base = f"(CURRENT_DATE + {interval})"
                 else:
                     base = f"({base} + {interval})"
             if start_of_month:
-                return f"date_trunc('month', {base})::date"
-            return base
+                return f"date_trunc('month', {base})::date::text"
+            # Return as text for comparison with TEXT columns
+            return f"({base})::date::text"
 
         q = _DATE_NOW_RE.sub(_replace_date, q)
 
