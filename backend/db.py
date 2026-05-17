@@ -4,9 +4,9 @@ Database abstraction layer — supports both SQLite (local dev) and PostgreSQL (
 Usage (same API regardless of engine):
     from db import get_db
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM customers WHERE id = %s", [customer_id]).fetchone()
+        row = conn.execute("SELECT * FROM customers WHERE id = " + ph(), [customer_id]).fetchone()
         rows = conn.execute("SELECT * FROM customers").fetchall()
-        conn.execute("INSERT INTO customers (...) VALUES (%s, %s)", [...])
+        conn.execute("INSERT INTO customers (...) VALUES (" + ph(3) + ")", [...])
         conn.commit()
 
 The connection object always provides:
@@ -70,6 +70,37 @@ else:
 
     _pool: Optional[ThreadedConnectionPool] = None
 
+    class PgConnection:
+        """Wrapper around psycopg2 connection that mimics sqlite3.Connection API.
+        - conn.execute(sql, params) → returns cursor (with fetchone/fetchall)
+        - conn.commit() / conn.rollback() → delegates to underlying connection
+        """
+        def __init__(self, raw_conn):
+            self._conn = raw_conn
+
+        def execute(self, sql, params=None):
+            cur = self._conn.cursor()
+            cur.execute(sql, params)
+            return cur
+
+        def executemany(self, sql, params_list):
+            cur = self._conn.cursor()
+            cur.executemany(sql, params_list)
+            return cur
+
+        def commit(self):
+            self._conn.commit()
+
+        def rollback(self):
+            self._conn.rollback()
+
+        def close(self):
+            self._conn.close()
+
+        @property
+        def row_factory(self):
+            return None  # Already using RealDictCursor
+
     def _get_pool() -> ThreadedConnectionPool:
         global _pool
         if _pool is None or _pool.closed:
@@ -84,17 +115,18 @@ else:
     @contextmanager
     def get_db() -> Generator:
         pool = _get_pool()
-        conn = pool.getconn()
+        raw_conn = pool.getconn()
+        conn = PgConnection(raw_conn)
         try:
             yield conn
         except Exception:
             conn.rollback()
             raise
         finally:
-            pool.putconn(conn)
+            pool.putconn(raw_conn)
 
     def placeholder(n: int = 1) -> str:
-        """Return PostgreSQL placeholder(s): %s x n — use with positional args"""
+        """Return PostgreSQL placeholder(s): %s x n"""
         return ", ".join(["%s"] * n) if n > 1 else "%s"
 
     def lastrowid(conn) -> int:
