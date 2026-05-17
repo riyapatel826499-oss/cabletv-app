@@ -51,16 +51,23 @@ def _bool_default(val):
 def _safe_alter(table, column, col_type):
     """Safe ALTER TABLE — catches 'column already exists' on both engines."""
     sql = f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+    conn = None
     try:
         conn = get_db()
         conn.execute(sql)
         conn.commit()
-        conn.close()
     except Exception:
-        try:
-            conn.close()
-        except:
-            pass
+        if conn:
+            try:
+                conn.rollback()
+            except:
+                pass
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
 
 
 def init_db():
@@ -502,6 +509,7 @@ def run_migrations(db_path: str = None):
             conn.commit()
             print(f"Migration OK: {col_name}")
         except Exception:
+            conn.rollback()  # Must rollback on PG after failed ALTER
             pass
 
     # Table migrations
@@ -553,7 +561,7 @@ def run_migrations(db_path: str = None):
         try:
             c.execute(idx_sql)
         except Exception:
-            pass
+            conn.rollback()
 
     extra_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_connections_expiry ON connections(expiry_date)",
@@ -565,7 +573,7 @@ def run_migrations(db_path: str = None):
         try:
             c.execute(idx_sql)
         except Exception:
-            pass
+            conn.rollback()
 
     c.execute(f'''CREATE TABLE IF NOT EXISTS audit_log (
         id {pk},
@@ -599,6 +607,7 @@ def run_migrations(db_path: str = None):
             c.execute(sql)
             conn.commit()
         except Exception:
+            conn.rollback()  # Must rollback on PG
             pass
 
     c.execute(f'''CREATE TABLE IF NOT EXISTS request_timeline (
