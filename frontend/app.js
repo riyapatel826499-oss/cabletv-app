@@ -4470,7 +4470,7 @@ function printPaymentReceipt(data) {
     + '.footer{text-align:center;font-size:10px;color:#888;margin-top:16px}'
     + '@media print{.no-print{display:none}}'
     + '</style></' + 'head><' + 'body>'
-    + '<div class="logo">Sree Selvanaayakki Amman Cables</div>'
+    + '<div class="logo">Wasool</div>'
     + '<div class="sub">Payment Receipt</div>'
     + '<div class="divider"></div>'
     + '<div class="row"><span class="label">Customer</span><span class="value">' + (data.customer_name||'') + '</span></div>'

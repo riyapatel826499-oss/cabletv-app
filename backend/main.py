@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
     init_db()
     run_migrations()
     import_customers_from_json()
-    print("Backend ready - Sree Selvanaayakki Amman Cables")
+    print("Backend ready - Wasool")
 
     # Background task: relay payment events to WebSocket
     async def payment_notifier():
@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Sree Selvanaayakki Amman Cables - Cable TV Management",
+    title="Wasool",
     description="Backend API for Cable TV customer management, payments, and collections",
     version="2.0.0",
     lifespan=lifespan,
