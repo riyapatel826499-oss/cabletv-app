@@ -1,15 +1,3 @@
-FROM node:20-slim AS frontend-build
-
-WORKDIR /app/frontend
-COPY frontend-react/package.json frontend-react/package-lock.json* ./
-RUN npm install
-COPY frontend-react/ .
-
-# vite.config.ts outputs to ../backend/static which is /app/backend/static
-RUN mkdir -p /app/backend/static
-RUN npm run build
-
-# ---- Runtime image ----
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -21,9 +9,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all backend code
 COPY backend/ .
 
-# Remove placeholder static dir if exists, copy React build output
+# Remove placeholder static dir, copy legacy frontend as static
 RUN rm -rf static
-COPY --from=frontend-build /app/backend/static ./static
+COPY frontend/ ./static/
+
+# Also remove .bak files to keep image small
+RUN rm -f static/*.bak
 
 EXPOSE 8000
 

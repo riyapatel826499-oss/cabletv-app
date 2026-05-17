@@ -191,11 +191,16 @@ print(f"Serving frontend from: {FRONTEND_DIR}")
 
 @app.get("/dashboard")
 async def serve_dashboard():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+    return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
 
 
 @app.get("/login")
 async def serve_login():
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+
+@app.get("/start")
+async def serve_start():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
