@@ -116,16 +116,14 @@ else:
             self._conn = raw_conn
 
         def execute(self, sql, params=None):
-            # Auto-convert SQLite ? placeholders to PostgreSQL %s
-            if sql and '?' in sql:
-                sql = sql.replace('?', '%s')
+            # Auto-translate SQLite SQL to PostgreSQL
+            sql = _translate_sql(sql)
             cur = self._conn.cursor()
             cur.execute(sql, params)
             return PgCursor(cur)
 
         def executemany(self, sql, params_list):
-            if sql and '?' in sql:
-                sql = sql.replace('?', '%s')
+            sql = _translate_sql(sql)
             cur = self._conn.cursor()
             cur.executemany(sql, params_list)
             return PgCursor(cur)
@@ -190,3 +188,109 @@ else:
 
     def like() -> str:
         return "ILIKE"  # PostgreSQL LIKE is case-sensitive, ILIKE is not
+
+    # ── SQL Translation ────────────────────────────────────────────────────
+    import re as _re
+
+    # Pre-compiled patterns for performance
+    _DATE_NOW_RE = _re.compile(r"\bdate\(\s*'now'\s*(?:,\s*([^)]+))?\)", _re.IGNORECASE)
+    _COLLATE_RE = _re.compile(r'\s+COLLATE\s+NOCASE\s*', _re.IGNORECASE)
+    _SUBSTR_RE = _re.compile(r'\bSUBSTR\(([^)]+)\)', _re.IGNORECASE)
+    _INSTR_RE = _re.compile(r'\bINSTR\(([^)]+)\)', _re.IGNORECASE)
+
+    def _translate_sql(query: str) -> str:
+        """Translate SQLite-specific SQL to PostgreSQL-compatible SQL."""
+        if not query:
+            return query
+        q = query
+
+        # 1. Replace ? placeholders with %s
+        if '?' in q:
+            q = q.replace('?', '%s')
+
+        # 2. date('now', '+N days') → CURRENT_DATE + N days
+        def _replace_date(m):
+            args_str = m.group(1) or ''
+            if args_str.strip():
+                args = [a.strip().strip("'") for a in args_str.split(',')]
+            else:
+                args = []
+            modifiers = args[1:] if len(args) > 1 else []
+            days_offset = 0
+            months_offset = 0
+            hours_offset = 0
+            minutes_offset = 0
+            start_of_month = False
+            for mod in modifiers:
+                mod = mod.strip()
+                if 'day' in mod and 'month' not in mod:
+                    val = int(mod.replace('day', '').replace('+', '').replace('-', '').replace(' ', '').replace('+', ''))
+                    if mod.strip().startswith('-'):
+                        days_offset -= val
+                    else:
+                        days_offset += val
+                elif 'month' in mod:
+                    val = int(mod.replace('month', '').replace('+', '').replace('-', '').replace(' ', ''))
+                    if mod.strip().startswith('-'):
+                        months_offset -= val
+                    else:
+                        months_offset += val
+                elif 'hour' in mod:
+                    hours_offset += int(mod.replace('hour', '').replace('hours', '').replace('+', '').replace(' ', ''))
+                elif 'minute' in mod:
+                    minutes_offset += int(mod.replace('minute', '').replace('minutes', '').replace('+', '').replace(' ', ''))
+                elif mod == 'start of month':
+                    start_of_month = True
+            # Build interval expression
+            base = "CURRENT_DATE"
+            parts = []
+            if hours_offset or minutes_offset:
+                # Use CURRENT_TIMESTAMP for time-aware calculations
+                hm = []
+                if hours_offset:
+                    hm.append(f"'{hours_offset} hours'")
+                if minutes_offset:
+                    hm.append(f"'{minutes_offset} minutes'")
+                base = f"(CURRENT_TIMESTAMP + {' + '.join(['INTERVAL ' + h for h in hm])})::date"
+            if days_offset != 0:
+                parts.append(f"'{days_offset} days'")
+            if months_offset != 0:
+                parts.append(f"'{months_offset} months'")
+            if parts:
+                interval = " + ".join([f"INTERVAL {p}" for p in parts])
+                if base == "CURRENT_DATE":
+                    base = f"CURRENT_DATE + {interval}"
+                else:
+                    base = f"({base} + {interval})"
+            if start_of_month:
+                return f"date_trunc('month', {base})::date"
+            return base
+
+        q = _DATE_NOW_RE.sub(_replace_date, q)
+
+        # 3. COLLATE NOCASE → remove
+        q = _COLLATE_RE.sub(' ', q)
+
+        # 4. SUBSTR(x, pos, len) → SUBSTRING(x FROM pos FOR len)
+        def _replace_substr(m):
+            parts = [p.strip() for p in m.group(1).split(',')]
+            if len(parts) == 3:
+                return f"SUBSTRING({parts[0]} FROM {parts[1]} FOR {parts[2]})"
+            elif len(parts) == 2:
+                return f"SUBSTRING({parts[0]} FROM {parts[1]})"
+            return m.group(0)
+        q = _SUBSTR_RE.sub(_replace_substr, q)
+
+        # 5. INSTR(x, y) → POSITION(y IN x)
+        def _replace_instr(m):
+            parts = [p.strip() for p in m.group(1).split(',')]
+            if len(parts) == 2:
+                return f"POSITION({parts[1]} IN {parts[0]})"
+            return m.group(0)
+        q = _INSTR_RE.sub(_replace_instr, q)
+
+        return q
+
+    def sql(query: str) -> str:
+        """Public alias for _translate_sql — use when building SQL strings outside execute()."""
+        return _translate_sql(query)

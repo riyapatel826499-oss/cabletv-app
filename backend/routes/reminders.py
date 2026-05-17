@@ -122,13 +122,13 @@ def get_due_customers(
         params: list = []
 
         if include_due_soon:
-            query += " AND cn.expiry_date <= date('now', '+5 days')"
+            query += " AND cn.expiry_date <= CURRENT_DATE + INTERVAL '5 days'"
         else:
             if days_overdue > 0:
-                query += " AND cn.expiry_date <= date('now', ?)"
-                params.append(f"-{days_overdue} days")
+                query += " AND cn.expiry_date <= CURRENT_DATE - make_interval(days => ?)"
+                params.append(days_overdue)
             else:
-                query += " AND cn.expiry_date <= date('now')"
+                query += " AND cn.expiry_date <= CURRENT_DATE"
 
         if network:
             query += " AND cn.mso = ?"

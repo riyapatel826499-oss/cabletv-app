@@ -213,12 +213,11 @@ def list_customers(
         _of = op_filter(current_user)
 
         query = """SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid,
-            conn.stb_no
+            (SELECT conn2.stb_no FROM connections conn2 WHERE conn2.customer_id = c.customer_id AND conn2.status = 'Active' LIMIT 1) as stb_no
             FROM customers c
             LEFT JOIN (
                 """ + paid_subq + """
             ) p ON c.customer_id = p.customer_id
-            LEFT JOIN connections conn ON c.customer_id = conn.customer_id
             WHERE """ + ("1=1" if _of == "1=1" else f"c.{_of}")
         params = list(paid_params)
 
@@ -253,12 +252,32 @@ def list_customers(
             query += " AND c.area = ?"
             params.append(paid_area)
 
-        # Count total
-        count_query = query.replace(
-            "SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid",
-            "SELECT COUNT(*)"
-        )
-        total = conn.execute(count_query, params).fetchone()[0]
+        # Count total — use a clean COUNT query without extra columns
+        count_base = """SELECT COUNT(*) FROM customers c
+            LEFT JOIN (
+                """ + paid_subq + """
+            ) p ON c.customer_id = p.customer_id
+            WHERE """ + ("1=1" if _of == "1=1" else f"c.{_of}")
+        # Rebuild WHERE clauses for count query
+        count_params = list(paid_params)
+        count_query = count_base
+        if area:
+            count_query += " AND c.area LIKE ?"
+            count_params.append(f"%{area}%")
+        if status is not None and status != "":
+            count_query += " AND c.status = ?"
+            count_params.append(status)
+        elif status != "":
+            count_query += " AND (c.status = 'Active' OR c.status IS NULL)"
+        if payment_filter == "paid":
+            count_query += " AND p.customer_id IS NOT NULL"
+        elif payment_filter == "unpaid":
+            count_query += " AND p.customer_id IS NULL"
+        if plan_id:
+            _of_cp = "1=1" if _of == "1=1" else f"cp.{_of}"
+            count_query += f" AND c.customer_id IN (SELECT DISTINCT cp.customer_id FROM customer_plans cp WHERE cp.plan_id = ? AND cp.status = 'Active' AND {_of_cp})"
+            count_params.append(plan_id)
+        total = conn.execute(count_query, count_params).fetchone()[0]
 
         # Sorting - customer_id sort uses numeric part for proper ordering
         if sort_by == "customer_id":
