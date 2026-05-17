@@ -1,25 +1,41 @@
-# Python
+# Dependencies
+node_modules/
+venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
-venv/
-.venv/
 
-# Database (contains customer data)
+# Environment & secrets
+.env
+.env.*
+!.env.railway.example
+vapid_private.pem
+
+# Databases (not for git)
 *.db
-*.db-journal
+*.sqlite3
 
-# Logs
-*.log
-/tmp/
+# Build output
+frontend-react/dist/
 
-# OS files
+# IDE
+.idea/
+.vscode/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
+# Logs
+*.log
 
-# Env
-.env
+# Flutter apps (deployed separately)
+customer_app/
+agent_app/
+
+# Backups
+backups/
+
+# Temp/junk files
+backend/static/

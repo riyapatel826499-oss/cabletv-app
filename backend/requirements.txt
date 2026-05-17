@@ -1,3 +1,5 @@
+# Cable TV Management App — Production Dependencies
+# Railway will auto-detect FastAPI and install these
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-jose[cryptography]==3.3.0
@@ -7,3 +9,6 @@ websockets==12.0
 pydantic==2.5.2
 bcrypt==4.0.1
 pywebpush==2.3.0
+python-dotenv==1.0.1
+httpx
+psycopg2-binary==2.9.9

@@ -1,7 +1,22 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
+
+# Load .env file (for production: GTPL_SERVICE_URL etc.)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    # Manual .env loading fallback
+    _env = Path(__file__).parent / ".env"
+    if _env.exists():
+        for line in _env.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -161,12 +176,22 @@ def backup_db():
 
 
 # Serve frontend static files
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+# Priority: React build (static/) > legacy HTML (frontend/)
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
+# Use React build if it exists, otherwise fall back to legacy frontend
+if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+    FRONTEND_DIR = STATIC_DIR
+else:
+    FRONTEND_DIR = LEGACY_DIR
+
+print(f"Serving frontend from: {FRONTEND_DIR}")
 
 
 @app.get("/dashboard")
 async def serve_dashboard():
-    return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 
 @app.get("/login")

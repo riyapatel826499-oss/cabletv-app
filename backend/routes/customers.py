@@ -571,12 +571,13 @@ def get_not_renewed_customers(
             where += " AND conn.mso = ?"
             params.append(mso)
 
-        # Count
-        count_row = db.execute(
-            f"SELECT COUNT(DISTINCT conn.id) FROM connections conn JOIN customers c ON c.customer_id = conn.customer_id {where}",
+        # Count + Lost Revenue total (across ALL pages, not just current)
+        agg_row = db.execute(
+            f"SELECT COUNT(DISTINCT conn.id) as cnt, COALESCE(SUM(conn.plan_amount), 0) as lost_rev FROM connections conn JOIN customers c ON c.customer_id = conn.customer_id {where}",
             params
         ).fetchone()
-        total = count_row[0] if count_row else 0
+        total = agg_row["cnt"] if agg_row else 0
+        lost_revenue = agg_row["lost_rev"] if agg_row else 0
 
         # Fetch — include last paid date from both payment tables
         rows = db.execute(f"""
@@ -633,6 +634,7 @@ def get_not_renewed_customers(
         return {
             "customers": results,
             "total": total,
+            "lost_revenue": lost_revenue,
             "page": page,
             "per_page": per_page,
             "total_pages": (total + per_page - 1) // per_page,

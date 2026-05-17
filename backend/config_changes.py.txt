@@ -1,0 +1,19 @@
+# config.py — CHANGES NEEDED FOR POSTGRESQL
+#
+# Add these lines, keep existing config as-is:
+
+# --- PostgreSQL (NEW) ---
+# Full connection URL (takes priority over individual PG_* vars)
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# Individual connection params (used if DATABASE_URL not set)
+PG_HOST = os.getenv("PG_HOST", "localhost")
+PG_PORT = os.getenv("PG_PORT", "5432")
+PG_DATABASE = os.getenv("PG_DATABASE", "cabletv")
+PG_USER = os.getenv("PG_USER", "cabletv")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "cabletv")
+PG_POOL_MIN = int(os.getenv("PG_POOL_MIN", "2"))
+PG_POOL_MAX = int(os.getenv("PG_POOL_MAX", "20"))
+
+# Keep DB_PATH for backward compat (migration scripts, backup, etc.)
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cabletv.db")

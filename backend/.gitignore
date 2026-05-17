@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+!.env.railway.example
+*.db
+*.sqlite3
+venv/
+.venv/
+node_modules/
+backups/
+*.log
+.DS_Store
+vapid_private.pem
+# Flutter app (deployed separately)
+customer_app/
+# Agent app (deployed separately)
+agent_app/
+# GTPL local service (runs on local machine only)
+gtpl_service.py
+services/gtpl_playwright.py
+# Temp files
+10.0f}
+10}

@@ -310,6 +310,7 @@ def all_payment_history(
     date_to: Optional[str] = None,
     customer_id: Optional[str] = None,
     q: Optional[str] = None,
+    mso: Optional[str] = None,
     export: bool = Query(False),
     current_user=Depends(get_current_user),
 ):
@@ -337,7 +338,7 @@ def all_payment_history(
                    p.month_year, p.notes, p.latitude, p.longitude,
                    p.previous_balance, p.bill_amount, p.connection_id,
                    c.name as customer_name, c.area, c.phone as customer_phone,
-                   u.name as collector_name, con.stb_no
+                   u.name as collector_name, con.stb_no, con.mso
             FROM payments p
             JOIN customers c ON p.customer_id = c.customer_id
             LEFT JOIN users u ON p.collected_by = u.id
@@ -353,6 +354,9 @@ def all_payment_history(
         if customer_id:
             local_query += " AND p.customer_id = ?"
             local_params.append(customer_id)
+        if mso:
+            local_query += " AND con.mso = ?"
+            local_params.append(mso)
         local_rows = conn.execute(local_query, local_params).fetchall()
 
         # Build paypakka payments query
@@ -363,7 +367,8 @@ def all_payment_history(
                    pp.discount_amount, pp.status, pp.transaction_id,
                    c.name as customer_name, c.area, c.phone as customer_phone,
                    e.emp_name as collector_name,
-                   (SELECT con.stb_no FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as stb_no
+                   (SELECT con.stb_no FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as stb_no,
+                   (SELECT con.mso FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as mso
             FROM paypakka_payments pp
             JOIN customers c ON pp.customer_id = c.customer_id
             LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
@@ -377,6 +382,9 @@ def all_payment_history(
         if customer_id:
             pp_query += " AND pp.customer_id = ?"
             pp_params.append(customer_id)
+        if mso:
+            pp_query += " AND pp.customer_id IN (SELECT customer_id FROM connections WHERE mso = ?)"
+            pp_params.append(mso)
         pp_rows = conn.execute(pp_query, pp_params).fetchall()
 
         # Merge into unified list
@@ -402,6 +410,7 @@ def all_payment_history(
                 "bill_amount": r["bill_amount"] or 0,
                 "deletable": current_user.get("role") == "master",
                 "payment_type": r["payment_type"] or "regular",
+                "mso": r["mso"] or "",
             })
 
         for r in pp_rows:
@@ -427,6 +436,7 @@ def all_payment_history(
                 "plan_amount": r["plan_amount"] or 0,
                 "discount_amount": r["discount_amount"] or 0,
                 "payment_type": "regular",
+                "mso": r["mso"] or "",
             })
 
         # Sort by date descending
