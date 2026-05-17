@@ -1,3 +1,13 @@
+FROM node:20-slim AS frontend-build
+
+WORKDIR /app
+COPY frontend-react/package.json frontend-react/package-lock.json* ./
+RUN npm install
+COPY frontend-react/ .
+RUN npm run build
+# Output is in /app/dist
+
+# ---- Runtime image ----
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -9,9 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all backend code
 COPY backend/ .
 
-# Copy React frontend build (already inside backend/static/ from COPY above)
+# Remove placeholder static dir if exists, copy React build
+RUN rm -rf static
+COPY --from=frontend-build /app/dist ./static
 
 EXPOSE 8000
 
-# Railway sets PORT env var — use shell form to resolve it
 CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
