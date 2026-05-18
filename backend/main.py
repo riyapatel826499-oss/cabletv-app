@@ -36,17 +36,17 @@ from routes.employees import router as employees_router
 from routes.stb_inventory import router as stb_inventory_router
 from routes.sms import router as sms_router
 from routes.websocket import router as ws_router, manager
-# from routes.customer_portal import router as customer_portal_router
+# # # from routes.customer_portal import router as customer_portal_router  # Still needs migration  # Still needs migration
 from routes.surrenders import router as surrenders_router
 from routes.connections import router as connections_router
 from routes.reports import router as reports_router
 from routes.reminders import router as reminders_router
 from routes.paypakka_sync import router as paypakka_sync_router
 from routes.settings import router as settings_router
-from routes.operators import router as operators_router
-from routes.push import router as push_router
+# from routes.operators import router as operators_router  # Still needs migration
+# from routes.push import router as push_router  # Still needs migration
 from routes.service_requests import router as service_requests_router
-from routes.gtpl import router as gtpl_router
+# from routes.gtpl import router as gtpl_router  # Still needs migration
 from config import CORS_ORIGINS
 
 # Rate limiter (shared instance from limiter.py)
@@ -114,10 +114,10 @@ app.include_router(reports_router)
 app.include_router(reminders_router)
 app.include_router(paypakka_sync_router)
 app.include_router(settings_router)
-app.include_router(operators_router)
-app.include_router(push_router)
+# app.include_router(operators_router)  # Still needs migration
+# app.include_router(push_router)  # Still needs migration
 app.include_router(service_requests_router)
-app.include_router(gtpl_router, prefix="/api")
+# app.include_router(gtpl_router  # Still needs migration, prefix="/api")
 
 
 @app.get("/")

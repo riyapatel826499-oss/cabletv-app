@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 import json
 
-from deps import get_db, get_current_user, require_role
+from models.base import get_db
+from deps_orm import get_current_user, require_role
 from config import VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY_PATH, VAPID_CLAIMS, DB_PATH
 
 router = APIRouter(prefix="/api", tags=["Push Notifications"])
@@ -74,8 +75,7 @@ def push_test(current_user=Depends(get_current_user)):
 
 def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None):
     """Send a push notification to all subscriptions of a user."""
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     subs = conn.execute(
         "SELECT * FROM push_subscriptions WHERE user_id=?",
@@ -123,8 +123,7 @@ def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: 
 
 def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None):
     """Send push notification to all users with given roles."""
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     users = conn.execute(
         "SELECT id FROM users WHERE role IN ({}) AND status='Active'".format(
@@ -142,8 +141,7 @@ def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: 
 
 def _remove_subscription(sub_id: int):
     """Remove an expired push subscription."""
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
     conn.execute("DELETE FROM push_subscriptions WHERE id=?", (sub_id,))
     conn.commit()
     conn.close()
@@ -167,8 +165,7 @@ def send_daily_summary(
     yesterday = datetime.now() - timedelta(days=1)
     date_str = yesterday.strftime("%Y-%m-%d")
 
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
     # Get yesterday's local payments

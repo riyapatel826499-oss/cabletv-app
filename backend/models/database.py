@@ -374,10 +374,7 @@ def init_db():
     # ── Seed Data ──────────────────────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM users WHERE role IN ('admin','master')")
     count = c.fetchone()
-    count_val = count[0] if isinstance(count, (list, tuple)) else count['count']
-    if DB_ENGINE != "sqlite":
-        count_val = list(count.values())[0] if hasattr(count, 'values') else count[0]
-    count_val = count[0] if isinstance(count, (list, tuple)) else list(count.values())[0]
+    count_val = count[0]
 
     if count_val == 0:
         ph = _ph(6)
@@ -392,7 +389,7 @@ def init_db():
 
     c.execute("SELECT COUNT(*) FROM plans")
     count = c.fetchone()
-    count_val = count[0] if isinstance(count, (list, tuple)) else list(count.values())[0]
+    count_val = count[0]
 
     if count_val == 0:
         ph = _ph(4)

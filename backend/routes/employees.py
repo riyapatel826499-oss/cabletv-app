@@ -4,10 +4,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional, List
 
-from deps import get_db, get_current_user, require_role, op_filter, op_id
+from sqlalchemy import select, update, func, text, and_
+from sqlalchemy.orm import Session
+
+from models.base import get_db
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id
+from models.tables import User, PaypakkaPayment, PaypakkaEmployee
 from utils import hash_password
 
 router = APIRouter(prefix="/api", tags=["Employees"])
+
+
+def _obj_to_dict(obj):
+    """Convert a SQLAlchemy model instance to a dict."""
+    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
 
 class EmployeeCreate(BaseModel):
     username: str
@@ -37,15 +48,27 @@ ROLE_LABELS = {
 }
 
 @router.get("/employees")
-def list_employees(current_user=Depends(get_current_user)):
+def list_employees(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """List all employees. Admin and Support can access."""
     if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    flt_pp = op_filter(current_user, 'pp')
-    flt_u = op_filter(current_user, 'u')
-    with get_db() as conn:
-        # Single query with LEFT JOIN & GROUP BY to avoid N+1 per-employee queries
-        rows = conn.execute(f"""
+
+    # Build operator filter clause for text queries
+    oid = current_user.get("operator_id")
+    if oid is not None:
+        flt_u = "u.operator_id = :op_id"
+        flt_pp = "pp.operator_id = :op_id"
+        params = {"op_id": oid}
+    else:
+        flt_u = "(u.operator_id > 0 OR u.operator_id IS NULL)"
+        flt_pp = "(pp.operator_id > 0 OR pp.operator_id IS NULL)"
+        params = {}
+
+    rows = db.execute(
+        text(f"""
             SELECT u.id, u.username, u.name, u.role, u.phone, u.status, u.created_at, u.permissions,
                    COALESCE(pc.cnt, 0) as payment_count
             FROM users u
@@ -66,22 +89,24 @@ def list_employees(current_user=Depends(get_current_user)):
                     ELSE 5 
                 END,
                 u.name
-        """).fetchall()
+        """),
+        params,
+    ).fetchall()
 
-        employees = []
-        for r in rows:
-            emp = dict(r)
-            emp["role_label"] = ROLE_LABELS.get(emp["role"], emp["role"])
-            # Parse permissions JSON
-            if emp.get("permissions"):
-                try:
-                    emp["permissions"] = _json.loads(emp["permissions"])
-                except Exception:
-                    emp["permissions"] = None
-            else:
+    employees = []
+    for r in rows:
+        emp = dict(r._mapping)
+        emp["role_label"] = ROLE_LABELS.get(emp["role"], emp["role"])
+        # Parse permissions JSON
+        if emp.get("permissions"):
+            try:
+                emp["permissions"] = _json.loads(emp["permissions"])
+            except Exception:
                 emp["permissions"] = None
-            employees.append(emp)
-        return {"employees": employees, "total": len(employees)}
+        else:
+            emp["permissions"] = None
+        employees.append(emp)
+    return {"employees": employees, "total": len(employees)}
 
 
 @router.get("/employees/roles")
@@ -100,43 +125,53 @@ def get_roles(current_user=Depends(get_current_user)):
 
 
 @router.post("/employees")
-def create_employee(data: EmployeeCreate, current_user=Depends(require_role("admin", "master"))):
+def create_employee(
+    data: EmployeeCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin", "master")),
+):
     """Create a new employee. Admin/master only."""
 
     if data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
 
-    flt = op_filter(current_user)
     _oid = op_id(current_user)
 
-    with get_db() as conn:
-        # Check username uniqueness
-        existing = conn.execute(f"SELECT id FROM users WHERE username = ? AND {flt}", [data.username.strip().lower()]).fetchone()
-        if existing:
-            raise HTTPException(status_code=400, detail=f"Username '{data.username}' already exists")
+    # Check username uniqueness
+    existing_query = select(User).where(User.username == data.username.strip().lower())
+    existing_query = apply_op_filter(existing_query, User, current_user)
+    existing = db.execute(existing_query).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Username '{data.username}' already exists")
 
-        conn.execute("""
-            INSERT INTO users (username, password, name, role, phone, status, operator_id)
-            VALUES (?, ?, ?, ?, ?, 'Active', ?)
-        """, [
-            data.username.strip().lower(),
-            hash_password(data.password),
-            data.name.strip(),
-            data.role,
-            data.phone.strip() if data.phone else None,
-            _oid
-        ])
-        conn.commit()
+    user = User(
+        username=data.username.strip().lower(),
+        password=hash_password(data.password),
+        name=data.name.strip(),
+        role=data.role,
+        phone=data.phone.strip() if data.phone else None,
+        status="Active",
+        operator_id=_oid,
+    )
+    db.add(user)
+    db.commit()
 
-        emp = conn.execute(f"SELECT id, username, name, role, phone, status, created_at FROM users WHERE username = ? AND {flt}",
-                           [data.username.strip().lower()]).fetchone()
-        result = dict(emp)
-        result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
-        return {"message": "Employee created successfully", "employee": result}
+    # Re-fetch to get auto-generated fields
+    emp_query = select(User).where(User.username == data.username.strip().lower())
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    result = _obj_to_dict(emp)
+    result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
+    return {"message": "Employee created successfully", "employee": result}
 
 
 @router.put("/employees/{emp_id}")
-def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_current_user)):
+def update_employee(
+    emp_id: int,
+    data: EmployeeUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Update employee details. Admin can update all, Support can update limited fields."""
     if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
@@ -146,63 +181,74 @@ def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_
         if data.role is not None:
             raise HTTPException(status_code=403, detail="Support cannot change employee roles")
 
-    flt = op_filter(current_user)
-    _oid = op_id(current_user)
+    emp_query = select(User).where(User.id == emp_id)
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-    with get_db() as conn:
-        emp = conn.execute(f"SELECT id, username, name, role, status FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
+    emp_dict = _obj_to_dict(emp)
 
-        # Only admin can change role
-        if data.role is not None:
-            if current_user["role"] != "admin":
-                raise HTTPException(status_code=403, detail="Only Admin can assign roles")
-            if data.role not in VALID_ROLES:
-                raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
+    # Only admin can change role
+    if data.role is not None:
+        if current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Only Admin can assign roles")
+        if data.role not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
 
-        # Cannot demote the last admin
-        if emp["role"] == "admin" and data.role and data.role != "admin":
-            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
-            if admin_count["cnt"] <= 1:
-                raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
+    # Cannot demote the last admin
+    if emp_dict["role"] == "admin" and data.role and data.role != "admin":
+        admin_count_query = select(func.count()).select_from(User).where(
+            User.role == "admin", User.status == "Active"
+        )
+        admin_count_query = apply_op_filter(admin_count_query, User, current_user)
+        admin_count = db.execute(admin_count_query).scalar()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
 
-        # Cannot deactivate the last admin
-        if emp["role"] == "admin" and data.status == "Inactive":
-            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
-            if admin_count["cnt"] <= 1:
-                raise HTTPException(status_code=400, detail="Cannot deactivate the last active admin")
+    # Cannot deactivate the last admin
+    if emp_dict["role"] == "admin" and data.status == "Inactive":
+        admin_count_query = select(func.count()).select_from(User).where(
+            User.role == "admin", User.status == "Active"
+        )
+        admin_count_query = apply_op_filter(admin_count_query, User, current_user)
+        admin_count = db.execute(admin_count_query).scalar()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot deactivate the last active admin")
 
-        updates = []
-        params = []
-        if data.name is not None:
-            updates.append("name = ?")
-            params.append(data.name.strip())
-        if data.phone is not None:
-            updates.append("phone = ?")
-            params.append(data.phone.strip())
-        if data.role is not None:
-            updates.append("role = ?")
-            params.append(data.role)
-        if data.status is not None:
-            updates.append("status = ?")
-            params.append(data.status)
+    updates = {}
+    if data.name is not None:
+        updates["name"] = data.name.strip()
+    if data.phone is not None:
+        updates["phone"] = data.phone.strip()
+    if data.role is not None:
+        updates["role"] = data.role
+    if data.status is not None:
+        updates["status"] = data.status
 
-        if not updates:
-            raise HTTPException(status_code=400, detail="No fields to update")
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
 
-        params.append(emp_id)
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ? AND {flt}", params)
-        conn.commit()
+    db.execute(
+        update(User).where(User.id == emp_id).values(**updates)
+    )
+    db.commit()
 
-        updated = conn.execute(f"SELECT id, username, name, role, phone, status, created_at FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        result = dict(updated)
-        result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
-        return {"message": "Employee updated successfully", "employee": result}
+    updated_query = select(User).where(User.id == emp_id)
+    updated_query = apply_op_filter(updated_query, User, current_user)
+    updated = db.execute(updated_query).scalar_one_or_none()
+    result = _obj_to_dict(updated)
+    result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
+    return {"message": "Employee updated successfully", "employee": result}
 
 
 @router.put("/employees/{emp_id}/password")
-def update_password(emp_id: int, data: PasswordUpdate, current_user=Depends(get_current_user)):
+def update_password(
+    emp_id: int,
+    data: PasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Set/reset employee password. Admin can set any, users can set their own."""
     # Admin or master can change anyone's password
     if current_user["role"] in ("admin", "master"):
@@ -216,39 +262,51 @@ def update_password(emp_id: int, data: PasswordUpdate, current_user=Depends(get_
     if len(data.password) < 4:
         raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
 
-    flt = op_filter(current_user)
+    emp_query = select(User).where(User.id == emp_id)
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-    with get_db() as conn:
-        emp = conn.execute(f"SELECT id FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
-
-        conn.execute(f"UPDATE users SET password = ? WHERE id = ? AND {flt}", [hash_password(data.password), emp_id])
-        conn.commit()
-        return {"message": "Password updated successfully"}
+    db.execute(
+        update(User).where(User.id == emp_id).values(password=hash_password(data.password))
+    )
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 
 @router.delete("/employees/{emp_id}")
-def delete_employee(emp_id: int, current_user=Depends(require_role("admin", "master"))):
+def delete_employee(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("admin", "master")),
+):
     """Delete/deactivate employee. Admin/master only."""
 
-    flt = op_filter(current_user)
+    emp_query = select(User).where(User.id == emp_id)
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-    with get_db() as conn:
-        emp = conn.execute(f"SELECT id, username, name, role, status FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
+    emp_dict = _obj_to_dict(emp)
 
-        # Cannot delete the last admin
-        if emp["role"] == "admin":
-            admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
-            if admin_count["cnt"] <= 1:
-                raise HTTPException(status_code=400, detail="Cannot delete the last active admin")
+    # Cannot delete the last admin
+    if emp_dict["role"] == "admin":
+        admin_count_query = select(func.count()).select_from(User).where(
+            User.role == "admin", User.status == "Active"
+        )
+        admin_count_query = apply_op_filter(admin_count_query, User, current_user)
+        admin_count = db.execute(admin_count_query).scalar()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last active admin")
 
-        # Soft delete — set status to Inactive instead of actually deleting
-        conn.execute(f"UPDATE users SET status = 'Inactive' WHERE id = ? AND {flt}", [emp_id])
-        conn.commit()
-        return {"message": f"Employee '{emp['name']}' deactivated successfully"}
+    # Soft delete — set status to Inactive instead of actually deleting
+    db.execute(
+        update(User).where(User.id == emp_id).values(status="Inactive")
+    )
+    db.commit()
+    return {"message": f"Employee '{emp_dict['name']}' deactivated successfully"}
 
 
 
@@ -284,35 +342,42 @@ DEFAULT_PERMISSIONS = {
 
 
 @router.get("/employees/{emp_id}/permissions")
-def get_permissions(emp_id: int, current_user=Depends(get_current_user)):
+def get_permissions(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Get employee permissions. Admin only."""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can manage permissions")
-    flt = op_filter(current_user)
-    with get_db() as conn:
-        emp = conn.execute(f"SELECT id, name, role, permissions FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
 
-        # Parse stored permissions or use role defaults
-        stored = None
-        if emp["permissions"]:
-            try:
-                stored = _json.loads(emp["permissions"])
-            except Exception:
-                pass
+    emp_query = select(User).where(User.id == emp_id)
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-        if stored and isinstance(stored, dict) and "permissions" in stored:
-            allowed = set(stored["permissions"])
-        else:
-            allowed = DEFAULT_PERMISSIONS.get(emp["role"], set())
+    emp_dict = _obj_to_dict(emp)
 
-        return {
-            "employee": {"id": emp["id"], "name": emp["name"], "role": emp["role"]},
-            "all_permissions": ALL_PERMISSIONS,
-            "allowed": list(allowed),
-            "role_defaults": {k: list(v) for k, v in DEFAULT_PERMISSIONS.items()},
-        }
+    # Parse stored permissions or use role defaults
+    stored = None
+    if emp_dict["permissions"]:
+        try:
+            stored = _json.loads(emp_dict["permissions"])
+        except Exception:
+            pass
+
+    if stored and isinstance(stored, dict) and "permissions" in stored:
+        allowed = set(stored["permissions"])
+    else:
+        allowed = DEFAULT_PERMISSIONS.get(emp_dict["role"], set())
+
+    return {
+        "employee": {"id": emp_dict["id"], "name": emp_dict["name"], "role": emp_dict["role"]},
+        "all_permissions": ALL_PERMISSIONS,
+        "allowed": list(allowed),
+        "role_defaults": {k: list(v) for k, v in DEFAULT_PERMISSIONS.items()},
+    }
 
 
 class PermissionsUpdate(BaseModel):
@@ -321,49 +386,61 @@ class PermissionsUpdate(BaseModel):
 
 
 @router.put("/employees/{emp_id}/permissions")
-def update_permissions(emp_id: int, data: PermissionsUpdate, current_user=Depends(get_current_user)):
+def update_permissions(
+    emp_id: int,
+    data: PermissionsUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
     """Update employee role and permissions. Admin only."""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can manage permissions")
-    flt = op_filter(current_user)
-    with get_db() as conn:
-        emp = conn.execute(f"SELECT id, name, role FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
 
-        updates = []
-        params = []
-        new_role = emp["role"]
+    emp_query = select(User).where(User.id == emp_id)
+    emp_query = apply_op_filter(emp_query, User, current_user)
+    emp = db.execute(emp_query).scalar_one_or_none()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
 
-        if data.role is not None:
-            if data.role not in VALID_ROLES:
-                raise HTTPException(status_code=400, detail="Invalid role")
-            # Cannot demote last admin
-            if emp["role"] == "admin" and data.role != "admin":
-                admin_count = conn.execute(f"SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'Active' AND {flt}").fetchone()
-                if admin_count["cnt"] <= 1:
-                    raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
-            updates.append("role = ?")
-            params.append(data.role)
-            new_role = data.role
+    emp_dict = _obj_to_dict(emp)
 
-        if data.permissions is not None:
-            updates.append("permissions = ?")
-            params.append(_json.dumps({"permissions": data.permissions}))
+    updates = {}
+    new_role = emp_dict["role"]
 
-        if not updates:
-            raise HTTPException(status_code=400, detail="No fields to update")
+    if data.role is not None:
+        if data.role not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        # Cannot demote last admin
+        if emp_dict["role"] == "admin" and data.role != "admin":
+            admin_count_query = select(func.count()).select_from(User).where(
+                User.role == "admin", User.status == "Active"
+            )
+            admin_count_query = apply_op_filter(admin_count_query, User, current_user)
+            admin_count = db.execute(admin_count_query).scalar()
+            if admin_count <= 1:
+                raise HTTPException(status_code=400, detail="Cannot demote the last active admin")
+        updates["role"] = data.role
+        new_role = data.role
 
-        params.append(emp_id)
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ? AND {flt}", params)
-        conn.commit()
+    if data.permissions is not None:
+        updates["permissions"] = _json.dumps({"permissions": data.permissions})
 
-        updated = conn.execute(f"SELECT id, username, name, role, phone, status, permissions FROM users WHERE id = ? AND {flt}", [emp_id]).fetchone()
-        result = dict(updated)
-        result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
-        if result.get("permissions"):
-            try:
-                result["permissions"] = _json.loads(result["permissions"])
-            except Exception:
-                pass
-        return {"message": "Permissions updated", "employee": result}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    db.execute(
+        update(User).where(User.id == emp_id).values(**updates)
+    )
+    db.commit()
+
+    updated_query = select(User).where(User.id == emp_id)
+    updated_query = apply_op_filter(updated_query, User, current_user)
+    updated = db.execute(updated_query).scalar_one_or_none()
+    result = _obj_to_dict(updated)
+    result["role_label"] = ROLE_LABELS.get(result["role"], result["role"])
+    if result.get("permissions"):
+        try:
+            result["permissions"] = _json.loads(result["permissions"])
+        except Exception:
+            pass
+    return {"message": "Permissions updated", "employee": result}

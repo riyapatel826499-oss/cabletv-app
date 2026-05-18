@@ -9,8 +9,10 @@ from typing import Optional, List
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import text
 
-from deps import get_db, get_current_user, op_filter, op_id
+from models.base import get_db
+from deps_orm import get_current_user, apply_op_filter, op_id
 
 router = APIRouter(prefix="/api/reminders", tags=["Reminders"])
 
@@ -92,6 +94,19 @@ def _generate_message(name: str, amount: float) -> str:
     return f"{greeting}, {body}.\n\n{closing}"
 
 
+# ── Operator filter helper for text() queries ────────────────────────────
+
+def _op_flt(user, alias="") -> str:
+    """Return SQL WHERE fragment for operator isolation in text() queries."""
+    oid = user.get("operator_id")
+    prefix = f"{alias}." if alias else ""
+    if oid is None:
+        if prefix:
+            return f"({prefix}operator_id > 0 OR {prefix}operator_id IS NULL)"
+        return "(operator_id > 0 OR operator_id IS NULL)"
+    return f"{prefix}operator_id = {oid}"
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────
 
 class SendReminderRequest(BaseModel):
@@ -105,78 +120,80 @@ def get_due_customers(
     include_due_soon: bool = Query(False, description="Include customers due within 5 days"),
     network: Optional[str] = Query(None),
     current_user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
     """List customers with unpaid/expiring connections."""
-    flt = op_filter(current_user)
     _oid = op_id(current_user)
+    flt = _op_flt(current_user, "cn")
 
-    with get_db() as conn:
-        query = f"""
-            SELECT DISTINCT cn.customer_id, c.name, c.phone,
-            cn.stb_no, cn.mso, cn.plan_name, cn.plan_amount,
-            cn.expiry_date, cn.id as connection_id
-            FROM connections cn
-            JOIN customers c ON cn.customer_id = c.customer_id
-            WHERE cn.status = 'Active' AND {op_filter(current_user, 'cn')}
-        """
-        params: list = []
+    query = f"""
+        SELECT DISTINCT cn.customer_id, c.name, c.phone,
+        cn.stb_no, cn.mso, cn.plan_name, cn.plan_amount,
+        cn.expiry_date, cn.id as connection_id
+        FROM connections cn
+        JOIN customers c ON cn.customer_id = c.customer_id
+        WHERE cn.status = 'Active' AND {flt}
+    """
+    params: dict = {}
 
-        if include_due_soon:
-            query += " AND cn.expiry_date <= (CURRENT_DATE + INTERVAL '5 days')::text"
+    if include_due_soon:
+        query += " AND cn.expiry_date <= (CURRENT_DATE + INTERVAL '5 days')::text"
+    else:
+        if days_overdue > 0:
+            query += " AND cn.expiry_date <= (CURRENT_DATE - make_interval(days => :days_overdue))::text"
+            params["days_overdue"] = days_overdue
         else:
-            if days_overdue > 0:
-                query += " AND cn.expiry_date <= (CURRENT_DATE - make_interval(days => ?))::text"
-                params.append(days_overdue)
-            else:
-                query += " AND cn.expiry_date <= CURRENT_DATE::text"
+            query += " AND cn.expiry_date <= CURRENT_DATE::text"
 
-        if network:
-            query += " AND cn.mso = ?"
-            params.append(network)
+    if network:
+        query += " AND cn.mso = :network"
+        params["network"] = network
 
-        query += " ORDER BY cn.expiry_date ASC, c.name"
+    query += " ORDER BY cn.expiry_date ASC, c.name"
 
-        rows = conn.execute(query, params).fetchall()
+    rows = db.execute(text(query), params).fetchall()
 
-        # Mark already-sent-today
-        sent_today = _load_sent_today(_oid)
+    # Mark already-sent-today
+    sent_today = _load_sent_today(_oid)
 
-        results = []
-        seen_customers = set()
-        for r in rows:
-            cid = str(r["customer_id"])
-            if cid in seen_customers:
-                continue
-            seen_customers.add(cid)
-            results.append({
-                "customer_id": cid,
-                "name": r["name"],
-                "phone": r["phone"],
-                "stb_no": r["stb_no"],
-                "mso": r["mso"],
-                "plan_name": r["plan_name"],
-                "plan_amount": r["plan_amount"],
-                "expiry_date": r["expiry_date"],
-                "sent_today": cid in sent_today,
-            })
+    results = []
+    seen_customers = set()
+    for r in rows:
+        m = r._mapping
+        cid = str(m["customer_id"])
+        if cid in seen_customers:
+            continue
+        seen_customers.add(cid)
+        results.append({
+            "customer_id": cid,
+            "name": m["name"],
+            "phone": m["phone"],
+            "stb_no": m["stb_no"],
+            "mso": m["mso"],
+            "plan_name": m["plan_name"],
+            "plan_amount": m["plan_amount"],
+            "expiry_date": m["expiry_date"],
+            "sent_today": cid in sent_today,
+        })
 
-        return {
-            "customers": results,
-            "total": len(results),
-            "sent_today_count": _count_sent_today(_oid),
-            "max_per_day": MAX_PER_DAY,
-            "remaining_today": max(0, MAX_PER_DAY - _count_sent_today(_oid)),
-        }
+    return {
+        "customers": results,
+        "total": len(results),
+        "sent_today_count": _count_sent_today(_oid),
+        "max_per_day": MAX_PER_DAY,
+        "remaining_today": max(0, MAX_PER_DAY - _count_sent_today(_oid)),
+    }
 
 
 @router.post("/send")
 def send_reminders(
     data: SendReminderRequest,
     current_user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
     """Send WhatsApp reminders to selected customers via CARE bridge."""
     _oid = op_id(current_user)
-    flt = op_filter(current_user)
+    flt = _op_flt(current_user)
     sent_today = _load_sent_today(_oid)
     remaining = MAX_PER_DAY - len(sent_today)
 
@@ -192,75 +209,75 @@ def send_reminders(
         to_send = to_send[:remaining]
 
     results = []
-    with get_db() as conn:
-        for cid in to_send:
-            customer = conn.execute(
-                f"SELECT name, phone FROM customers WHERE customer_id = ? AND {flt}",
-                (cid,),
-            ).fetchone()
+    for cid in to_send:
+        customer = db.execute(
+            text(f"SELECT name, phone FROM customers WHERE customer_id = :cid AND {flt}"),
+            {"cid": cid},
+        ).fetchone()
 
-            if not customer or not customer["phone"]:
-                results.append({"customer_id": cid, "status": "skipped", "reason": "No phone number"})
-                continue
+        if not customer or not customer._mapping["phone"]:
+            results.append({"customer_id": cid, "status": "skipped", "reason": "No phone number"})
+            continue
 
-            # Get plan amount
-            plan = conn.execute(
-                f"SELECT plan_name, plan_amount FROM connections WHERE customer_id = ? AND status = 'Active' AND {flt} ORDER BY expiry_date LIMIT 1",
-                (cid,),
-            ).fetchone()
+        # Get plan amount
+        plan = db.execute(
+            text(f"SELECT plan_name, plan_amount FROM connections WHERE customer_id = :cid AND status = 'Active' AND {flt} ORDER BY expiry_date LIMIT 1"),
+            {"cid": cid},
+        ).fetchone()
 
-            amount = plan["plan_amount"] if plan else 0
-            name = customer["name"]
-            phone = customer["phone"]
+        m = plan._mapping if plan else {}
+        amount = m.get("plan_amount", 0) or 0
+        name = customer._mapping["name"]
+        phone = customer._mapping["phone"]
 
-            if data.dry_run:
-                msg = _generate_message(name, amount)
-                results.append({
-                    "customer_id": cid, "name": name, "phone": phone,
-                    "status": "dry_run", "message": msg,
-                })
-                continue
-
-            # Generate unique message
+        if data.dry_run:
             msg = _generate_message(name, amount)
-
-            try:
-                r = httpx.post(CARE_BRIDGE, json={
-                    "chatId": _chat_id(phone),
-                    "message": msg,
-                }, timeout=30)
-
-                if r.status_code == 200:
-                    status = "sent"
-                    # Log to sms_log
-                    conn.execute(
-                        "INSERT INTO sms_log (customer_id, phone, message, status, provider, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
-                        (cid, phone, msg, "sent", "whatsapp_care", _oid),
-                    )
-                    conn.commit()
-                    # Mark as sent today
-                    sent_today.add(cid)
-                    _save_sent_today(sent_today, _oid)
-                else:
-                    status = "failed"
-                    error_detail = r.text[:200]
-                    results.append({
-                        "customer_id": cid, "name": name, "phone": phone,
-                        "status": status, "error": error_detail,
-                    })
-                    continue
-            except Exception as e:
-                status = "error"
-                results.append({
-                    "customer_id": cid, "name": name, "phone": phone,
-                    "status": status, "error": str(e),
-                })
-                continue
-
             results.append({
                 "customer_id": cid, "name": name, "phone": phone,
-                "status": status, "message": msg,
+                "status": "dry_run", "message": msg,
             })
+            continue
+
+        # Generate unique message
+        msg = _generate_message(name, amount)
+
+        try:
+            r = httpx.post(CARE_BRIDGE, json={
+                "chatId": _chat_id(phone),
+                "message": msg,
+            }, timeout=30)
+
+            if r.status_code == 200:
+                status = "sent"
+                # Log to sms_log
+                db.execute(
+                    text("INSERT INTO sms_log (customer_id, phone, message, status, provider, operator_id) VALUES (:cid, :phone, :msg, 'sent', 'whatsapp_care', :oid)"),
+                    {"cid": cid, "phone": phone, "msg": msg, "oid": _oid},
+                )
+                db.commit()
+                # Mark as sent today
+                sent_today.add(cid)
+                _save_sent_today(sent_today, _oid)
+            else:
+                status = "failed"
+                error_detail = r.text[:200]
+                results.append({
+                    "customer_id": cid, "name": name, "phone": phone,
+                    "status": status, "error": error_detail,
+                })
+                continue
+        except Exception as e:
+            status = "error"
+            results.append({
+                "customer_id": cid, "name": name, "phone": phone,
+                "status": status, "error": str(e),
+            })
+            continue
+
+        results.append({
+            "customer_id": cid, "name": name, "phone": phone,
+            "status": status, "message": msg,
+        })
 
     return {
         "results": results,
@@ -275,40 +292,43 @@ def send_reminders(
 def reminder_history(
     limit: int = Query(50, ge=1, le=200),
     current_user=Depends(get_current_user),
+    db=Depends(get_db),
 ):
     """Show recent WhatsApp reminders sent."""
-    flt = op_filter(current_user)
-    with get_db() as conn:
-        rows = conn.execute(
-            f"""SELECT s.*, c.name as customer_name
-            FROM sms_log s
-            LEFT JOIN customers c ON s.customer_id = c.customer_id
-            WHERE s.provider = 'whatsapp_care' AND {op_filter(current_user, 's')}
-            ORDER BY s.sent_at DESC LIMIT ?""",
-            (limit,),
-        ).fetchall()
-        return {"history": [dict(r) for r in rows]}
+    flt = _op_flt(current_user, "s")
+    rows = db.execute(
+        text(f"""SELECT s.*, c.name as customer_name
+        FROM sms_log s
+        LEFT JOIN customers c ON s.customer_id = c.customer_id
+        WHERE s.provider = 'whatsapp_care' AND {flt}
+        ORDER BY s.sent_at DESC LIMIT :limit"""),
+        {"limit": limit},
+    ).fetchall()
+    return {"history": [dict(r._mapping) for r in rows]}
 
 
 @router.get("/status")
-def reminder_status(current_user=Depends(get_current_user)):
+def reminder_status(
+    current_user=Depends(get_current_user),
+    db=Depends(get_db),
+):
     """Today's reminder sending status."""
     _oid = op_id(current_user)
-    flt = op_filter(current_user)
+    flt = _op_flt(current_user)
     sent_today = _load_sent_today(_oid)
-    with get_db() as conn:
-        today_count = conn.execute(
-            f"SELECT COUNT(*) as c FROM sms_log WHERE provider = 'whatsapp_care' AND date(sent_at) = date('now') AND {flt}",
-        ).fetchone()["c"]
 
-        # Total unpaid
-        total_unpaid = conn.execute(
-            f"SELECT COUNT(DISTINCT customer_id) as c FROM connections WHERE status = 'Active' AND expiry_date < date('now') AND {flt}",
-        ).fetchone()["c"]
+    today_count = db.execute(
+        text(f"SELECT COUNT(*) as c FROM sms_log WHERE provider = 'whatsapp_care' AND date(sent_at) = CURRENT_DATE AND {flt}"),
+    ).fetchone()._mapping["c"]
 
-        return {
-            "sent_today": today_count,
-            "max_per_day": MAX_PER_DAY,
-            "remaining_today": max(0, MAX_PER_DAY - today_count),
-            "total_unpaid": total_unpaid,
-        }
+    # Total unpaid
+    total_unpaid = db.execute(
+        text(f"SELECT COUNT(DISTINCT customer_id) as c FROM connections WHERE status = 'Active' AND expiry_date < CURRENT_DATE::text AND {flt}"),
+    ).fetchone()._mapping["c"]
+
+    return {
+        "sent_today": today_count,
+        "max_per_day": MAX_PER_DAY,
+        "remaining_today": max(0, MAX_PER_DAY - today_count),
+        "total_unpaid": total_unpaid,
+    }

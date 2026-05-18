@@ -2,11 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3
 import httpx
 import logging
 
-from deps import get_db, get_current_user, op_filter, op_id
+from models.base import get_db
+from deps_orm import get_current_user, apply_op_filter, op_id
 from config import DB_PATH
 
 logger = logging.getLogger(__name__)

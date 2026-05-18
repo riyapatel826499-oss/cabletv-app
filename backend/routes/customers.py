@@ -4,8 +4,8 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import calendar
 
-from deps import get_db, get_current_user, require_role, op_filter, op_id
-from db import table_has_column, placeholder as _ph
+from models.base import get_db
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month

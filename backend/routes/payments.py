@@ -2,11 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from typing import Optional
-import asyncio
 import calendar
+import threading
 
-from deps import get_db, get_current_user, require_role, op_filter, op_id
-from db import table_has_column
+from sqlalchemy import select, update, func, text, or_, and_
+from sqlalchemy.orm import Session
+
+from models.base import get_db
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id
+from models.tables import (
+    Payment, Customer, Connection, PaypakkaPayment,
+    CustomerPlan, Plan, User, PaypakkaEmployee,
+)
 from utils import get_current_month
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
@@ -16,9 +23,13 @@ from audit import log_action
 router = APIRouter(prefix="/api", tags=["Payments"])
 
 # Broadcast channel for WebSocket notifications
-import threading
 _payment_listeners_lock = threading.Lock()
 payment_listeners = []
+
+
+def _obj_to_dict(obj):
+    """Convert a SQLAlchemy model instance to a dict."""
+    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
 
 class PaymentCreate(BaseModel):
@@ -40,146 +51,145 @@ class PaymentCreate(BaseModel):
 @router.post("/payments", status_code=201)
 def create_payment(
     data: PaymentCreate,
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    with get_db() as conn:
-        _opf = op_filter(current_user)
+    # Validate customer
+    cust_query = select(Customer).where(Customer.customer_id == data.customer_id)
+    cust_query = apply_op_filter(cust_query, Customer, current_user)
+    customer = db.execute(cust_query).scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
 
-        # Validate customer
-        customer = conn.execute(
-            f"SELECT * FROM customers WHERE customer_id = ? AND {_opf}", (data.customer_id,)
-        ).fetchone()
-        if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        # Auto-detect connection_id if not provided (-1 = auto)
-        if not data.connection_id or data.connection_id == -1:
-            auto_conn = conn.execute(
-                f"SELECT id FROM connections WHERE customer_id = ? AND status = 'Active' AND {_opf} ORDER BY id LIMIT 1",
-                (data.customer_id,),
-            ).fetchone()
-            if auto_conn:
-                data.connection_id = auto_conn["id"]
-            else:
-                raise HTTPException(status_code=400, detail="No active connection found for this customer")
-
-        # Validate connection
-        connection = conn.execute(
-            f"SELECT * FROM connections WHERE id = ? AND customer_id = ? AND {_opf}",
-            (data.connection_id, data.customer_id),
-        ).fetchone()
-        if not connection:
-            raise HTTPException(status_code=404, detail="Connection not found")
-        connection = dict(connection)  # sqlite3.Row doesn't have .get()
-
-        # Auto-fill month_year
-        if not data.month_year:
-            data.month_year = get_current_month()
-
-        # Check if payment_type column exists (cross-engine: works on SQLite and PostgreSQL)
-        has_ptype = table_has_column(conn, 'payments', 'payment_type')
-
-        # Insert payment
-        if has_ptype:
-            cursor = conn.execute(
-                f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'}) RETURNING id""",
-                (
-                    data.customer_id,
-                    data.connection_id,
-                    data.plan_id,
-                    data.amount,
-                    data.payment_mode,
-                    data.payment_type or "regular",
-                    current_user["id"],
-                    data.month_year,
-                    data.months_paid or 1,
-                    data.notes,
-                    data.latitude,
-                    data.longitude,
-                    data.previous_balance,
-                    data.bill_amount,
-                ),
-            )
+    # Auto-detect connection_id if not provided (-1 = auto)
+    if not data.connection_id or data.connection_id == -1:
+        conn_query = select(Connection).where(
+            Connection.customer_id == data.customer_id,
+            Connection.status == "Active",
+        )
+        conn_query = apply_op_filter(conn_query, Connection, current_user)
+        conn_query = conn_query.order_by(Connection.id).limit(1)
+        auto_conn = db.execute(conn_query).scalar_one_or_none()
+        if auto_conn:
+            data.connection_id = auto_conn.id
         else:
-            cursor = conn.execute(
-                f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'}) RETURNING id""",
-                (
-                    data.customer_id,
-                    data.connection_id,
-                    data.plan_id,
-                    data.amount,
-                    data.payment_mode,
-                    current_user["id"],
-                    data.month_year,
-                    data.months_paid or 1,
-                    data.notes,
-                    data.latitude,
-                    data.longitude,
-                    data.previous_balance,
-                    data.bill_amount,
-                ),
+            raise HTTPException(status_code=400, detail="No active connection found for this customer")
+
+    # Validate connection
+    conn_query = select(Connection).where(
+        Connection.id == data.connection_id,
+        Connection.customer_id == data.customer_id,
+    )
+    conn_query = apply_op_filter(conn_query, Connection, current_user)
+    connection = db.execute(conn_query).scalar_one_or_none()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    connection_dict = _obj_to_dict(connection)
+
+    # Auto-fill month_year
+    if not data.month_year:
+        data.month_year = get_current_month()
+
+    # Insert payment
+    payment = Payment(
+        customer_id=data.customer_id,
+        connection_id=data.connection_id,
+        plan_id=data.plan_id,
+        amount=data.amount,
+        payment_mode=data.payment_mode,
+        payment_type=data.payment_type or "regular",
+        collected_by=current_user["id"],
+        month_year=data.month_year,
+        months_paid=data.months_paid or 1,
+        notes=data.notes,
+        latitude=data.latitude,
+        longitude=data.longitude,
+        previous_balance=data.previous_balance,
+        bill_amount=data.bill_amount,
+        operator_id=op_id(current_user),
+    )
+    db.add(payment)
+    db.flush()
+    payment_id = payment.id
+
+    # Update customer plan expiry if plan provided
+    expiry_date = connection_dict.get("expiry_date")
+    plan = None
+    if data.plan_id:
+        plan_query = select(Plan).where(Plan.id == data.plan_id)
+        plan_query = apply_op_filter(plan_query, Plan, current_user)
+        plan_obj = db.execute(plan_query).scalar_one_or_none()
+        if plan_obj:
+            plan = _obj_to_dict(plan_obj)
+            # Deactivate old plans
+            db.execute(
+                update(CustomerPlan)
+                .where(
+                    CustomerPlan.connection_id == data.connection_id,
+                    CustomerPlan.status == "Active",
+                )
+                .values(status="Expired")
             )
-        payment_id = cursor.fetchone()[0]
+            months = data.months_paid or 1
+            start_date = datetime.now().strftime("%Y-%m-%d")
 
-        # Update customer plan expiry if plan provided
-        expiry_date = connection.get("expiry_date") if connection else None  # default from connection
-        plan = None
-        if data.plan_id:
-            plan = conn.execute(f"SELECT * FROM plans WHERE id = ? AND {_opf}", (data.plan_id,)).fetchone()
-            if plan:
-                plan = dict(plan)  # sqlite3.Row → dict for .get() support
-                # Deactivate old plans
-                conn.execute(
-                    "UPDATE customer_plans SET status = 'Expired' WHERE connection_id = ? AND status = 'Active'",
-                    (data.connection_id,),
-                )
-                months = data.months_paid or 1
-                start_date = datetime.now().strftime("%Y-%m-%d")
+            # Calculate expiry: last day of the Nth month from now
+            now = datetime.now()
+            expiry_month = now.month + months
+            expiry_year = now.year
+            while expiry_month > 12:
+                expiry_month -= 12
+                expiry_year += 1
+            last_day = calendar.monthrange(expiry_year, expiry_month)[1]
+            expiry_date = f"{expiry_year}-{expiry_month:02d}-{last_day}"
 
-                # Calculate expiry: last day of the Nth month from now
-                now = datetime.now()
-                expiry_month = now.month + months
-                expiry_year = now.year
-                while expiry_month > 12:
-                    expiry_month -= 12
-                    expiry_year += 1
-                last_day = calendar.monthrange(expiry_year, expiry_month)[1]
-                expiry_date = f"{expiry_year}-{expiry_month:02d}-{last_day}"
+            new_cp = CustomerPlan(
+                customer_id=data.customer_id,
+                connection_id=data.connection_id,
+                plan_id=plan["id"],
+                amount=plan["amount"],
+                start_date=start_date,
+                expiry_date=expiry_date,
+                operator_id=op_id(current_user),
+            )
+            db.add(new_cp)
 
-                conn.execute(
-                    f"""INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount, start_date, expiry_date, operator_id)
-                       VALUES (?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
-                    (data.customer_id, data.connection_id, plan["id"], plan["amount"], start_date, expiry_date),
-                )
+            # Also update connection expiry
+            db.execute(
+                update(Connection)
+                .where(Connection.id == data.connection_id)
+                .values(expiry_date=expiry_date, plan_name=plan["name"], plan_amount=plan["amount"])
+            )
 
-                # Also update connection expiry
-                conn.execute(
-                    "UPDATE connections SET expiry_date = ?, plan_name = ?, plan_amount = ? WHERE id = ?",
-                    (expiry_date, plan["name"], plan["amount"], data.connection_id),
-                )
+    db.commit()
 
-        conn.commit()
+    # Audit log
+    log_action("payment_create", "payments", str(payment_id),
+               new_value={"customer_id": data.customer_id, "amount": data.amount,
+                          "mode": data.payment_mode, "month": data.month_year},
+               user=current_user)
 
-        # Audit log
-        log_action("payment_create", "payments", str(payment_id),
-                   new_value={"customer_id": data.customer_id, "amount": data.amount,
-                              "mode": data.payment_mode, "month": data.month_year},
-                   user=current_user)
+    # Fetch the created payment with user info
+    result = db.execute(
+        select(Payment, Customer, User)
+        .join(Customer, Payment.customer_id == Customer.customer_id)
+        .join(User, Payment.collected_by == User.id, isouter=True)
+        .where(Payment.id == payment_id)
+    ).fetchone()
 
-        # Fetch the created payment with user info
-        payment = conn.execute(
-            """SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area, c.status as customer_status, u.name as collector_name
-               FROM payments p
-               JOIN customers c ON p.customer_id = c.customer_id
-               LEFT JOIN users u ON p.collected_by = u.id
-               WHERE p.id = ?""",
-            (payment_id,),
-        ).fetchone()
+    # Build payment_data dict
+    if result:
+        p_obj, c_obj, u_obj = result
+        payment_data = _obj_to_dict(p_obj)
+        payment_data["customer_name"] = c_obj.name
+        payment_data["customer_phone"] = c_obj.phone
+        payment_data["area"] = c_obj.area
+        payment_data["customer_status"] = c_obj.status
+        payment_data["collector_name"] = u_obj.name if u_obj else None
+    else:
+        payment_data = {"id": payment_id}
 
     # Notify WebSocket listeners (thread-safe)
-    payment_data = dict(payment) if payment else {"id": payment_id}
     with _payment_listeners_lock:
         for queue in payment_listeners:
             try:
@@ -191,52 +201,50 @@ def create_payment(
                 pass
 
     # Send Telegram notification (based on settings)
-    if payment:
+    if result:
         try:
-            cust_status = payment.get("customer_status", "active")
+            cust_status = payment_data.get("customer_status", "active")
             if should_notify_payment(cust_status):
                 notify_payment(
-                    customer_name=payment.get("customer_name", ""),
+                    customer_name=payment_data.get("customer_name", ""),
                     customer_id=data.customer_id,
                     amount=data.amount,
                     mode=data.payment_mode or "",
                     source="Local",
-                    collector=payment.get("collector_name", ""),
-                    area=payment.get("area", ""),
+                    collector=payment_data.get("collector_name", ""),
+                    area=payment_data.get("area", ""),
                 )
         except Exception:
             pass  # notification failure should not break payment
 
     # Send WhatsApp payment receipt to customer
-    if payment:
+    if result:
         try:
             send_payment_receipt(
-                customer_name=payment.get("customer_name", ""),
-                phone=payment.get("customer_phone", ""),
+                customer_name=payment_data.get("customer_name", ""),
+                phone=payment_data.get("customer_phone", ""),
                 amount=data.amount,
                 month_year=data.month_year or "",
                 plan_name=plan.get("name") if plan else None,
                 payment_mode=data.payment_mode,
-                collector_name=payment.get("collector_name", ""),
+                collector_name=payment_data.get("collector_name", ""),
                 expiry_date=expiry_date,
             )
         except Exception:
             pass  # WA receipt failure should not break payment
 
     # Push notification: Reconnection alert for disconnected customers
-    if payment:
+    if result:
         try:
             from routes.push import send_push_to_roles
-            conn_status = (connection.get("status") or "").lower() if connection else ""
-            # Check if connection was disconnected/suspended before this payment reactivated it
+            conn_status = (connection_dict.get("status") or "").lower() if connection_dict else ""
             was_disconnected = conn_status in ("disconnected", "suspended", "inactive")
-            # Also check payment_type
             is_reconnection = (data.payment_type or "regular") == "reconnection"
             if was_disconnected or is_reconnection:
                 send_push_to_roles(
                     ["master", "admin", "support"],
                     title="🔌 Reconnection Payment",
-                    body=f"{payment.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
+                    body=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
                     tag="reconnection",
                     data={"url": "/", "customer_id": data.customer_id}
                 )
@@ -253,54 +261,65 @@ def payment_history(
     customer_id: Optional[str] = None,
     month_year: Optional[str] = None,
     collected_by: Optional[int] = None,
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    with get_db() as conn:
-        # Agents can only see their own collected payments
-        agent_filter = ""
-        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
-            agent_filter = " AND p.collected_by = ?"
-        query = """
-            SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area,
-                   u.name as collector_name, con.stb_no
-            FROM payments p
-            JOIN customers c ON p.customer_id = c.customer_id
-            LEFT JOIN users u ON p.collected_by = u.id
-            LEFT JOIN connections con ON p.connection_id = con.id
-            WHERE (p.deleted IS NULL OR p.deleted = 0)
-        """
-        params = []
-        if agent_filter:
-            query += agent_filter
-            params.append(current_user["id"])
+    # Base query with JOINs
+    query = (
+        select(Payment, Customer, User, Connection)
+        .join(Customer, Payment.customer_id == Customer.customer_id)
+        .join(User, Payment.collected_by == User.id, isouter=True)
+        .join(Connection, Payment.connection_id == Connection.id, isouter=True)
+        .where(or_(Payment.deleted.is_(None), Payment.deleted == 0))
+    )
 
-        if customer_id:
-            query += " AND p.customer_id = ?"
-            params.append(customer_id)
-        if month_year:
-            query += " AND p.month_year = ?"
-            params.append(month_year)
-        if collected_by:
-            query += " AND p.collected_by = ?"
-            params.append(collected_by)
+    # Agents can only see their own collected payments
+    if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+        query = query.where(Payment.collected_by == current_user["id"])
 
-        # Count
-        count_query = query.replace(
-            "SELECT p.*, c.name as customer_name, c.phone as customer_phone, c.area as area,\n                   u.name as collector_name, con.stb_no",
-            "SELECT COUNT(*)",
-        )
-        total = conn.execute(count_query, params).fetchone()[0]
+    if customer_id:
+        query = query.where(Payment.customer_id == customer_id)
+    if month_year:
+        query = query.where(Payment.month_year == month_year)
+    if collected_by:
+        query = query.where(Payment.collected_by == collected_by)
 
-        query += " ORDER BY p.collected_at DESC LIMIT ? OFFSET ?"
-        params.extend([per_page, (page - 1) * per_page])
+    # Count query (separate for efficiency)
+    count_query = (
+        select(func.count())
+        .select_from(Payment)
+        .where(or_(Payment.deleted.is_(None), Payment.deleted == 0))
+    )
+    if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+        count_query = count_query.where(Payment.collected_by == current_user["id"])
+    if customer_id:
+        count_query = count_query.where(Payment.customer_id == customer_id)
+    if month_year:
+        count_query = count_query.where(Payment.month_year == month_year)
+    if collected_by:
+        count_query = count_query.where(Payment.collected_by == collected_by)
 
-        rows = conn.execute(query, params).fetchall()
+    total = db.execute(count_query).scalar()
+
+    query = query.order_by(Payment.collected_at.desc()).limit(per_page).offset((page - 1) * per_page)
+    rows = db.execute(query).fetchall()
+
+    payments = []
+    for row in rows:
+        p_obj, c_obj, u_obj, con_obj = row
+        d = _obj_to_dict(p_obj)
+        d["customer_name"] = c_obj.name
+        d["customer_phone"] = c_obj.phone
+        d["area"] = c_obj.area
+        d["collector_name"] = u_obj.name if u_obj else None
+        d["stb_no"] = con_obj.stb_no if con_obj else None
+        payments.append(d)
 
     return {
         "total": total,
         "page": page,
         "per_page": per_page,
-        "payments": [dict(r) for r in rows],
+        "payments": payments,
     }
 
 
@@ -314,29 +333,24 @@ def all_payment_history(
     q: Optional[str] = None,
     mso: Optional[str] = None,
     export: bool = Query(False),
+    db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Unified payment history merging Local + Paypakka payments with date filtering."""
-    import calendar as cal
     import traceback
 
     try:
-     with get_db() as conn:
-
-        # Default: current month (skip if customer_id filter is set with wide date range)
+        # Default: current month
         now = datetime.now()
         if not date_from:
             date_from = f"{now.year}-{now.month:02d}-01"
         if not date_to:
-            last_day = cal.monthrange(now.year, now.month)[1]
+            last_day = calendar.monthrange(now.year, now.month)[1]
             date_to = f"{now.year}-{now.month:02d}-{last_day}"
 
-        # Build local payments query
-        # NOTE: payments table may not have payment_type column yet — check first
-        has_ptype = table_has_column(conn, 'payments', 'payment_type')
-        ptype_col = ", p.payment_type" if has_ptype else ", 'regular' as payment_type"
-        local_query = f"""
-            SELECT p.id, p.customer_id, p.amount, p.payment_mode{ptype_col}, p.collected_at,
+        # ── Local payments (text() bridge for complex multi-table join) ──────
+        local_sql = """
+            SELECT p.id, p.customer_id, p.amount, p.payment_mode, p.payment_type, p.collected_at,
                    p.month_year, p.notes, p.latitude, p.longitude,
                    p.previous_balance, p.bill_amount, p.connection_id,
                    c.name as customer_name, c.area, c.phone as customer_phone,
@@ -346,24 +360,23 @@ def all_payment_history(
             LEFT JOIN users u ON p.collected_by = u.id
             LEFT JOIN connections con ON p.connection_id = con.id
             WHERE (p.deleted IS NULL OR p.deleted = 0)
-              AND DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
+              AND DATE(p.collected_at) >= :date_from AND DATE(p.collected_at) <= :date_to
         """
-        local_params = [date_from, date_to]
+        local_params: dict = {"date_from": date_from, "date_to": date_to}
         # Agents can only see their own collected payments
         if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
-            local_query += " AND p.collected_by = ?"
-            local_params.append(current_user["id"])
+            local_sql += " AND p.collected_by = :agent_id"
+            local_params["agent_id"] = current_user["id"]
         if customer_id:
-            local_query += " AND p.customer_id = ?"
-            local_params.append(customer_id)
+            local_sql += " AND p.customer_id = :cust_id"
+            local_params["cust_id"] = customer_id
         if mso:
-            local_query += " AND con.mso = ?"
-            local_params.append(mso)
-        local_rows = conn.execute(local_query, local_params).fetchall()
+            local_sql += " AND con.mso = :mso"
+            local_params["mso"] = mso
+        local_rows = db.execute(text(local_sql), local_params).fetchall()
 
-        # Build paypakka payments query
-        # NOTE: paypakka_payments has no operator_id — filter via emp_ref_id for agents
-        pp_query = """
+        # ── Paypakka payments (text() bridge) ───────────────────────────────
+        pp_sql = """
             SELECT pp.id, pp.customer_id, pp.collection_amount, pp.payment_type,
                    pp.paypakka_created_at, pp.bill_amount, pp.plan_amount,
                    pp.discount_amount, pp.status, pp.transaction_id,
@@ -374,71 +387,72 @@ def all_payment_history(
             FROM paypakka_payments pp
             JOIN customers c ON pp.customer_id = c.customer_id
             LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
-            WHERE DATE(pp.paypakka_created_at) >= ? AND DATE(pp.paypakka_created_at) <= ?
+            WHERE DATE(pp.paypakka_created_at) >= :date_from AND DATE(pp.paypakka_created_at) <= :date_to
         """
-        pp_params = [date_from, date_to]
-        # Agents can only see their own collected paypakka payments
+        pp_params: dict = {"date_from": date_from, "date_to": date_to}
         if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
-            pp_query += " AND pp.emp_ref_id IN (SELECT emp_ref_id FROM paypakka_employees WHERE emp_name = (SELECT name FROM users WHERE id = ?))"
-            pp_params.append(current_user["id"])
+            pp_sql += " AND pp.emp_ref_id IN (SELECT emp_ref_id FROM paypakka_employees WHERE emp_name = (SELECT name FROM users WHERE id = :agent_user_id))"
+            pp_params["agent_user_id"] = current_user["id"]
         if customer_id:
-            pp_query += " AND pp.customer_id = ?"
-            pp_params.append(customer_id)
+            pp_sql += " AND pp.customer_id = :cust_id"
+            pp_params["cust_id"] = customer_id
         if mso:
-            pp_query += " AND pp.customer_id IN (SELECT customer_id FROM connections WHERE mso = ?)"
-            pp_params.append(mso)
-        pp_rows = conn.execute(pp_query, pp_params).fetchall()
+            pp_sql += " AND pp.customer_id IN (SELECT customer_id FROM connections WHERE mso = :mso)"
+            pp_params["mso"] = mso
+        pp_rows = db.execute(text(pp_sql), pp_params).fetchall()
 
-        # Merge into unified list
+        # ── Merge into unified list ─────────────────────────────────────────
         all_payments = []
 
         for r in local_rows:
+            m = r._mapping
             all_payments.append({
-                "id": r["id"],
+                "id": m["id"],
                 "source": "Local",
-                "customer_id": r["customer_id"],
-                "customer_name": r["customer_name"],
-                "customer_phone": r["customer_phone"] or "",
-                "area": r["area"] or "",
-                "amount": r["amount"],
-                "payment_mode": r["payment_mode"] or "Cash",
-                "date": r["collected_at"],
-                "collector": r["collector_name"] or "",
-                "month_year": r["month_year"] or "",
-                "stb_no": r["stb_no"] or "",
-                "latitude": r["latitude"],
-                "longitude": r["longitude"],
-                "previous_balance": r["previous_balance"] or 0,
-                "bill_amount": r["bill_amount"] or 0,
+                "customer_id": m["customer_id"],
+                "customer_name": m["customer_name"],
+                "customer_phone": m["customer_phone"] or "",
+                "area": m["area"] or "",
+                "amount": m["amount"],
+                "payment_mode": m["payment_mode"] or "Cash",
+                "date": m["collected_at"],
+                "collector": m["collector_name"] or "",
+                "month_year": m["month_year"] or "",
+                "stb_no": m["stb_no"] or "",
+                "latitude": m["latitude"],
+                "longitude": m["longitude"],
+                "previous_balance": m["previous_balance"] or 0,
+                "bill_amount": m["bill_amount"] or 0,
                 "deletable": current_user.get("role") == "master",
-                "payment_type": r["payment_type"] or "regular",
-                "mso": r["mso"] or "",
+                "payment_type": m["payment_type"] or "regular",
+                "mso": m["mso"] or "",
             })
 
         for r in pp_rows:
+            m = r._mapping
             all_payments.append({
-                "id": r["id"],
+                "id": m["id"],
                 "source": "Paypakka",
-                "customer_id": r["customer_id"],
-                "customer_name": r["customer_name"],
-                "customer_phone": r["customer_phone"] or "",
-                "area": r["area"] or "",
-                "amount": r["collection_amount"],
-                "payment_mode": (r["payment_type"] or "cash").title(),
-                "date": r["paypakka_created_at"],
-                "collector": r["collector_name"] or "",
+                "customer_id": m["customer_id"],
+                "customer_name": m["customer_name"],
+                "customer_phone": m["customer_phone"] or "",
+                "area": m["area"] or "",
+                "amount": m["collection_amount"],
+                "payment_mode": (m["payment_type"] or "cash").title(),
+                "date": m["paypakka_created_at"],
+                "collector": m["collector_name"] or "",
                 "month_year": "",
-                "stb_no": r["stb_no"] or "",
+                "stb_no": m["stb_no"] or "",
                 "latitude": None,
                 "longitude": None,
                 "previous_balance": 0,
-                "bill_amount": r["bill_amount"] or 0,
+                "bill_amount": m["bill_amount"] or 0,
                 "deletable": False,
-                "transaction_id": r["transaction_id"] or "",
-                "plan_amount": r["plan_amount"] or 0,
-                "discount_amount": r["discount_amount"] or 0,
+                "transaction_id": m["transaction_id"] or "",
+                "plan_amount": m["plan_amount"] or 0,
+                "discount_amount": m["discount_amount"] or 0,
                 "payment_type": "regular",
-                "mso": r["mso"] or "",
+                "mso": m["mso"] or "",
             })
 
         # Sort by date descending
@@ -464,133 +478,150 @@ def all_payment_history(
         start = (page - 1) * per_page
         page_items = all_payments[start:start + per_page]
 
-     return {
-        "total": total,
-        "total_amount": total_amount,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "date_from": date_from,
-        "date_to": date_to,
-        "payments": page_items,
-     }
+        return {
+            "total": total,
+            "total_amount": total_amount,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "date_from": date_from,
+            "date_to": date_to,
+            "payments": page_items,
+        }
     except Exception as e:
-     import sys
-     print(f"PAYMENTS/ALL ERROR: {e}", file=sys.stderr)
-     traceback.print_exc(file=sys.stderr)
-     raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        import sys
+        print(f"PAYMENTS/ALL ERROR: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 @router.delete("/payments/{payment_id}")
 def delete_payment(
     payment_id: int,
     reason: Optional[str] = Query(None),
-    current_user: dict = Depends(require_role("master", "admin"))
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_role("master", "admin")),
 ):
-    with get_db() as conn:
-        _opf = op_filter(current_user)
+    # Fetch payment to delete (exclude already-deleted)
+    payment_query = select(Payment).where(
+        Payment.id == payment_id,
+        or_(Payment.deleted.is_(None), Payment.deleted == 0),
+    )
+    payment_query = apply_op_filter(payment_query, Payment, current_user)
+    payment = db.execute(payment_query).scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
 
-        # Fetch payment to delete (exclude already-deleted)
-        payment = conn.execute(
-            f"SELECT * FROM payments WHERE id = ? AND (deleted IS NULL OR deleted = 0) AND {_opf}", (payment_id,)
-        ).fetchone()
-        if not payment:
-            raise HTTPException(status_code=404, detail="Payment not found")
+    customer_id = payment.customer_id
+    connection_id = payment.connection_id
 
-        customer_id = payment["customer_id"]
-        connection_id = payment["connection_id"]
+    # Snapshot before deletion for audit
+    payment_snapshot = _obj_to_dict(payment)
 
-        # Snapshot before deletion for audit
-        payment_snapshot = dict(payment)
+    # Get current expiry before deletion
+    cp_query = select(CustomerPlan).where(
+        CustomerPlan.customer_id == customer_id,
+        CustomerPlan.connection_id == connection_id,
+        CustomerPlan.status == "Active",
+    )
+    cp_query = apply_op_filter(cp_query, CustomerPlan, current_user)
+    cust_plan = db.execute(cp_query.limit(1)).scalar_one_or_none()
 
-        # Get current expiry before deletion
-        old_expiry = None
-        cust_plan = conn.execute(
-            f"SELECT * FROM customer_plans WHERE customer_id = ? AND connection_id = ? AND status = 'Active' AND {_opf} LIMIT 1",
-            (customer_id, connection_id),
-        ).fetchone()
+    old_expiry = None
+    if cust_plan:
+        old_expiry = cust_plan.expiry_date
+
+    # Soft-delete the payment
+    db.execute(
+        update(Payment)
+        .where(Payment.id == payment_id)
+        .values(
+            deleted=1,
+            deleted_by=current_user["id"],
+            deleted_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            delete_reason=reason or "",
+        )
+    )
+
+    # Audit log
+    log_action("payment_delete", "payments", str(payment_id),
+               old_value=payment_snapshot,
+               new_value={"reason": reason, "deleted_by": current_user.get("name")},
+               user=current_user)
+
+    # Count remaining LOCAL payments for this customer's connection (exclude soft-deleted)
+    remaining_query = select(Payment).where(
+        Payment.customer_id == customer_id,
+        Payment.connection_id == connection_id,
+        or_(Payment.deleted.is_(None), Payment.deleted == 0),
+    )
+    remaining_query = apply_op_filter(remaining_query, Payment, current_user)
+    remaining_query = remaining_query.order_by(Payment.collected_at.asc())
+    remaining = db.execute(remaining_query).scalars().all()
+
+    new_expiry = old_expiry  # default: no change
+
+    if remaining:
+        # Recalculate expiry: count unique months paid
+        months_paid = set()
+        for p in remaining:
+            my = p.month_year  # format: "04-2026"
+            if my:
+                months_paid.add(my)
+
+        num_months = len(months_paid) if months_paid else 1
+
+        # Find the earliest payment date to base expiry from
+        earliest = remaining[0]
+        earliest_date = datetime.strptime(earliest.collected_at[:10], "%Y-%m-%d")
+
+        # Expiry = last day of (earliest_month + num_months - 1)
+        exp_month = earliest_date.month + num_months - 1
+        exp_year = earliest_date.year
+        while exp_month > 12:
+            exp_month -= 12
+            exp_year += 1
+
+        last_day = calendar.monthrange(exp_year, exp_month)[1]
+        new_expiry = f"{exp_year}-{exp_month:02d}-{last_day:02d}"
+
+        # Update customer_plans expiry
         if cust_plan:
-            old_expiry = cust_plan["expiry_date"]
+            db.execute(
+                update(CustomerPlan)
+                .where(CustomerPlan.id == cust_plan.id)
+                .values(expiry_date=new_expiry)
+            )
 
-        # Soft-delete the payment (mark deleted, keep row)
-        conn.execute(
-            """UPDATE payments SET deleted = 1, deleted_by = ?, deleted_at = CURRENT_TIMESTAMP,
-               delete_reason = ? WHERE id = ?""",
-            (current_user["id"], reason or "", payment_id)
+        # Update connections expiry_date
+        db.execute(
+            update(Connection)
+            .where(Connection.id == connection_id)
+            .values(expiry_date=new_expiry)
+        )
+    else:
+        # No payments left — clear expiry
+        new_expiry = None
+
+        if cust_plan:
+            # Set expiry to start_date (effectively expired) since NOT NULL
+            db.execute(
+                update(CustomerPlan)
+                .where(CustomerPlan.id == cust_plan.id)
+                .values(status="Expired", expiry_date=cust_plan.start_date)
+            )
+
+        db.execute(
+            update(Connection)
+            .where(Connection.id == connection_id)
+            .values(expiry_date=None)
         )
 
-        # Audit log
-        log_action("payment_delete", "payments", str(payment_id),
-                   old_value=payment_snapshot,
-                   new_value={"reason": reason, "deleted_by": current_user.get("name")},
-                   user=current_user)
+    db.commit()
 
-        # Count remaining LOCAL payments for this customer's connection (exclude soft-deleted)
-        remaining = conn.execute(
-            f"SELECT id, month_year, collected_at FROM payments WHERE customer_id = ? AND connection_id = ? AND (deleted IS NULL OR deleted = 0) AND {_opf} ORDER BY collected_at ASC",
-            (customer_id, connection_id),
-        ).fetchall()
-
-        new_expiry = old_expiry  # default: no change
-
-        if remaining:
-            # Recalculate expiry: count unique months paid
-            months_paid = set()
-            for p in remaining:
-                my = p["month_year"]  # format: "04-2026"
-                if my:
-                    months_paid.add(my)
-
-            num_months = len(months_paid) if months_paid else 1
-
-            # Find the earliest payment date to base expiry from
-            earliest = remaining[0]
-            earliest_date = datetime.strptime(earliest["collected_at"][:10], "%Y-%m-%d")
-
-            # Expiry = last day of (earliest_month + num_months - 1)
-            exp_month = earliest_date.month + num_months - 1
-            exp_year = earliest_date.year
-            while exp_month > 12:
-                exp_month -= 12
-                exp_year += 1
-
-            last_day = calendar.monthrange(exp_year, exp_month)[1]
-            new_expiry = f"{exp_year}-{exp_month:02d}-{last_day:02d}"
-
-            # Update customer_plans expiry
-            if cust_plan:
-                conn.execute(
-                    "UPDATE customer_plans SET expiry_date = ? WHERE id = ?",
-                    (new_expiry, cust_plan["id"]),
-                )
-
-            # Update connections expiry_date
-            conn.execute(
-                "UPDATE connections SET expiry_date = ? WHERE id = ?",
-                (new_expiry, connection_id),
-            )
-        else:
-            # No payments left — clear expiry (can't determine old value for prepaid)
-            new_expiry = None
-
-            if cust_plan:
-                # Set expiry to start_date (effectively expired) since NOT NULL
-                conn.execute(
-                    "UPDATE customer_plans SET status = 'Expired', expiry_date = start_date WHERE id = ?",
-                    (cust_plan["id"],),
-                )
-
-            conn.execute(
-                "UPDATE connections SET expiry_date = NULL WHERE id = ?",
-                (connection_id,),
-            )
-
-        conn.commit()
-
-        return {
-            "message": "Payment deleted successfully",
-            "old_expiry": old_expiry,
-            "new_expiry": new_expiry,
-            "remaining_payments": len(remaining),
-        }
-
+    return {
+        "message": "Payment deleted successfully",
+        "old_expiry": old_expiry,
+        "new_expiry": new_expiry,
+        "remaining_payments": len(remaining),
+    }

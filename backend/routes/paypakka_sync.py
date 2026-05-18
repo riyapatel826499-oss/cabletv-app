@@ -7,7 +7,8 @@ import time
 import os
 import logging
 
-from deps import get_db, get_current_user, op_filter, op_id
+from models.base import get_db
+from deps_orm import get_current_user, apply_op_filter, op_id
 from config import DB_PATH, PAYPAKKA_DISTRIBUTOR_REF_ID
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment

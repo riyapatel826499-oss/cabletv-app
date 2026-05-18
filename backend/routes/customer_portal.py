@@ -6,7 +6,8 @@ from typing import Optional
 import hashlib
 import hmac
 
-from deps import get_db, get_current_customer, create_token
+from models.base import get_db
+from deps_orm import get_current_customer, create_token, create_token
 from utils import (
     hash_password, verify_password, needs_rehash,
     normalize_phone, find_customer_by_phone,

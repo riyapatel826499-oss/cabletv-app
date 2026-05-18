@@ -1,10 +1,13 @@
 """Staff authentication — login, token validation, role-based access."""
 import uuid
-import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import select, update, delete
+from sqlalchemy.orm import Session
 
-from deps import get_current_user, require_role, create_token, get_db
+from deps_orm import get_current_user, require_role, create_token
+from models.base import get_db
+from models.tables import User, ActiveSession, Operator
 from utils import hash_password, verify_password, needs_rehash
 from config import PASSWORD_MIN_LENGTH
 from limiter import limiter
@@ -26,70 +29,69 @@ class TokenResponse(BaseModel):
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
-def login(request: Request, body: LoginRequest):
-    with get_db() as conn:
-        # Try with operator_id first (multi-tenant), fallback without (legacy)
-        try:
-            user = conn.execute(
-                "SELECT id, username, name, role, phone, password, operator_id FROM users WHERE username = ?",
-                (body.username,),
-            ).fetchone()
-        except sqlite3.OperationalError:
-            user = conn.execute(
-                "SELECT id, username, name, role, phone, password FROM users WHERE username = ?",
-                (body.username,),
-            ).fetchone()
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
+    # Look up user by username
+    user_obj = db.execute(
+        select(User).where(User.username == body.username)
+    ).scalar_one_or_none()
 
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid username or password")
+    if not user_obj:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
-        user = dict(user)  # Convert Row to dict for .get() support
+    user = {
+        "id": user_obj.id,
+        "username": user_obj.username,
+        "name": user_obj.name,
+        "role": user_obj.role,
+        "phone": user_obj.phone,
+        "password": user_obj.password,
+        "operator_id": user_obj.operator_id,
+    }
 
-        # Verify password (supports bcrypt + legacy SHA256 migration)
-        if not verify_password(body.password, user["password"]):
-            raise HTTPException(status_code=401, detail="Invalid username or password")
+    # Verify password (supports bcrypt + legacy SHA256 migration)
+    if not verify_password(body.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
-        # Auto-upgrade legacy SHA256 to bcrypt
-        if needs_rehash(user["password"]):
-            conn.execute(
-                "UPDATE users SET password = ? WHERE id = ?",
-                (hash_password(body.password), user["id"]),
-            )
-            conn.commit()
-
-        # Check for existing active session
-        existing = conn.execute(
-            "SELECT session_id FROM active_sessions WHERE user_id = ?",
-            (user["id"],)
-        ).fetchone()
-
-        if existing and not body.force:
-            # Session conflict — ask user to confirm
-            raise HTTPException(
-                status_code=409,
-                detail="This account is already logged in on another device. Do you want to continue?",
-                headers={"X-Session-Conflict": "true"}
-            )
-
-        # If force=True or no existing session: create new session
-        session_id = str(uuid.uuid4())
-
-        # Remove any existing sessions for this user
-        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (user["id"],))
-
-        # Register new session
-        conn.execute(
-            "INSERT INTO active_sessions (user_id, session_id) VALUES (?, ?)",
-            (user["id"], session_id)
+    # Auto-upgrade legacy SHA256 to bcrypt
+    if needs_rehash(user["password"]):
+        db.execute(
+            update(User)
+            .where(User.id == user["id"])
+            .values(password=hash_password(body.password))
         )
-        conn.commit()
+        db.commit()
 
-        # Get operator business name if assigned
-        operator_name = None
-        if user.get("operator_id"):
-            op = conn.execute("SELECT business_name FROM operators WHERE id = ?", (user["operator_id"],)).fetchone()
-            if op:
-                operator_name = op["business_name"]
+    # Check for existing active session
+    existing = db.execute(
+        select(ActiveSession).where(ActiveSession.user_id == user["id"])
+    ).scalar_one_or_none()
+
+    if existing and not body.force:
+        # Session conflict — ask user to confirm
+        raise HTTPException(
+            status_code=409,
+            detail="This account is already logged in on another device. Do you want to continue?",
+            headers={"X-Session-Conflict": "true"}
+        )
+
+    # If force=True or no existing session: create new session
+    session_id = str(uuid.uuid4())
+
+    # Remove any existing sessions for this user
+    db.execute(delete(ActiveSession).where(ActiveSession.user_id == user["id"]))
+
+    # Register new session
+    db.add(ActiveSession(user_id=user["id"], session_id=session_id))
+    db.commit()
+
+    # Get operator business name if assigned
+    operator_name = None
+    if user.get("operator_id"):
+        op = db.execute(
+            select(Operator).where(Operator.id == user["operator_id"])
+        ).scalar_one_or_none()
+        if op:
+            operator_name = op.business_name
 
     access_token = create_token(
         subject=str(user["id"]),
@@ -113,12 +115,11 @@ def login(request: Request, body: LoginRequest):
 
 
 @router.post("/logout")
-def logout(current_user=Depends(get_current_user)):
+def logout(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Logout: remove active session."""
     # The session_id is in the token; we clear all sessions for this user
-    with get_db() as conn:
-        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (current_user["id"],))
-        conn.commit()
+    db.execute(delete(ActiveSession).where(ActiveSession.user_id == current_user["id"]))
+    db.commit()
     return {"message": "Logged out successfully"}
 
 
@@ -128,25 +129,24 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.put("/change-password")
-def change_password(body: ChangePasswordRequest, current_user=Depends(get_current_user)):
+def change_password(body: ChangePasswordRequest, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     """Change own password — must supply current password."""
     if len(body.new_password) < PASSWORD_MIN_LENGTH:
         raise HTTPException(400, detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters")
 
-    with get_db() as conn:
-        user = conn.execute(
-            "SELECT password FROM users WHERE id = ?",
-            (current_user["id"],),
-        ).fetchone()
+    user_obj = db.execute(
+        select(User).where(User.id == current_user["id"])
+    ).scalar_one_or_none()
 
-        if not user or not verify_password(body.current_password, user["password"]):
-            raise HTTPException(401, detail="Current password is incorrect")
+    if not user_obj or not verify_password(body.current_password, user_obj.password):
+        raise HTTPException(401, detail="Current password is incorrect")
 
-        conn.execute(
-            "UPDATE users SET password = ? WHERE id = ?",
-            (hash_password(body.new_password), current_user["id"]),
-        )
-        conn.commit()
+    db.execute(
+        update(User)
+        .where(User.id == current_user["id"])
+        .values(password=hash_password(body.new_password))
+    )
+    db.commit()
 
     return {"message": "Password changed successfully"}
 
