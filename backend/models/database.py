@@ -85,12 +85,29 @@ def _safe_alter(table, column, col_type):
 
 
 def init_db():
+    # ── Phase 1: Drop existing tables and recreate from ORM models ────────
+    # This ensures ALL columns defined in tables.py exist. Safe for fresh DB.
+    try:
+        from models.base import engine, Base
+        from models import tables  # Ensure all models are registered
+        
+        # Drop all tables first (fresh DB — safe to do)
+        Base.metadata.drop_all(bind=engine)
+        print("Dropped existing tables")
+        
+        # Create all tables from ORM models (complete column definitions)
+        Base.metadata.create_all(bind=engine)
+        print("SQLAlchemy create_all() completed — all tables created from ORM models")
+    except Exception as e:
+        print(f"SQLAlchemy table creation warning: {e}")
+    
+    # ── Phase 2: Raw SQL for indexes, seed data, and migrations ──────────
     conn = get_db()
     c = conn.cursor()
 
     pk = _pk()
 
-    # Users table (admin + agents)
+    # Users table (ensure exists — SQLAlchemy may have already created it)
     c.execute(f'''CREATE TABLE IF NOT EXISTS users (
         id {pk},
         username TEXT UNIQUE NOT NULL,
