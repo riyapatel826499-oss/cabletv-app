@@ -31,7 +31,9 @@ def create_token(subject: str, token_type: str = "staff",
         payload["sid"] = session_id
     if extra_claims:
         payload.update(extra_claims)
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"Created token: sub={subject}, type={token_type}, SECRET_KEY={SECRET_KEY[:10]}..., ALGORITHM={ALGORITHM}, token_len={len(token)}")
+    return token
 
 
 def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
@@ -39,7 +41,8 @@ def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
     token = credentials.credentials
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT decode failed: {e}, SECRET_KEY={SECRET_KEY[:10]}..., ALGORITHM={ALGORITHM}, token_len={len(token)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
