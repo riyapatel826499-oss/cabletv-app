@@ -225,11 +225,9 @@ def dashboard_stats(current_user=Depends(get_current_user)):
 
     # Add open SR count
     try:
-        sr_rows = db.execute(f"SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND {_opf}").fetchone()
-        result["open_sr_count"] = dict(sr_rows)["cnt"] if sr_rows else 0
-        if is_agent:
-            sr_my = db.execute("SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND assigned_to=?", (current_user["id"],)).fetchone()
-            result["my_open_sr_count"] = dict(sr_my)["cnt"] if sr_my else 0
+        with get_db() as conn2:
+            sr_rows = conn2.execute(f"SELECT COUNT(*) as cnt FROM service_requests WHERE status IN ('open','pending','assigned','in_progress') AND {flt}").fetchone()
+            result["open_sr_count"] = dict(sr_rows)["cnt"] if sr_rows else 0
     except Exception:
         result["open_sr_count"] = 0
     set_cached("dashboard_stats", result)
@@ -341,12 +339,12 @@ def master_dashboard(current_user=Depends(get_current_user)):
                 SELECT TO_CHAR(collected_at::timestamp, 'MM-YYYY') as month, SUM(amount) as total
                 FROM payments
                 WHERE collected_at >= ?
-                GROUP BY TO_CHAR(collected_at::timestamp, 'YYYY-MM')
+                GROUP BY TO_CHAR(collected_at::timestamp, 'MM-YYYY')
                 UNION ALL
                 SELECT TO_CHAR(paypakka_created_at::timestamp, 'MM-YYYY') as month, SUM(collection_amount) as total
                 FROM paypakka_payments
                 WHERE paypakka_created_at >= ?
-                GROUP BY TO_CHAR(paypakka_created_at::timestamp, 'YYYY-MM')
+                GROUP BY TO_CHAR(paypakka_created_at::timestamp, 'MM-YYYY')
             )
             GROUP BY month ORDER BY month DESC LIMIT 6
         """, (six_months_ago, six_months_ago)).fetchall()

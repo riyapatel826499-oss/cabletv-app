@@ -117,7 +117,7 @@ def get_due_customers(
             cn.expiry_date, cn.id as connection_id
             FROM connections cn
             JOIN customers c ON cn.customer_id = c.customer_id
-            WHERE cn.status = 'Active' AND cn.{flt}
+            WHERE cn.status = 'Active' AND {op_filter(current_user, 'cn')}
         """
         params: list = []
 
@@ -283,7 +283,7 @@ def reminder_history(
             f"""SELECT s.*, c.name as customer_name
             FROM sms_log s
             LEFT JOIN customers c ON s.customer_id = c.customer_id
-            WHERE s.provider = 'whatsapp_care' AND s.{flt}
+            WHERE s.provider = 'whatsapp_care' AND {op_filter(current_user, 's')}
             ORDER BY s.sent_at DESC LIMIT ?""",
             (limit,),
         ).fetchall()

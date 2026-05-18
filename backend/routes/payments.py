@@ -276,6 +276,7 @@ def payment_history(
 
         if customer_id:
             query += " AND p.customer_id = ?"
+            params.append(customer_id)
         if month_year:
             query += " AND p.month_year = ?"
             params.append(month_year)
