@@ -64,7 +64,9 @@ def _safe_alter(table, column, col_type):
         conn = get_db()
         conn.execute(sql)
         conn.commit()
-    except Exception:
+        print(f"  Added column {table}.{column}")
+    except Exception as e:
+        print(f"  _safe_alter({table}.{column}): {e}")
         if conn:
             try:
                 conn.rollback()
@@ -93,7 +95,9 @@ def init_db():
         role TEXT NOT NULL DEFAULT 'agent',
         phone TEXT,
         operator_id INTEGER DEFAULT 1,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'Active',
+        permissions TEXT
     )''')
 
     # Customers table
@@ -109,7 +113,9 @@ def init_db():
         pincode TEXT,
         status TEXT DEFAULT 'Active',
         paypakka_id TEXT,
-        imported_at TEXT DEFAULT CURRENT_TIMESTAMP
+        imported_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        surrendered_date TEXT,
+        surrender_reason TEXT
     )''')
 
     # Connections (STB/Cable)
