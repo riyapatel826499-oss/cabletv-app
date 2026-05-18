@@ -404,6 +404,17 @@ def init_db():
     count_val = count[0]
 
     if count_val == 0:
+        # First create a default operator so FK constraint is satisfied
+        c.execute("SELECT COUNT(*) FROM operators")
+        op_count = c.fetchone()[0]
+        if op_count == 0:
+            ph_op = _ph(3)
+            c.execute(
+                f"INSERT INTO operators (id, name, business_name, phone) VALUES ({ph_op})",
+                (1, 'SSN Cables', 'SSN Cables', '7708551139')
+            )
+            conn.commit()
+        
         ph = _ph(6)
         c.execute(
             f"INSERT INTO users (username, password, name, role, phone, operator_id) VALUES ({ph})",
