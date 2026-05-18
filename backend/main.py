@@ -52,13 +52,25 @@ from config import CORS_ORIGINS
 # Rate limiter (shared instance from limiter.py)
 
 
+_startup_error = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: init DB + import customers, then start notification task."""
-    init_db()
-    run_migrations()
-    import_customers_from_json()
-    print("Backend ready - Wasool")
+    global _startup_error
+    try:
+        print("Starting init_db()...")
+        init_db()
+        print("init_db() done. Running migrations...")
+        run_migrations()
+        print("Migrations done. Importing customers...")
+        import_customers_from_json()
+        print("Backend ready - Wasool")
+    except Exception as e:
+        import traceback
+        _startup_error = traceback.format_exc()
+        print(f"STARTUP ERROR: {_startup_error}")
+        # Don't re-raise — let app start so /api/debug-startup can show the error
 
     # Background task: relay payment events to WebSocket
     async def payment_notifier():
@@ -133,9 +145,26 @@ def health():
     try:
         with get_db() as conn:
             conn.execute("SELECT 1").fetchone()
-        return {"status": "ok", "db": "connected"}
+        return {"status": "ok", "db": "connected", "startup_error": _startup_error}
     except Exception as e:
-        return {"status": "error", "db": str(e)}
+        return {"status": "error", "db": str(e), "startup_error": _startup_error}
+
+
+@app.get("/api/debug-startup")
+def debug_startup():
+    """Return startup error details for debugging."""
+    import sys
+    import os
+    return {
+        "startup_error": _startup_error,
+        "db_engine": os.getenv("DB_ENGINE", "unknown"),
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
+        "port": os.getenv("PORT", "not set"),
+        "static_dir_exists": os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")),
+        "frontend_dir_exists": os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")),
+        "python_version": sys.version,
+        "cwd": os.getcwd(),
+    }
 
 
 @app.post("/api/backup")
