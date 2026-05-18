@@ -11,6 +11,11 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 # ---------------------------------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DB_PATH") and f"sqlite:///{os.getenv('DB_PATH')}" or "sqlite:///./cabletv.db"
 
+# Railway internal PostgreSQL needs sslmode=disable
+if DATABASE_URL.startswith("postgresql") and "sslmode" not in DATABASE_URL:
+    sep = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL += f"{sep}sslmode=disable"
+
 # SQLite needs check_same_thread=False when used with FastAPI
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 

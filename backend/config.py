@@ -6,6 +6,10 @@ DATABASE_URL_PG = os.getenv("DATABASE_URL", "")
 if DATABASE_URL_PG:
     DB_ENGINE = "postgresql"
     DB_PATH = None
+    # Railway internal connections need sslmode=disable
+    if "sslmode" not in DATABASE_URL_PG:
+        sep = "&" if "?" in DATABASE_URL_PG else "?"
+        DATABASE_URL_PG += f"{sep}sslmode=disable"
 else:
     DB_ENGINE = "sqlite"
     DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cabletv.db")
