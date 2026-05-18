@@ -13,7 +13,8 @@ def area_collection(
     current_user=Depends(get_current_user),
 ):
     """Area-wise collection report combining local + Paypakka payments."""
-    flt = op_filter(current_user)
+    flt_pp = op_filter(current_user, "pp.")
+    flt_p = op_filter(current_user, "p.")
 
     with get_db() as conn:
         # Build area→amount map from BOTH payment sources
@@ -26,7 +27,7 @@ def area_collection(
                    COUNT(DISTINCT pp.customer_id) as cust_count
             FROM paypakka_payments pp
             LEFT JOIN customers c ON pp.customer_id = c.customer_id
-            WHERE pp.{flt}
+            WHERE {flt_pp}
         """
         pp_params = []
         if from_date:
@@ -52,7 +53,7 @@ def area_collection(
                    COUNT(DISTINCT p.customer_id) as cust_count
             FROM payments p
             LEFT JOIN customers c ON p.customer_id = c.customer_id
-            WHERE p.{flt}
+            WHERE {flt_p}
         """
         lp_params = []
         if from_date:
@@ -101,7 +102,8 @@ def collector_performance(
     current_user=Depends(get_current_user),
 ):
     """Collector-wise collection performance combining local + Paypakka payments."""
-    flt = op_filter(current_user)
+    flt_pp = op_filter(current_user, "pp.")
+    flt_p = op_filter(current_user, "p.")
 
     with get_db() as conn:
         collector_data = {}  # name -> {total_collected, payment_count}
@@ -113,7 +115,7 @@ def collector_performance(
                    COUNT(*) as cnt
             FROM paypakka_payments pp
             LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
-            WHERE pp.{flt}
+            WHERE {flt_pp}
         """
         pp_params = []
         if from_date:
@@ -139,7 +141,7 @@ def collector_performance(
                    COUNT(*) as cnt
             FROM payments p
             LEFT JOIN users u ON p.collected_by = u.id
-            WHERE p.{flt}
+            WHERE {flt_p}
         """
         lp_params = []
         if from_date:
@@ -187,6 +189,8 @@ def mso_summary(
 ):
     """MSO-wise summary: customer counts + collection amounts."""
     flt = op_filter(current_user)
+    flt_pp = op_filter(current_user, "pp.")
+    flt_p = op_filter(current_user, "p.")
 
     with get_db() as conn:
         # 1. Customer/connection counts by MSO
@@ -214,7 +218,7 @@ def mso_summary(
             FROM paypakka_payments pp
             JOIN customers c ON pp.customer_id = c.customer_id
             LEFT JOIN connections cn ON cn.customer_id = pp.customer_id
-            WHERE pp.{flt}
+            WHERE {flt_pp}
         """
         pp_params = []
         if from_date:
@@ -238,7 +242,7 @@ def mso_summary(
                    SUM(p.amount) as total
             FROM payments p
             JOIN connections cn ON cn.id = p.connection_id
-            WHERE p.{flt}
+            WHERE {flt_p}
         """
         lp_params = []
         if from_date:
@@ -274,6 +278,8 @@ def my_collections(
     user_id = current_user["id"]
     username = current_user.get("username", "")
     flt = op_filter(current_user)
+    flt_pp = op_filter(current_user, "pp.")
+    flt_p = op_filter(current_user, "p.")
 
     with get_db() as conn:
         # Try to find paypakka employee mapping by username matching employee name
@@ -296,7 +302,7 @@ def my_collections(
                        pp.emp_ref_id, 'paypakka' as source
                 FROM paypakka_payments pp
                 LEFT JOIN customers c ON pp.customer_id = c.customer_id
-                WHERE pp.emp_ref_id = ? AND pp.{flt}
+                WHERE pp.emp_ref_id = ? AND {flt_pp}
             """
             pp_params = [emp_ref_id]
             if from_date:
@@ -337,7 +343,7 @@ def my_collections(
                    p.amount, p.payment_mode, p.collected_at, 'local' as source
             FROM payments p
             LEFT JOIN customers c ON p.customer_id = c.customer_id
-            WHERE p.collected_by = ? AND p.{flt}
+            WHERE p.collected_by = ? AND {flt_p}
         """
         lp_params = [user_id]
         if from_date:
@@ -395,7 +401,8 @@ def mom_trend(
     from datetime import datetime, date
     import calendar
 
-    flt = op_filter(current_user)
+    flt_c = op_filter(current_user, "c.")
+    flt_pp = op_filter(current_user, "pp.")
     now = datetime.now()
 
     # Build list of months to query
@@ -422,7 +429,7 @@ def mom_trend(
                     JOIN customers c ON p.customer_id = c.customer_id
                     WHERE (p.deleted IS NULL OR p.deleted = 0)
                       AND DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
-                      AND c.{flt}""",
+                      AND {flt_c}""",
                 (mo["first"], mo["last"])
             ).fetchone()
 
@@ -432,7 +439,7 @@ def mom_trend(
                     FROM paypakka_payments pp
                     LEFT JOIN customers c ON pp.customer_id = c.customer_id
                     WHERE DATE(pp.paypakka_created_at) >= ? AND DATE(pp.paypakka_created_at) <= ?
-                      AND pp.{flt}""",
+                      AND {flt_pp}""",
                 (mo["first"], mo["last"])
             ).fetchone()
 

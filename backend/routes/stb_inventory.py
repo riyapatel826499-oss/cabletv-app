@@ -46,6 +46,7 @@ def list_inventory(status: Optional[str] = None, operator_id: int = None, curren
 def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=Depends(get_current_user)):
     """Add a spare STB to inventory. Master can pass ?operator_id=X."""
     flt = op_filter(current_user)
+    flt_con = op_filter(current_user, "con.")
     if current_user.get("role") == "master" and operator_id is not None:
         _oid = operator_id
     else:
@@ -55,7 +56,7 @@ def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=
         active = conn.execute(f"""
             SELECT c.customer_id, c.name FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.stb_no = ? AND con.status = 'Active' AND con.{flt}
+            WHERE con.stb_no = ? AND con.status = 'Active' AND {flt_con}
         """, [data.stb_no]).fetchone()
         if active:
             raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is currently assigned to {active['name']} ({active['customer_id']})")
@@ -99,6 +100,7 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
         raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
 
     flt = op_filter(current_user)
+    flt_con = op_filter(current_user, "con.")
     _oid = op_id(current_user)
 
     with get_db() as conn:
@@ -118,7 +120,7 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
         active = conn.execute(f"""
             SELECT c.customer_id, c.name FROM connections con
             JOIN customers c ON con.customer_id = c.customer_id
-            WHERE con.stb_no = ? AND con.status = 'Active' AND con.id != ? AND con.{flt}
+            WHERE con.stb_no = ? AND con.status = 'Active' AND con.id != ? AND {flt_con}
         """, [data.new_stb_no, connection_id]).fetchone()
         if active:
             raise HTTPException(status_code=400, detail=f"STB {data.new_stb_no} is assigned to {active['name']} ({active['customer_id']})")
@@ -131,7 +133,8 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
 
         # 5. Add old STB to inventory
         notes = data.old_stb_notes or f"Exchanged from {customer_id}"
-        conn.execute("INSERT OR REPLACE INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+        conn.execute("""INSERT INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (stb_no) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, added_at = EXCLUDED.added_at, added_by = EXCLUDED.added_by, operator_id = EXCLUDED.operator_id""",
                      [old_stb, data.old_stb_status, notes, now, current_user["name"], _oid])
 
         conn.commit()

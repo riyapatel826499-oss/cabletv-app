@@ -212,6 +212,7 @@ def list_customers(
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
         _of = op_filter(current_user)
+        _of_c = op_filter(current_user, "c.")
 
         query = """SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid,
             (SELECT conn2.stb_no FROM connections conn2 WHERE conn2.customer_id = c.customer_id AND conn2.status = 'Active' LIMIT 1) as stb_no
@@ -219,7 +220,7 @@ def list_customers(
             LEFT JOIN (
                 """ + paid_subq + """
             ) p ON c.customer_id = p.customer_id
-            WHERE """ + ("1=1" if _of == "1=1" else f"c.{_of}")
+            WHERE """ + _of_c
         params = list(paid_params)
 
         if area:
@@ -244,7 +245,7 @@ def list_customers(
 
         # Plan filter
         if plan_id:
-            _of_cp = "1=1" if _of == "1=1" else f"cp.{_of}"
+            _of_cp = op_filter(current_user, "cp.")
             query += f" AND c.customer_id IN (SELECT DISTINCT cp.customer_id FROM customer_plans cp WHERE cp.plan_id = ? AND cp.status = 'Active' AND {_of_cp})"
             params.append(plan_id)
 
@@ -258,7 +259,7 @@ def list_customers(
             LEFT JOIN (
                 """ + paid_subq + """
             ) p ON c.customer_id = p.customer_id
-            WHERE """ + ("1=1" if _of == "1=1" else f"c.{_of}")
+            WHERE """ + _of_c
         # Rebuild WHERE clauses for count query
         count_params = list(paid_params)
         count_query = count_base
@@ -275,7 +276,7 @@ def list_customers(
         elif payment_filter == "unpaid":
             count_query += " AND p.customer_id IS NULL"
         if plan_id:
-            _of_cp = "1=1" if _of == "1=1" else f"cp.{_of}"
+            _of_cp = op_filter(current_user, "cp.")
             count_query += f" AND c.customer_id IN (SELECT DISTINCT cp.customer_id FROM customer_plans cp WHERE cp.plan_id = ? AND cp.status = 'Active' AND {_of_cp})"
             count_params.append(plan_id)
         total = conn.execute(count_query, count_params).fetchone()[0]
@@ -358,7 +359,7 @@ def list_customers(
                         ) p ON c.customer_id = p.customer_id
                         LEFT JOIN connections conn ON c.customer_id = conn.customer_id
                         WHERE c.customer_id IN (""" + placeholders + """)
-                        AND """ + ("1=1" if _of == "1=1" else f"c.{_of}") + """
+                        AND """ + _of_c + """
                         ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) ASC"""
                     detail_params = paid_params + page_ids
                     detail_rows = conn.execute(detail_q, detail_params).fetchall()
@@ -427,8 +428,8 @@ def get_unpaid_customers(
         # Base query: active connections with expired expiry OR
         # active connections with future expiry but no payment this month
         # (imported customers may have future expiry_date from Paypakka but haven't actually paid)
-        _of_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_conn = op_filter(current_user, "conn.")
+        _of_c = op_filter(current_user, "c.")
         month_start = ref_date.strftime("%Y-%m-01")
         # month_end for payment check = end of ref_date's month
         if ref_date.month == 12:
@@ -576,8 +577,8 @@ def get_not_renewed_customers(
         offset = (page - 1) * per_page
 
         # Find active connections whose expiry_date falls within the target month
-        _of_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_conn = op_filter(current_user, "conn.")
+        _of_c = op_filter(current_user, "c.")
         where = f"WHERE conn.status = 'Active' AND conn.expiry_date >= ? AND conn.expiry_date <= ? AND {_of_conn} AND {_of_c}"
         params: list = [first_day, last_day]
 
@@ -643,7 +644,7 @@ def get_not_renewed_customers(
         ).fetchall() if a["area"]]
 
         # MSO list for filter dropdown
-        _of_conn2 = "" if _of == "1=1" else f"AND conn.{_of.split('.')[-1]}" if "." in _of else f"AND {_of}"
+        _of_conn2 = f"AND {op_filter(current_user, 'conn.')}"
         msos = [m["mso"] for m in db.execute(
             f"SELECT DISTINCT mso FROM connections WHERE mso IS NOT NULL AND mso != '' {_of_conn2} ORDER BY mso"
         ).fetchall() if m["mso"]]
@@ -685,8 +686,8 @@ def get_collection_list(
         current_month_start = datetime.now().replace(day=1).strftime("%Y-%m-%d")
         current_month_end_fmt = datetime.now().strftime("%Y-%m-%d")
         # For "paid" filter: check if payment exists this month
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
-        _of_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
+        _of_c = op_filter(current_user, "c.")
+        _of_conn = op_filter(current_user, "conn.")
 
         offset = (page - 1) * per_page
 
@@ -804,8 +805,8 @@ def get_collection_list(
             })
 
         # Get counts for each filter tab
-        _of_count_c = "1=1" if _of == "1=1" else f"c.{_of}"
-        _of_count_conn = "1=1" if _of == "1=1" else f"conn.{_of}"
+        _of_count_c = op_filter(current_user, "c.")
+        _of_count_conn = op_filter(current_user, "conn.")
         base_join = f"connections conn JOIN customers c ON c.customer_id = conn.customer_id"
 
         count_due_today = db.execute(
@@ -857,7 +858,7 @@ def search_customers(
 ):
     with get_db() as conn:
         _of = op_filter(current_user)
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_c = op_filter(current_user, "c.")
         month_start, month_end, current_month = get_date_range()
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
@@ -911,7 +912,7 @@ def list_temp_disconnected(current_user=Depends(get_current_user)):
 def get_customer(customer_id: str, current_user=Depends(get_current_user)):
     with get_db() as conn:
         _of = op_filter(current_user)
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_c = op_filter(current_user, "c.")
         row = conn.execute(f"""
             SELECT c.*, conn.stb_no, conn.id as conn_id, conn.can_id, conn.mso, conn.status as conn_status
             FROM customers c
@@ -968,7 +969,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
 
         # Validate STB uniqueness
         stb_no = (data.stb_number or "").strip()
-        _of_c = "1=1" if _of == "1=1" else f"c.{_of}"
+        _of_c = op_filter(current_user, "c.")
         _of_bare = "" if _of == "1=1" else f"AND {_of}"
         if stb_no:
             existing = conn.execute(
