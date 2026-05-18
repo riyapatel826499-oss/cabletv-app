@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import sys
+import traceback
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -9,7 +11,6 @@ try:
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).parent / ".env")
 except ImportError:
-    # Manual .env loading fallback
     _env = Path(__file__).parent / ".env"
     if _env.exists():
         for line in _env.read_text().splitlines():
@@ -17,41 +18,90 @@ except ImportError:
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from limiter import limiter, limiter_available
+from fastapi.responses import FileResponse, JSONResponse
+
+# ── Import phase — catch ALL errors ──────────────────────────────────────
+_import_errors = []
+_router_map = {}
+_payment_listeners = []
+_manager = None
+
+def _safe_import(name, from_module=None):
+    """Import and track errors."""
+    try:
+        if from_module:
+            mod = __import__(from_module, fromlist=[name])
+            return getattr(mod, name)
+        else:
+            return __import__(name)
+    except Exception as e:
+        err = f"Failed to import {name} from {from_module}: {traceback.format_exc()}"
+        _import_errors.append(err)
+        print(f"IMPORT ERROR: {err}")
+        return None
+
+# Core deps — these should always work
+limiter = _safe_import("limiter")
+limiter_available = limiter is not None and hasattr(limiter, 'limiter_available') and limiter.limiter_available
+
 if limiter_available:
-    from slowapi import _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
+    _safe_import("_rate_limit_exceeded_handler", "slowapi")
+    _safe_import("RateLimitExceeded", "slowapi.errors")
 
-from models.database import init_db, import_customers_from_json, run_migrations
-from routes.auth import router as auth_router
-from routes.customers import router as customers_router
-from routes.plans import router as plans_router
-from routes.payments import router as payments_router, payment_listeners
-from routes.dashboard import router as dashboard_router
-from routes.employees import router as employees_router
-from routes.stb_inventory import router as stb_inventory_router
-from routes.sms import router as sms_router
-from routes.websocket import router as ws_router, manager
-# # # from routes.customer_portal import router as customer_portal_router  # Still needs migration  # Still needs migration
-from routes.surrenders import router as surrenders_router
-from routes.connections import router as connections_router
-from routes.reports import router as reports_router
-from routes.reminders import router as reminders_router
-from routes.paypakka_sync import router as paypakka_sync_router
-from routes.settings import router as settings_router
-# from routes.operators import router as operators_router  # Still needs migration
-# from routes.push import router as push_router  # Still needs migration
-from routes.service_requests import router as service_requests_router
-# from routes.gtpl import router as gtpl_router  # Still needs migration
-from config import CORS_ORIGINS
+# Database + migrations
+init_db = _safe_import("init_db", "models.database")
+run_migrations = _safe_import("run_migrations", "models.database")
+import_customers = _safe_import("import_customers_from_json", "models.database")
 
-# Rate limiter (shared instance from limiter.py)
+# Route routers — each may fail independently
+_routers = {
+    "auth": ("routes.auth", "router"),
+    "customers": ("routes.customers", "router"),
+    "plans": ("routes.plans", "router"),
+    "payments": ("routes.payments", "router"),
+    "dashboard": ("routes.dashboard", "router"),
+    "employees": ("routes.employees", "router"),
+    "stb_inventory": ("routes.stb_inventory", "router"),
+    "sms": ("routes.sms", "router"),
+    "surrenders": ("routes.surrenders", "router"),
+    "connections": ("routes.connections", "router"),
+    "reports": ("routes.reports", "router"),
+    "reminders": ("routes.reminders", "router"),
+    "paypakka_sync": ("routes.paypakka_sync", "router"),
+    "settings": ("routes.settings", "router"),
+    "service_requests": ("routes.service_requests", "router"),
+}
 
+for route_name, (module, attr) in _routers.items():
+    router = _safe_import(attr, module)
+    if router is not None:
+        _router_map[route_name] = router
 
+# Special: payments also exports payment_listeners
+try:
+    from routes.payments import payment_listeners
+    _payment_listeners = payment_listeners
+except Exception:
+    pass
+
+# Special: websocket exports manager
+try:
+    from routes.websocket import manager
+    _manager = manager
+except Exception:
+    pass
+
+# CORS config
+try:
+    from config import CORS_ORIGINS
+except Exception:
+    CORS_ORIGINS = ["*"]
+
+# ── Startup ──────────────────────────────────────────────────────────────
 _startup_error = None
 
 @asynccontextmanager
@@ -60,32 +110,38 @@ async def lifespan(app: FastAPI):
     global _startup_error
     try:
         print("Starting init_db()...")
-        init_db()
-        print("init_db() done. Running migrations...")
-        run_migrations()
-        print("Migrations done. Importing customers...")
-        import_customers_from_json()
+        if init_db:
+            init_db()
+            print("init_db() done. Running migrations...")
+        if run_migrations:
+            run_migrations()
+            print("Migrations done. Importing customers...")
+        if import_customers:
+            import_customers()
         print("Backend ready - Wasool")
     except Exception as e:
-        import traceback
         _startup_error = traceback.format_exc()
         print(f"STARTUP ERROR: {_startup_error}")
-        # Don't re-raise — let app start so /api/debug-startup can show the error
 
     # Background task: relay payment events to WebSocket
-    async def payment_notifier():
-        queue = asyncio.Queue()
-        payment_listeners.append(queue)
-        while True:
-            try:
-                event = await queue.get()
-                await manager.broadcast(event)
-            except Exception as e:
-                print(f"Notification error: {e}")
+    if _payment_listeners and _manager:
+        async def payment_notifier():
+            queue = asyncio.Queue()
+            _payment_listeners.append(queue)
+            while True:
+                try:
+                    event = await queue.get()
+                    await _manager.broadcast(event)
+                except Exception as e:
+                    print(f"Notification error: {e}")
 
-    task = asyncio.create_task(payment_notifier())
+        task = asyncio.create_task(payment_notifier())
+    else:
+        task = None
+
     yield
-    task.cancel()
+    if task:
+        task.cancel()
 
 
 app = FastAPI(
@@ -96,11 +152,16 @@ app = FastAPI(
 )
 
 # Rate limiting
-if limiter_available:
-    app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+if limiter_available and limiter:
+    app.state.limiter = limiter.limiter
+    try:
+        from slowapi import _rate_limit_exceeded_handler
+        from slowapi.errors import RateLimitExceeded
+        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    except Exception:
+        pass
 
-# CORS — restricted to configured origins
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -110,61 +171,42 @@ app.add_middleware(
 )
 
 # Register routers
-app.include_router(auth_router)
-app.include_router(customers_router)
-app.include_router(plans_router)
-app.include_router(payments_router)
-app.include_router(dashboard_router)
-app.include_router(sms_router)
-app.include_router(ws_router)
-app.include_router(employees_router)
-app.include_router(stb_inventory_router)
-# app.include_router(customer_portal_router)  # Disabled: no frontend yet
-app.include_router(surrenders_router)
-app.include_router(connections_router)
-app.include_router(reports_router)
-app.include_router(reminders_router)
-app.include_router(paypakka_sync_router)
-app.include_router(settings_router)
-# app.include_router(operators_router)  # Still needs migration
-# app.include_router(push_router)  # Still needs migration
-app.include_router(service_requests_router)
-# app.include_router(gtpl_router  # Still needs migration, prefix="/api")
+for name, router in _router_map.items():
+    app.include_router(router)
+    print(f"Registered route: {name}")
 
+# ── Debug endpoints (always available) ───────────────────────────────────
 
-@app.get("/")
-async def root():
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
+@app.get("/api/debug-startup")
+def debug_startup():
+    """Return startup + import error details for debugging."""
+    return {
+        "startup_error": _startup_error,
+        "import_errors": _import_errors,
+        "loaded_routes": list(_router_map.keys()),
+        "database_url_set": bool(os.getenv("DATABASE_URL")),
+        "port": os.getenv("PORT", "not set"),
+        "python_version": sys.version,
+        "cwd": os.getcwd(),
+        "files_in_cwd": os.listdir(".")[:20],
+    }
 
 
 @app.get("/api/health")
 def health():
     """Health check — verifies DB connectivity."""
-    from deps import get_db
     try:
+        from deps import get_db
         with get_db() as conn:
             conn.execute("SELECT 1").fetchone()
         return {"status": "ok", "db": "connected", "startup_error": _startup_error}
     except Exception as e:
-        return {"status": "error", "db": str(e), "startup_error": _startup_error}
+        return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
 
 
-@app.get("/api/debug-startup")
-def debug_startup():
-    """Return startup error details for debugging."""
-    import sys
-    import os
-    return {
-        "startup_error": _startup_error,
-        "db_engine": os.getenv("DB_ENGINE", "unknown"),
-        "database_url_set": bool(os.getenv("DATABASE_URL")),
-        "port": os.getenv("PORT", "not set"),
-        "static_dir_exists": os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")),
-        "frontend_dir_exists": os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")),
-        "python_version": sys.version,
-        "cwd": os.getcwd(),
-    }
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/login")
 
 
 @app.post("/api/backup")
@@ -172,7 +214,12 @@ def backup_db():
     """Daily DB backup — copies cabletv.db to backups/ folder, keeps last 7 days."""
     import shutil
     from datetime import datetime
-    from config import DB_PATH
+    try:
+        from config import DB_PATH
+    except Exception:
+        return {"ok": False, "error": "DB_PATH not available"}
+    if not DB_PATH:
+        return {"ok": False, "error": "No SQLite DB (using PostgreSQL)"}
 
     backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
     os.makedirs(backup_dir, exist_ok=True)
@@ -180,10 +227,8 @@ def backup_db():
     date_str = datetime.now().strftime("%Y-%m-%d")
     backup_path = os.path.join(backup_dir, f"cabletv_{date_str}.db")
 
-    # Copy the current DB
     shutil.copy2(DB_PATH, backup_path)
 
-    # Clean up backups older than 7 days
     kept = 0
     removed = 0
     for f in sorted(os.listdir(backup_dir)):
@@ -191,7 +236,6 @@ def backup_db():
             continue
         fp = os.path.join(backup_dir, f)
         if len(os.listdir(backup_dir)) - removed > 7:
-            # Too many files, remove oldest
             if f != f"cabletv_{date_str}.db":
                 os.remove(fp)
                 removed += 1
@@ -205,33 +249,41 @@ def backup_db():
 
 
 # Serve frontend static files
-# Priority: React build (static/) > legacy HTML (frontend/)
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 
-# Use React build if it exists, otherwise fall back to legacy frontend
 if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
     FRONTEND_DIR = STATIC_DIR
-else:
+elif os.path.exists(LEGACY_DIR):
     FRONTEND_DIR = LEGACY_DIR
+else:
+    FRONTEND_DIR = None
+    print("WARNING: No frontend directory found!")
 
-print(f"Serving frontend from: {FRONTEND_DIR}")
+if FRONTEND_DIR:
+    print(f"Serving frontend from: {FRONTEND_DIR}")
 
+    @app.get("/dashboard")
+    async def serve_dashboard():
+        return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
 
-@app.get("/dashboard")
-async def serve_dashboard():
-    return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
+    @app.get("/login")
+    async def serve_login():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
+    @app.get("/start")
+    async def serve_start():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
-@app.get("/login")
-async def serve_login():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+    # Mount static files last (catch-all for CSS/JS/images)
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+else:
+    @app.get("/login")
+    async def serve_login():
+        return JSONResponse({"error": "No frontend built", "debug": "/api/debug-startup"})
 
+    @app.get("/dashboard")
+    async def serve_dashboard():
+        return JSONResponse({"error": "No frontend built", "debug": "/api/debug-startup"})
 
-@app.get("/start")
-async def serve_start():
-    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
-
-
-# Mount static files last (catch-all for CSS/JS/images)
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    print("No frontend directory — serving API-only mode")
