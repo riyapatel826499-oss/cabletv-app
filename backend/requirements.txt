@@ -12,3 +12,5 @@ pywebpush==2.3.0
 python-dotenv==1.0.1
 httpx
 psycopg2-binary==2.9.9
+sqlalchemy==2.0.36
+alembic==1.14.1
