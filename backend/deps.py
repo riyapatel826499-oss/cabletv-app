@@ -137,20 +137,20 @@ def op_filter(user: dict, alias: str = "") -> str:
     """Return SQL WHERE clause fragment for operator isolation.
     Usage: f"SELECT ... WHERE {op_filter(user)} AND ..."
     Optional alias for table prefix: op_filter(user, "c.") → "c.operator_id = 1"
-    Master/admin with no operator_id sees all (> 0). Others get operator_id = X.
+    Master/admin with no operator_id sees all. Others get operator_id = X.
     """
     oid = user.get("operator_id")
     prefix = f"{alias}." if alias and not alias.endswith(".") else alias
     if oid is None:
-        # master/admin with no operator_id assigned — sees all operators
-        return f"{prefix}operator_id > 0" if prefix else "operator_id > 0"
+        # master/admin with no operator_id assigned — sees all operators (including NULL)
+        return "1=1"
     return f"{prefix}operator_id = {oid}"
 
 
 def op_id(user: dict):
-    """Return operator_id as int, or 'NULL' string for SQL interpolation."""
+    """Return operator_id as int, or None for SQL NULL (use as parameterized value)."""
     oid = user.get("operator_id")
-    return oid if oid is not None else "NULL"
+    return oid if oid is not None else None
 
 
 # ── Customer Auth Dependency ──────────────────────────────────────────────

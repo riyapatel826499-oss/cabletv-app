@@ -6,6 +6,7 @@ import asyncio
 import calendar
 
 from deps import get_db, get_current_user, require_role, op_filter, op_id
+from db import table_has_column
 from utils import get_current_month
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
@@ -75,14 +76,14 @@ def create_payment(
         if not data.month_year:
             data.month_year = get_current_month()
 
-        # Check if payment_type column exists
-        has_ptype = conn.execute("SELECT COUNT(*) FROM pragma_table_info('payments') WHERE name='payment_type'").fetchone()[0]
+        # Check if payment_type column exists (cross-engine: works on SQLite and PostgreSQL)
+        has_ptype = table_has_column(conn, 'payments', 'payment_type')
 
         # Insert payment
         if has_ptype:
             cursor = conn.execute(
                 f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'}) RETURNING id""",
                 (
                     data.customer_id,
                     data.connection_id,
@@ -103,7 +104,7 @@ def create_payment(
         else:
             cursor = conn.execute(
                 f"""INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, latitude, longitude, previous_balance, bill_amount, operator_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'})""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {op_id(current_user) or 'NULL'}) RETURNING id""",
                 (
                     data.customer_id,
                     data.connection_id,
@@ -120,7 +121,7 @@ def create_payment(
                     data.bill_amount,
                 ),
             )
-        payment_id = cursor.lastrowid
+        payment_id = cursor.fetchone()[0]
 
         # Update customer plan expiry if plan provided
         expiry_date = connection.get("expiry_date") if connection else None  # default from connection
@@ -331,7 +332,7 @@ def all_payment_history(
 
         # Build local payments query
         # NOTE: payments table may not have payment_type column yet — check first
-        has_ptype = conn.execute("SELECT COUNT(*) FROM pragma_table_info('payments') WHERE name='payment_type'").fetchone()[0]
+        has_ptype = table_has_column(conn, 'payments', 'payment_type')
         ptype_col = ", p.payment_type" if has_ptype else ", 'regular' as payment_type"
         local_query = f"""
             SELECT p.id, p.customer_id, p.amount, p.payment_mode{ptype_col}, p.collected_at,

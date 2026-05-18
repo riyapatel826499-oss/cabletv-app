@@ -39,7 +39,7 @@ ROLE_LABELS = {
 @router.get("/employees")
 def list_employees(current_user=Depends(get_current_user)):
     """List all employees. Admin and Support can access."""
-    if current_user["role"] not in ["admin", "support"]:
+    if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     flt = op_filter(current_user)
     with get_db() as conn:
@@ -86,7 +86,7 @@ def list_employees(current_user=Depends(get_current_user)):
 @router.get("/employees/roles")
 def get_roles(current_user=Depends(get_current_user)):
     """Get available roles. Admin and Support can access."""
-    if current_user["role"] not in ["admin", "support"]:
+    if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     return {
         "roles": [
@@ -137,7 +137,7 @@ def create_employee(data: EmployeeCreate, current_user=Depends(require_role("adm
 @router.put("/employees/{emp_id}")
 def update_employee(emp_id: int, data: EmployeeUpdate, current_user=Depends(get_current_user)):
     """Update employee details. Admin can update all, Support can update limited fields."""
-    if current_user["role"] not in ["admin", "support"]:
+    if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     # Support cannot change roles to/from admin

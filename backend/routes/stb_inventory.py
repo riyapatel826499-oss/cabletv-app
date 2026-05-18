@@ -95,7 +95,7 @@ def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Dep
 @router.post("/customers/{customer_id}/connections/{connection_id}/exchange-stb")
 def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest, current_user=Depends(get_current_user)):
     """Exchange a customer's faulty STB with a new/spare one."""
-    if current_user["role"] not in ["admin", "support"]:
+    if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
 
     flt = op_filter(current_user)

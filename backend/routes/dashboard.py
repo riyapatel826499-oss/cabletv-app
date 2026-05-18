@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from deps import get_db, get_current_user, op_filter, op_id
@@ -334,20 +334,22 @@ def master_dashboard(current_user=Depends(get_current_user)):
         total_paid = sum(o["paid_local"] for o in operators)
 
         # Monthly revenue trend (last 6 months, from both local + paypakka)
+        # Use TO_CHAR (PostgreSQL) + parameterized date instead of SQLite strftime/date()
+        six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
         trend = conn.execute("""
             SELECT month, SUM(total) as total FROM (
-                SELECT strftime('%m-%Y', collected_at) as month, SUM(amount) as total
+                SELECT TO_CHAR(collected_at::timestamp, 'MM-YYYY') as month, SUM(amount) as total
                 FROM payments
-                WHERE collected_at >= date('now', '-6 months', 'start of month')
-                GROUP BY strftime('%Y-%m', collected_at)
+                WHERE collected_at >= ?
+                GROUP BY TO_CHAR(collected_at::timestamp, 'YYYY-MM')
                 UNION ALL
-                SELECT strftime('%m-%Y', paypakka_created_at) as month, SUM(collection_amount) as total
+                SELECT TO_CHAR(paypakka_created_at::timestamp, 'MM-YYYY') as month, SUM(collection_amount) as total
                 FROM paypakka_payments
-                WHERE paypakka_created_at >= date('now', '-6 months', 'start of month')
-                GROUP BY strftime('%Y-%m', paypakka_created_at)
+                WHERE paypakka_created_at >= ?
+                GROUP BY TO_CHAR(paypakka_created_at::timestamp, 'YYYY-MM')
             )
             GROUP BY month ORDER BY month DESC LIMIT 6
-        """).fetchall()
+        """, (six_months_ago, six_months_ago)).fetchall()
 
     return {
         "total_operators": total_operators,

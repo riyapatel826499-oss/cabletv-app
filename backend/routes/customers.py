@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import calendar
 
 from deps import get_db, get_current_user, require_role, op_filter, op_id
+from db import table_has_column, placeholder as _ph
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month
@@ -947,13 +948,16 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
         _of = op_filter(current_user)
         _oid = op_id(current_user)
         # Generate customer_id using operator's prefix
-        prefix_row = conn.execute(
-            "SELECT customer_prefix FROM operators WHERE id = ?", (_oid,)
-        ).fetchone()
+        if _oid is not None:
+            prefix_row = conn.execute(
+                "SELECT customer_prefix FROM operators WHERE id = " + _ph(), [_oid]
+            ).fetchone()
+        else:
+            prefix_row = None
         prefix = prefix_row["customer_prefix"] if prefix_row and prefix_row["customer_prefix"] else "SSA"
         last = conn.execute(
-            "SELECT customer_id FROM customers WHERE customer_id LIKE ? ORDER BY customer_id DESC LIMIT 1",
-            (f"{prefix}-%",),
+            "SELECT customer_id FROM customers WHERE customer_id LIKE " + _ph() + " ORDER BY customer_id DESC LIMIT 1",
+            [f"{prefix}-%"],
         ).fetchone()
         if last:
             m = re.search(r'-(\d+)', last["customer_id"])
@@ -990,7 +994,10 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
                 """, [customer_id, stb_no, network, network, _oid])
 
                 # Remove STB from inventory (if it was there as spare)
-                conn.execute("DELETE FROM stb_inventory WHERE stb_no = ? AND operator_id = ?", [stb_no, _oid])
+                if _oid is not None:
+                    conn.execute("DELETE FROM stb_inventory WHERE stb_no = ? AND operator_id = ?", [stb_no, _oid])
+                else:
+                    conn.execute("DELETE FROM stb_inventory WHERE stb_no = ? AND operator_id IS NULL", [stb_no])
 
                 # Assign plan if provided
                 plan_id = data.plan_id
@@ -1014,7 +1021,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
                     if fee_row:
                         fee_conn_id = fee_row["id"]
                 # Check if payment_type column exists
-                has_ptype = conn.execute("SELECT COUNT(*) FROM pragma_table_info('payments') WHERE name='payment_type'").fetchone()[0]
+                has_ptype = table_has_column(conn, 'payments', 'payment_type')
                 if has_ptype:
                     conn.execute(
                         """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, operator_id)

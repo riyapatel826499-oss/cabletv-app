@@ -197,6 +197,14 @@ else:
     _COLLATE_RE = _re.compile(r'\s+COLLATE\s+NOCASE\s*', _re.IGNORECASE)
     _SUBSTR_RE = _re.compile(r'\bSUBSTR\(([^)]+)\)', _re.IGNORECASE)
     _INSTR_RE = _re.compile(r'\bINSTR\(([^)]+)\)', _re.IGNORECASE)
+    _STRFTIME_RE = _re.compile(r"\bstrftime\(\s*'([^']+)'\s*,\s*([^)]+)\)", _re.IGNORECASE)
+
+    # SQLite → PostgreSQL strftime format mapping
+    _STRFTIME_MAP = {
+        '%Y': 'YYYY', '%m': 'MM', '%d': 'DD',
+        '%H': 'HH24', '%M': 'MI', '%S': 'SS',
+        '%-m': 'FMMM', '%-d': 'FMDD',
+    }
 
     def _translate_sql(query: str) -> str:
         """Translate SQLite-specific SQL to PostgreSQL-compatible SQL."""
@@ -215,7 +223,7 @@ else:
                 args = [a.strip().strip("'") for a in args_str.split(',')]
             else:
                 args = []
-            modifiers = args[1:] if len(args) > 1 else []
+            modifiers = args  # All captured args are modifiers (regex already excluded 'now')
             days_offset = 0
             months_offset = 0
             hours_offset = 0
@@ -223,24 +231,24 @@ else:
             start_of_month = False
             for mod in modifiers:
                 mod = mod.strip()
-                if 'day' in mod and 'month' not in mod:
-                    val = int(mod.replace('day', '').replace('+', '').replace('-', '').replace(' ', '').replace('+', ''))
+                if mod == 'start of month':
+                    start_of_month = True
+                elif 'day' in mod and 'month' not in mod:
+                    val = int(mod.replace('days', '').replace('day', '').replace('+', '').replace('-', '').replace(' ', ''))
                     if mod.strip().startswith('-'):
                         days_offset -= val
                     else:
                         days_offset += val
                 elif 'month' in mod:
-                    val = int(mod.replace('month', '').replace('+', '').replace('-', '').replace(' ', ''))
+                    val = int(mod.replace('months', '').replace('month', '').replace('+', '').replace('-', '').replace(' ', ''))
                     if mod.strip().startswith('-'):
                         months_offset -= val
                     else:
                         months_offset += val
                 elif 'hour' in mod:
-                    hours_offset += int(mod.replace('hour', '').replace('hours', '').replace('+', '').replace(' ', ''))
+                    hours_offset += int(mod.replace('hours', '').replace('hour', '').replace('+', '').replace(' ', ''))
                 elif 'minute' in mod:
-                    minutes_offset += int(mod.replace('minute', '').replace('minutes', '').replace('+', '').replace(' ', ''))
-                elif mod == 'start of month':
-                    start_of_month = True
+                    minutes_offset += int(mod.replace('minutes', '').replace('minute', '').replace('+', '').replace(' ', ''))
             # Build interval expression
             base = "CURRENT_DATE"
             parts = []
@@ -263,9 +271,9 @@ else:
                 else:
                     base = f"({base} + {interval})"
             if start_of_month:
-                return f"date_trunc('month', {base})::date::text"
-            # Return as text for comparison with TEXT columns
-            return f"({base})::date::text"
+                return f"date_trunc('month', {base})::date"
+            # Return as date — PG auto-casts parameterized strings for comparison
+            return f"({base})::date"
 
         q = _DATE_NOW_RE.sub(_replace_date, q)
 
@@ -289,6 +297,16 @@ else:
                 return f"POSITION({parts[1]} IN {parts[0]})"
             return m.group(0)
         q = _INSTR_RE.sub(_replace_instr, q)
+
+        # 6. strftime('%Y-%m', col) → TO_CHAR(col::timestamp, 'YYYY-MM')
+        def _replace_strftime(m):
+            fmt = m.group(1)
+            col = m.group(2).strip()
+            pg_fmt = fmt
+            for sqlite_pat, pg_pat in _STRFTIME_MAP.items():
+                pg_fmt = pg_fmt.replace(sqlite_pat, pg_pat)
+            return f"TO_CHAR({col}::timestamp, '{pg_fmt}')"
+        q = _STRFTIME_RE.sub(_replace_strftime, q)
 
         return q
 

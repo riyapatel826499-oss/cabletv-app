@@ -27,6 +27,11 @@ def require_master(user=Depends(get_current_user)):
 @router.get("/")
 def list_operators(user=Depends(require_master)):
     """List all operators with stats."""
+    # Compute month start in IST (UTC+5:30) — replaces SQLite date('now','+5 hours','+30 minutes','start of month')
+    from datetime import timedelta
+    now_ist = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    month_start = now_ist.strftime("%Y-%m-01")
+
     with get_db() as conn:
         ops = conn.execute("""
             SELECT o.*,
@@ -35,16 +40,16 @@ def list_operators(user=Depends(require_master)):
                 (SELECT COUNT(*) FROM connections WHERE operator_id = o.id AND status = 'Active') as connection_count,
                 (SELECT COUNT(*) FROM users WHERE operator_id = o.id) as staff_count,
                 (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE operator_id = o.id
-                    AND collected_at >= date('now', '+5 hours', '+30 minutes', 'start of month'))
+                    AND collected_at >= ?)
                 + (SELECT COALESCE(SUM(collection_amount), 0) FROM paypakka_payments WHERE operator_id = o.id
-                    AND paypakka_created_at >= date('now', '+5 hours', '+30 minutes', 'start of month'))
+                    AND paypakka_created_at >= ?)
                 as month_collection,
                 (SELECT username FROM users WHERE operator_id = o.id AND role = 'admin' LIMIT 1) as admin_username,
                 (SELECT name FROM users WHERE operator_id = o.id AND role = 'admin' LIMIT 1) as admin_name,
                 (SELECT phone FROM users WHERE operator_id = o.id AND role = 'admin' LIMIT 1) as admin_phone
             FROM operators o
             ORDER BY o.created_at DESC
-        """).fetchall()
+        """, (month_start, month_start)).fetchall()
         return [dict(o) for o in ops]
 
 
