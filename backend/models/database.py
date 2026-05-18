@@ -62,7 +62,11 @@ def _safe_alter(table, column, col_type):
     conn = None
     try:
         conn = get_db()
-        conn.execute(sql)
+        if DB_ENGINE == "sqlite":
+            conn.execute(sql)
+        else:
+            cur = conn.cursor()
+            cur.execute(sql)
         conn.commit()
         print(f"  Added column {table}.{column}")
     except Exception as e:
