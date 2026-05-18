@@ -143,7 +143,9 @@ def op_filter(user: dict, alias: str = "") -> str:
     prefix = f"{alias}." if alias and not alias.endswith(".") else alias
     if oid is None:
         # master/admin with no operator_id assigned — sees all operators (including NULL)
-        return "1=1"
+        if prefix:
+            return f"({prefix}operator_id > 0 OR {prefix}operator_id IS NULL)"
+        return "(operator_id > 0 OR operator_id IS NULL)"
     return f"{prefix}operator_id = {oid}"
 
 

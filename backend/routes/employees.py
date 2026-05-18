@@ -41,7 +41,8 @@ def list_employees(current_user=Depends(get_current_user)):
     """List all employees. Admin and Support can access."""
     if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    flt = op_filter(current_user)
+    flt_pp = op_filter(current_user, 'pp')
+    flt_u = op_filter(current_user, 'u')
     with get_db() as conn:
         # Single query with LEFT JOIN & GROUP BY to avoid N+1 per-employee queries
         rows = conn.execute(f"""
@@ -52,10 +53,10 @@ def list_employees(current_user=Depends(get_current_user)):
                 SELECT LOWER(pe.emp_name) AS emp_name_lower, COUNT(*) AS cnt
                 FROM paypakka_payments pp
                 JOIN paypakka_employees pe ON pp.emp_ref_id = pe.emp_ref_id
-                WHERE pp.{flt}
+                WHERE {flt_pp}
                 GROUP BY LOWER(pe.emp_name)
             ) pc ON LOWER(u.name) = pc.emp_name_lower
-            WHERE u.{flt}
+            WHERE {flt_u}
             ORDER BY 
                 CASE u.role 
                     WHEN 'admin' THEN 1 

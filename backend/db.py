@@ -259,7 +259,7 @@ else:
                     hm.append(f"'{hours_offset} hours'")
                 if minutes_offset:
                     hm.append(f"'{minutes_offset} minutes'")
-                base = f"(CURRENT_TIMESTAMP + {' + '.join(['INTERVAL ' + h for h in hm])})::date"
+                base = f"(CURRENT_TIMESTAMP + {' + '.join(['INTERVAL ' + h for h in hm])})::text"
             if days_offset != 0:
                 parts.append(f"'{days_offset} days'")
             if months_offset != 0:
@@ -271,9 +271,9 @@ else:
                 else:
                     base = f"({base} + {interval})"
             if start_of_month:
-                return f"date_trunc('month', {base})::date"
-            # Return as date — PG auto-casts parameterized strings for comparison
-            return f"({base})::date"
+                return f"date_trunc('month', {base})::text"
+            # Cast to text for comparison with TEXT columns (expiry_date, collected_at, etc.)
+            return f"({base})::text"
 
         q = _DATE_NOW_RE.sub(_replace_date, q)
 
