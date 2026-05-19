@@ -198,10 +198,25 @@ def debug_startup():
 def health():
     """Health check — verifies DB connectivity."""
     try:
-        from deps import get_db
-        with get_db() as conn:
-            conn.execute("SELECT 1").fetchone()
-        return {"status": "ok", "db": "connected", "startup_error": _startup_error}
+        from deps_orm import get_db as get_db_orm
+        from sqlalchemy import text
+        db = next(get_db_orm())
+        # Debug: check has_local for May 2026
+        rows = db.execute(text("SELECT COUNT(*) FROM payments WHERE collected_at >= '2026-05-01' AND collected_at <= '2026-05-19 23:59:59' AND operator_id = 1")).scalar()
+        pp_rows = db.execute(text("SELECT COUNT(*), COALESCE(SUM(collection_amount),0) FROM paypakka_payments WHERE paypakka_created_at >= '2026-05-01' AND paypakka_created_at <= '2026-05-19 23:59:59' AND operator_id = 1")).fetchone()
+        local_sum = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM payments WHERE collected_at >= '2026-05-01' AND collected_at <= '2026-05-19 23:59:59' AND operator_id = 1")).scalar()
+        return {
+            "status": "ok",
+            "db": "connected",
+            "startup_error": _startup_error,
+            "debug_may": {
+                "local_count": rows,
+                "local_sum": float(local_sum),
+                "pp_count": pp_rows[0],
+                "pp_sum": float(pp_rows[1]),
+                "has_local": rows > 0,
+            }
+        }
     except Exception as e:
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
 
