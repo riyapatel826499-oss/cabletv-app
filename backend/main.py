@@ -440,30 +440,6 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "legacy-frontend")
 
-print(f"DEBUG: LEGACY_DIR={LEGACY_DIR}, exists={os.path.exists(LEGACY_DIR)}")
-print(f"DEBUG: BUNDLED_DIR={BUNDLED_DIR}, exists={os.path.exists(BUNDLED_DIR)}")
-print(f"DEBUG: STATIC_DIR={STATIC_DIR}, exists={os.path.exists(STATIC_DIR)}")
-if os.path.exists(BUNDLED_DIR):
-    print(f"DEBUG: BUNDLED_DIR contents={os.listdir(BUNDLED_DIR)}")
-    print(f"DEBUG: dashboard.html exists={os.path.exists(os.path.join(BUNDLED_DIR, 'dashboard.html'))}")
-
-@app.get("/debug-frontend")
-async def debug_frontend():
-    import os as _os
-    bundled = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "legacy-frontend")
-    return {
-        "cwd": _os.getcwd(),
-        "__file__": __file__,
-        "bundled_dir": bundled,
-        "bundled_exists": _os.path.exists(bundled),
-        "bundled_contents": _os.listdir(bundled) if _os.path.exists(bundled) else "N/A",
-        "dashboard_exists": _os.path.exists(_os.path.join(bundled, "dashboard.html")),
-        "frontend_dir": FRONTEND_DIR,
-        "static_dir": _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static"),
-        "static_exists": _os.path.exists(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static")),
-        "static_contents": _os.listdir(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static"))[:10] if _os.path.exists(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static")) else "N/A",
-    }
-
 if os.path.exists(os.path.join(LEGACY_DIR, "dashboard.html")):
     FRONTEND_DIR = LEGACY_DIR
 elif os.path.exists(os.path.join(BUNDLED_DIR, "dashboard.html")):
@@ -473,32 +449,14 @@ elif os.path.exists(os.path.join(STATIC_DIR, "index.html")):
 else:
     FRONTEND_DIR = None
     print("WARNING: No frontend directory found!")
-    print(f"DEBUG: All files in cwd: {os.listdir(os.path.dirname(os.path.abspath(__file__)))}")
 
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
-
-    # Mount static files (JS, CSS, images, etc.) from FRONTEND_DIR
-    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
     @app.get("/")
     async def serve_root():
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-
-    @app.get("/debug-frontend")
-    async def debug_frontend():
-        return {
-            "frontend_dir": FRONTEND_DIR,
-            "exists": os.path.isdir(FRONTEND_DIR) if FRONTEND_DIR else False,
-            "files": os.listdir(FRONTEND_DIR) if FRONTEND_DIR and os.path.isdir(FRONTEND_DIR) else [],
-            "legacy_dir": LEGACY_DIR,
-            "legacy_exists": os.path.isdir(LEGACY_DIR),
-            "bundled_dir": BUNDLED_DIR,
-            "bundled_exists": os.path.isdir(BUNDLED_DIR),
-            "static_dir": STATIC_DIR,
-            "static_exists": os.path.isdir(STATIC_DIR),
-        }
 
     @app.get("/dashboard")
     async def serve_dashboard():
@@ -513,10 +471,8 @@ if FRONTEND_DIR:
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
     # Catch-all: serve static files from FRONTEND_DIR (JS, CSS, images, etc.)
-    # Only matches paths that don't start with /api/ — those are handled by routers
     @app.get("/{filename:path}")
     async def serve_static_file(filename: str):
-        # Don't intercept API routes or the routes we already defined
         if filename.startswith("api/") or filename in ("dashboard", "login", "start"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
         filepath = os.path.join(FRONTEND_DIR, filename)
