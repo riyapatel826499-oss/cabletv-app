@@ -74,6 +74,8 @@ _routers = {
     "paypakka_sync": ("routes.paypakka_sync", "router"),
     "settings": ("routes.settings", "router"),
     "service_requests": ("routes.service_requests", "router"),
+    "operators": ("routes.operators", "router"),
+    "push": ("routes.push", "router"),
 }
 
 for route_name, (module, attr) in _routers.items():
