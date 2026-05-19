@@ -278,6 +278,29 @@ def fix_collected_at(
     return {"remaining_null": count, "message": "Fixed payments with NULL collected_at"}
 
 
+@router.post("/payments/bulk-update-dates")
+def bulk_update_dates(
+    updates: list[dict],
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Bulk update collected_at for payments. Expects [{"customer_id": "SSA-000001", "date": "2026-05-18 15:30:00"}, ...]"""
+    from sqlalchemy import text as sql_text
+    fixed = 0
+    for u in updates[:500]:  # limit to 500 per call
+        cid = u.get("customer_id")
+        date = u.get("date")
+        month_year = u.get("month_year", "05-2026")
+        if not cid or not date:
+            continue
+        result = db.execute(sql_text(
+            "UPDATE payments SET collected_at = :date WHERE customer_id = :cid AND month_year = :my"
+        ), {"date": date, "cid": cid, "my": month_year})
+        fixed += result.rowcount
+    db.commit()
+    return {"updated": fixed, "total_provided": len(updates)}
+
+
 @router.get("/payments/history")
 def payment_history(
     page: int = Query(1, ge=1),
