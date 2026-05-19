@@ -198,14 +198,22 @@ def debug_startup():
 def nuke_data():
     """Nuclear wipe: delete all business data (keep operators, users, settings).
     Only callable by master. USE WITH CAUTION."""
-    from deps_orm import get_db as get_db_orm, require_role
+    from deps_orm import get_db as get_db_orm
     from sqlalchemy import text
+    from models.base import engine
     db = next(get_db_orm())
     try:
+        # Get actual table names from PostgreSQL
+        existing_tables = db.execute(text(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        )).fetchall()
+        existing = {t[0] for t in existing_tables}
+        
         tables_to_wipe = [
-            "audit_logs", "service_request_timeline", "service_requests",
+            "service_request_timeline", "service_requests",
             "surrender_requests", "complaints", "notifications_settings",
             "online_payments", "sms_logs", "push_subscriptions",
+            "audit_log", "audit_logs",
             "customer_plans", "payments", "connections", "customers",
             "stb_inventory", "paypakka_payments", "paypakka_plans",
             "paypakka_customer_plans", "paypakka_employees",
@@ -213,23 +221,26 @@ def nuke_data():
         ]
         results = {}
         for table in tables_to_wipe:
+            if table not in existing:
+                results[table] = "skipped (not exists)"
+                continue
             try:
-                count = db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
-                db.execute(text(f"DELETE FROM {table}"))
+                count = db.execute(text(f'SELECT COUNT(*) FROM "{table}"')).scalar()
+                if count > 0:
+                    db.execute(text(f'DELETE FROM "{table}"'))
+                    db.commit()
                 results[table] = count
             except Exception as e:
-                results[table] = f"error: {e}"
-        db.commit()
+                db.rollback()
+                results[table] = f"error: {str(e)[:80]}"
         
-        # Reset customer_id sequence
-        try:
-            db.execute(text("ALTER SEQUENCE IF EXISTS customers_id_seq RESTART WITH 1"))
-            db.execute(text("ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1"))
-            db.execute(text("ALTER SEQUENCE IF EXISTS connections_id_seq RESTART WITH 1"))
-            db.execute(text("ALTER SEQUENCE IF EXISTS plans_id_seq RESTART WITH 1"))
-            db.commit()
-        except:
-            pass
+        # Reset sequences
+        for seq in ["customers_id_seq", "payments_id_seq", "connections_id_seq", "plans_id_seq"]:
+            try:
+                db.execute(text(f"ALTER SEQUENCE IF EXISTS {seq} RESTART WITH 1"))
+                db.commit()
+            except:
+                db.rollback()
         
         return {"ok": True, "wiped": results}
     except Exception as e:
