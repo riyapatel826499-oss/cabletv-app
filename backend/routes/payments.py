@@ -242,7 +242,7 @@ def create_payment(
             is_reconnection = (data.payment_type or "regular") == "reconnection"
             if was_disconnected or is_reconnection:
                 send_push_to_roles(
-                    ["master", "admin", "support"],
+                    ["admin", "support"],
                     title="🔌 Reconnection Payment",
                     body=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
                     tag="reconnection",
@@ -423,7 +423,7 @@ def all_payment_history(
                 "longitude": m["longitude"],
                 "previous_balance": m["previous_balance"] or 0,
                 "bill_amount": m["bill_amount"] or 0,
-                "deletable": current_user.get("role") == "master",
+                "deletable": current_user.get("role") in ("admin",),
                 "payment_type": m["payment_type"] or "regular",
                 "mso": m["mso"] or "",
             })
@@ -500,7 +500,7 @@ def delete_payment(
     payment_id: int,
     reason: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_role("master", "admin")),
+    current_user: dict = Depends(require_role("admin")),
 ):
     # Fetch payment to delete (exclude already-deleted)
     payment_query = select(Payment).where(

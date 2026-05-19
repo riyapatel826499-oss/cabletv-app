@@ -118,6 +118,19 @@ def require_role(*roles: str):
     return checker
 
 
+def require_lco_role(*roles: str):
+    """Like require_role but EXCLUDES master — for LCO transactional operations.
+    Master can view data but cannot create/edit/delete customers, payments, connections etc."""
+    def checker(current_user: dict = Depends(get_current_user)) -> dict:
+        user_role = current_user.get("role", "")
+        if user_role == "master":
+            raise HTTPException(status_code=403, detail="Master admin cannot perform LCO transactions. Use an operator admin account.")
+        if user_role not in roles:
+            raise HTTPException(status_code=403, detail=f"Role '{user_role}' not authorized. Required: {', '.join(roles)}")
+        return current_user
+    return checker
+
+
 def require_permission(permission: str):
     """Dependency factory: require user to have a specific permission."""
     def checker(current_user: dict = Depends(get_current_user)) -> dict:

@@ -93,7 +93,7 @@ class ChangePlanRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @router.post("/suspend")
-async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('master', 'admin', 'support'))):
+async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('admin', 'support'))):
     """Suspend STB on GTPL Saathi (cuts signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
@@ -102,7 +102,7 @@ async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('mast
 
 
 @router.post("/activate")
-async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('master', 'admin', 'support'))):
+async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('admin', 'support'))):
     """Activate/reconnect STB on GTPL Saathi (restores signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
@@ -111,7 +111,7 @@ async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('mas
 
 
 @router.post("/renew")
-async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('master', 'admin', 'support'))):
+async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admin', 'support'))):
     """Renew STB subscription on GTPL (deducts from LCO wallet)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
@@ -122,7 +122,7 @@ async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('mast
 
 
 @router.post("/change-plan")
-async def gtpl_change_plan(data: ChangePlanRequest, current_user=Depends(require_role('master', 'admin', 'support'))):
+async def gtpl_change_plan(data: ChangePlanRequest, current_user=Depends(require_role('admin', 'support'))):
     """Change STB package on GTPL Saathi."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
@@ -131,7 +131,7 @@ async def gtpl_change_plan(data: ChangePlanRequest, current_user=Depends(require
 
 
 @router.get("/status/{stb_no}")
-async def gtpl_status(stb_no: str, current_user=Depends(require_role('master', 'admin', 'support'))):
+async def gtpl_status(stb_no: str, current_user=Depends(require_role('admin', 'support'))):
     """Get current GTPL portal status for an STB."""
     if not stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
@@ -139,6 +139,6 @@ async def gtpl_status(stb_no: str, current_user=Depends(require_role('master', '
 
 
 @router.get("/plans")
-def gtpl_plan_list(current_user=Depends(require_role('master', 'admin', 'support'))):
+def gtpl_plan_list(current_user=Depends(require_role('admin', 'support'))):
     """List all available GTPL plan codes."""
     return {"plans": [{"name": k, "code": v} for k, v in GTPL_PLANS.items()]}

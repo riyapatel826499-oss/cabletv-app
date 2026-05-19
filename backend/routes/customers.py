@@ -1131,7 +1131,7 @@ class UpdateExpiryRequest(BaseModel):
 
 @router.put("/customers/{customer_id}/connections/{conn_id}/expiry")
 def update_connection_expiry(customer_id: str, conn_id: int, data: UpdateExpiryRequest, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ("admin", "master"):
+    if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can update expiry date")
     # Validate date format
     try:

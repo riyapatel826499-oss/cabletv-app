@@ -91,7 +91,7 @@ def get_plan(plan_id: int, db: Session = Depends(get_db), current_user=Depends(g
 def create_plan(
     data: PlanCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin", "master")),
+    current_user=Depends(require_role("admin")),
 ):
     _oid = op_id(current_user)
     try:
@@ -119,7 +119,7 @@ def update_plan(
     plan_id: int,
     data: PlanUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin", "master")),
+    current_user=Depends(require_role("admin")),
 ):
     query = select(Plan).where(Plan.id == plan_id)
     query = apply_op_filter(query, Plan, current_user)
@@ -140,7 +140,7 @@ def update_plan(
 def delete_plan(
     plan_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin", "master")),
+    current_user=Depends(require_role("admin")),
 ):
     query = select(Plan).where(Plan.id == plan_id)
     query = apply_op_filter(query, Plan, current_user)

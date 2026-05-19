@@ -84,7 +84,7 @@ def surrender_customer(customer_id: str, req: SurrenderRequest = SurrenderReques
 @router.get("/surrender-requests")
 def list_surrender_requests(status: Optional[str] = None, current_user=Depends(get_current_user)):
    """List surrender requests. Admin/Support only."""
-   if current_user["role"] not in ["master", "admin", "support"]:
+   if current_user["role"] not in ["admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can view surrender requests")
    
    flt = _op_flt(current_user)
@@ -122,7 +122,7 @@ class ReviewRequest(BaseModel):
 @router.post("/surrender-requests/{request_id}/review")
 def review_surrender_request(request_id: int, req: ReviewRequest, current_user=Depends(get_current_user)):
    """Approve or reject a surrender request. Admin/Support only."""
-   if current_user["role"] not in ["master", "admin", "support"]:
+   if current_user["role"] not in ["admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can review surrender requests")
    
    flt = _op_flt(current_user)
@@ -202,7 +202,7 @@ def review_surrender_request(request_id: int, req: ReviewRequest, current_user=D
 @router.post("/customers/{customer_id}/reactivate")
 def reactivate_customer(customer_id: str, current_user=Depends(get_current_user)):
    """Reactivate a surrendered customer."""
-   if current_user["role"] not in ["master", "admin", "support"]:
+   if current_user["role"] not in ["admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can reactivate customers")
    
    flt = _op_flt(current_user)

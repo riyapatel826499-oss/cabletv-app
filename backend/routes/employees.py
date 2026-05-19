@@ -53,7 +53,7 @@ def list_employees(
     current_user=Depends(get_current_user),
 ):
     """List all employees. Admin and Support can access."""
-    if current_user["role"] not in ["master", "admin", "support"]:
+    if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     # Build operator filter clause for text queries
@@ -112,7 +112,7 @@ def list_employees(
 @router.get("/employees/roles")
 def get_roles(current_user=Depends(get_current_user)):
     """Get available roles. Admin and Support can access."""
-    if current_user["role"] not in ["master", "admin", "support"]:
+    if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     return {
         "roles": [
@@ -128,7 +128,7 @@ def get_roles(current_user=Depends(get_current_user)):
 def create_employee(
     data: EmployeeCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin", "master")),
+    current_user=Depends(require_role("admin")),
 ):
     """Create a new employee. Admin/master only."""
 
@@ -173,7 +173,7 @@ def update_employee(
     current_user=Depends(get_current_user),
 ):
     """Update employee details. Admin can update all, Support can update limited fields."""
-    if current_user["role"] not in ["master", "admin", "support"]:
+    if current_user["role"] not in ["admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     # Support cannot change roles to/from admin
@@ -251,7 +251,7 @@ def update_password(
 ):
     """Set/reset employee password. Admin can set any, users can set their own."""
     # Admin or master can change anyone's password
-    if current_user["role"] in ("admin", "master"):
+    if current_user["role"] == "admin":
         pass
     # User can change their own password
     elif current_user["id"] == emp_id:
@@ -279,7 +279,7 @@ def update_password(
 def delete_employee(
     emp_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_role("admin", "master")),
+    current_user=Depends(require_role("admin")),
 ):
     """Delete/deactivate employee. Admin/master only."""
 

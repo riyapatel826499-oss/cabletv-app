@@ -64,7 +64,7 @@ def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=
 @router.delete("/stb-inventory/{stb_id}")
 def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Depends(get_current_user)):
    """Remove an STB from inventory."""
-   if current_user["role"] not in ["admin", "master", "support"]:
+   if current_user["role"] not in ["admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can remove STBs")
    if current_user.get("role") == "master" and operator_id is not None:
        flt = f"operator_id = {operator_id}"
@@ -81,7 +81,7 @@ def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Dep
 @router.post("/customers/{customer_id}/connections/{connection_id}/exchange-stb")
 def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest, current_user=Depends(get_current_user)):
    """Exchange a customer's faulty STB with a new/spare one."""
-   if current_user["role"] not in ["master", "admin", "support"]:
+   if current_user["role"] not in ["admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
    flt = _op_flt(current_user)
    flt_con = _op_flt(current_user, "con.")
