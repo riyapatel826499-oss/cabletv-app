@@ -3573,7 +3573,7 @@ function applyRoleAccess(user) {
 
   // Define which nav items each role can see
   const roleAccess = {
-    'master': ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','operators','reports','audit','settings'],
+    'master': ['dashboard','operators','reports','audit','settings'],
     'admin': ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','audit','settings'],
     'collection_agent': ['payments','unpaid','not-renewed','reports'],
     'agent': ['payments','unpaid','not-renewed','reports'],
