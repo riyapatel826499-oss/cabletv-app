@@ -194,6 +194,24 @@ def debug_startup():
     }
 
 
+@app.post("/api/cleanup-hard-delete-payments")
+def cleanup_hard_delete():
+    """Hard-delete all soft-deleted payments (deleted=1). One-time cleanup."""
+    from deps_orm import get_db as get_db_orm
+    from sqlalchemy import text
+    db = next(get_db_orm())
+    try:
+        count = db.execute(text("SELECT COUNT(*) FROM payments WHERE deleted = 1")).scalar()
+        if count == 0:
+            return {"ok": True, "deleted": 0, "message": "No soft-deleted payments to clean up"}
+        db.execute(text("DELETE FROM payments WHERE deleted = 1"))
+        db.commit()
+        return {"ok": True, "deleted": count, "message": f"Hard-deleted {count} soft-deleted payments"}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/api/health")
 def health():
     """Health check — verifies DB connectivity."""

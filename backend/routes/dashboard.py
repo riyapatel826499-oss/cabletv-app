@@ -76,21 +76,21 @@ def dashboard_stats(
     # local payments exist, we skip paypakka to avoid double-counting.
     # Check if local payments exist for this month first.
     has_local = db.execute(
-        text(f"SELECT COUNT(*) FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
+        text(f"SELECT COUNT(*) FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
         {"ms": month_start_str, "ne": now_end},
     ).scalar() > 0
 
     if has_local:
         # Local payments exist → use local data only (paypakka is historical)
         paid_this_month = db.execute(
-            text(f"SELECT COUNT(DISTINCT customer_id) FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
+            text(f"SELECT COUNT(DISTINCT customer_id) FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
             {"ms": month_start_str, "ne": now_end},
         ).scalar()
     else:
         # No local data (historical month) → fall back to paypakka
         paid_this_month = db.execute(
             text(f"""SELECT COUNT(DISTINCT customer_id) FROM (
-                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   SELECT customer_id FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}
                    UNION
                    SELECT customer_id FROM paypakka_payments
                    WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
@@ -102,6 +102,7 @@ def dashboard_stats(
     q_local = apply_op_filter(
         select(func.coalesce(func.sum(Payment.amount), 0)).where(
             and_(
+                or_(Payment.deleted.is_(None), Payment.deleted == 0),
                 Payment.collected_at >= month_start_str,
                 Payment.collected_at <= now_end,
             )
@@ -137,7 +138,7 @@ def dashboard_stats(
                JOIN connections con ON c.customer_id = con.customer_id
                WHERE c.status = 'Active' AND con.status = 'Active' AND {op_flt_c}
                  AND c.customer_id NOT IN (
-                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   SELECT customer_id FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}
                  )"""),
             {"ms": month_start_str, "ne": now_end},
         ).scalar()
@@ -148,7 +149,7 @@ def dashboard_stats(
                JOIN connections con ON c.customer_id = con.customer_id
                WHERE c.status = 'Active' AND con.status = 'Active' AND {op_flt_c}
                  AND c.customer_id NOT IN (
-                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   SELECT customer_id FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}
                    UNION
                    SELECT customer_id FROM paypakka_payments
                    WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
@@ -162,7 +163,7 @@ def dashboard_stats(
             text(f"""SELECT COALESCE(c.area, 'Unknown') as area, COUNT(DISTINCT sub.customer_id) as paid_count,
                       SUM(sub.amount) as total_amount
                FROM (
-                   SELECT customer_id, amount FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   SELECT customer_id, amount FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}
                ) sub
                LEFT JOIN customers c ON sub.customer_id = c.customer_id
                GROUP BY COALESCE(c.area, 'Unknown')
@@ -174,7 +175,7 @@ def dashboard_stats(
             text(f"""SELECT COALESCE(c.area, 'Unknown') as area, COUNT(DISTINCT sub.customer_id) as paid_count,
                       SUM(sub.amount) as total_amount
                FROM (
-                   SELECT customer_id, amount FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   SELECT customer_id, amount FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}
                    UNION ALL
                    SELECT customer_id, collection_amount FROM paypakka_payments
                    WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
@@ -431,12 +432,12 @@ def master_dashboard(
                   (SELECT COUNT(*) FROM customers WHERE operator_id = o.id) as customer_count,
                   (SELECT COUNT(*) FROM connections WHERE operator_id = o.id AND status = 'Active') as connection_count,
                   (SELECT COUNT(DISTINCT customer_id) FROM (
-                      SELECT customer_id FROM payments WHERE operator_id = o.id AND collected_at >= :ms1 AND collected_at <= :ne1
+                      SELECT customer_id FROM payments WHERE (deleted IS NULL OR deleted = 0) AND operator_id = o.id AND collected_at >= :ms1 AND collected_at <= :ne1
                       UNION
                       SELECT customer_id FROM paypakka_payments WHERE operator_id = o.id AND paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2
                   )) as paid_local,
                   (SELECT COALESCE(SUM(total), 0) FROM (
-                      SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE operator_id = o.id AND collected_at >= :ms3 AND collected_at <= :ne3
+                      SELECT COALESCE(SUM(amount), 0) as total FROM payments WHERE (deleted IS NULL OR deleted = 0) AND operator_id = o.id AND collected_at >= :ms3 AND collected_at <= :ne3
                       UNION ALL
                       SELECT COALESCE(SUM(collection_amount), 0) as total FROM paypakka_payments WHERE operator_id = o.id AND paypakka_created_at >= :ms4 AND paypakka_created_at <= :ne4
                   )) as collected_local
