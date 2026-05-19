@@ -398,6 +398,10 @@ else:
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
 
+    @app.get("/")
+    async def serve_root():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
     @app.get("/dashboard")
     async def serve_dashboard():
         return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
