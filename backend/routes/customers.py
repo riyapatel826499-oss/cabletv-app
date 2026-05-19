@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import calendar
 
+from sqlalchemy.orm import Session
 from models.base import get_db
 from deps_orm import get_current_user, require_role, apply_op_filter, _op_flt, op_id, block_master
 from conn import get_conn as _get_conn
