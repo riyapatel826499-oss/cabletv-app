@@ -7,7 +7,7 @@ if (logoutMsg) {
   setTimeout(() => showError(logoutMsg), 300);
 }
 
-if(localStorage.getItem('token'))window.location.href='dashboard.html';
+if(localStorage.getItem('token'))window.location.href='/dashboard';
 
 // Password eye toggle
 function togglePwd(){
@@ -60,7 +60,7 @@ async function doLogin(u,p,force=false){
     }
     localStorage.setItem('token',d.access_token||d.data?.token||d.token);
     localStorage.setItem('user',JSON.stringify(d.user||d.data?.user||{name:u}));
-    window.location.href='dashboard.html';
+    window.location.href='/dashboard';
   }catch(err){showError(err.message)}finally{btn.disabled=false;btn.innerHTML='Sign In'}
 }
 

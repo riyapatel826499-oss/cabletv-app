@@ -453,6 +453,9 @@ else:
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
 
+    # Mount static files (JS, CSS, images, etc.) from FRONTEND_DIR
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
     @app.get("/")
     async def serve_root():
         from fastapi.responses import RedirectResponse
@@ -469,6 +472,18 @@ if FRONTEND_DIR:
     @app.get("/start")
     async def serve_start():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+    # Catch-all: serve static files from FRONTEND_DIR (JS, CSS, images, etc.)
+    # Only matches paths that don't start with /api/ — those are handled by routers
+    @app.get("/{filename:path}")
+    async def serve_static_file(filename: str):
+        # Don't intercept API routes or the routes we already defined
+        if filename.startswith("api/") or filename in ("dashboard", "login", "start"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        filepath = os.path.join(FRONTEND_DIR, filename)
+        if os.path.isfile(filepath):
+            return FileResponse(filepath)
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
 else:
     @app.get("/login")
     async def serve_login():
