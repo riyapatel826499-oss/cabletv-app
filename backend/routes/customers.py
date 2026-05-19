@@ -286,7 +286,7 @@ def list_customers(
         if sort_by == "customer_id":
             query += f" ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) {sort_order.upper()}"
         else:
-            query += f" ORDER BY c.{sort_by} COLLATE NOCASE {sort_order.upper()}"
+            query += f" ORDER BY LOWER(c.{sort_by}) {sort_order.upper()}"
         query += " LIMIT ? OFFSET ?"
         params.extend([per_page, (page - 1) * per_page])
 
