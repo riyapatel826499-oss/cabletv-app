@@ -415,8 +415,24 @@ if FRONTEND_DIR:
     async def serve_start():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
-    # Mount static files last (catch-all for CSS/JS/images)
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    # Serve individual frontend files (JS, CSS, manifest, service worker, etc.)
+    _frontend_files = ["app.js", "login.js", "login.v2.js", "sw.js",
+                       "manifest.json", "manifest.v2.json", "favicon.ico", "icons.svg"]
+    for _fname in _frontend_files:
+        _fpath = os.path.join(FRONTEND_DIR, _fname)
+        if os.path.isfile(_fpath):
+            @app.get(f"/{_fname}", name=f"static_{_fname}")
+            async def _serve_file(path: str = _fpath):
+                return FileResponse(path)
+
+    # Mount sub-directories for static assets only (CSS/JS/images)
+    _static_sub = os.path.join(FRONTEND_DIR, "static")
+    if os.path.isdir(_static_sub):
+        app.mount("/static", StaticFiles(directory=_static_sub), name="static")
+    
+    _admin_sub = os.path.join(FRONTEND_DIR, "admin")
+    if os.path.isdir(_admin_sub):
+        app.mount("/admin", StaticFiles(directory=_admin_sub, html=True), name="admin")
 else:
     @app.get("/login")
     async def serve_login():
