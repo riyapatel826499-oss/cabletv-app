@@ -72,15 +72,31 @@ def dashboard_stats(
 
     # Paid this month: UNION of local payments + paypakka payments
     # Complex UNION subquery — use text() bridge
-    paid_this_month = db.execute(
-        text(f"""SELECT COUNT(DISTINCT customer_id) FROM (
-               SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
-               UNION
-               SELECT customer_id FROM paypakka_payments
-               WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
-           )"""),
-        {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
-    ).scalar()
+    # NOTE: paypakka data is historical (Dec 2023 → Apr 2026). For months where
+    # local payments exist, we skip paypakka to avoid double-counting.
+    # Check if local payments exist for this month first.
+    has_local = db.execute(
+        text(f"SELECT COUNT(*) FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
+        {"ms": month_start_str, "ne": now_end},
+    ).scalar() > 0
+
+    if has_local:
+        # Local payments exist → use local data only (paypakka is historical)
+        paid_this_month = db.execute(
+            text(f"SELECT COUNT(DISTINCT customer_id) FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
+            {"ms": month_start_str, "ne": now_end},
+        ).scalar()
+    else:
+        # No local data (historical month) → fall back to paypakka
+        paid_this_month = db.execute(
+            text(f"""SELECT COUNT(DISTINCT customer_id) FROM (
+                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   UNION
+                   SELECT customer_id FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
+               )"""),
+            {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
+        ).scalar()
 
     # Total collected: sum of local + paypakka for current month
     q_local = apply_op_filter(
@@ -95,50 +111,79 @@ def dashboard_stats(
     )
     local_collected = db.execute(q_local).scalar() or 0
 
-    q_pp = apply_op_filter(
-        select(func.coalesce(func.sum(PaypakkaPayment.collection_amount), 0)).where(
-            and_(
-                PaypakkaPayment.paypakka_created_at >= month_start_str,
-                PaypakkaPayment.paypakka_created_at <= now_end,
-            )
-        ),
-        PaypakkaPayment,
-        current_user,
-    )
-    paypakka_collected = db.execute(q_pp).scalar() or 0
+    # Paypakka data is historical (Dec 2023 → Apr 2026). Only query paypakka
+    # if no local payments exist for this month (purely historical period).
+    paypakka_collected = 0
+    if not has_local:
+        q_pp = apply_op_filter(
+            select(func.coalesce(func.sum(PaypakkaPayment.collection_amount), 0)).where(
+                and_(
+                    PaypakkaPayment.paypakka_created_at >= month_start_str,
+                    PaypakkaPayment.paypakka_created_at <= now_end,
+                )
+            ),
+            PaypakkaPayment,
+            current_user,
+        )
+        paypakka_collected = db.execute(q_pp).scalar() or 0
 
     total_collected = local_collected + paypakka_collected
 
     # Unpaid = active customers who haven't paid this month
-    unpaid = db.execute(
-        text(f"""SELECT COUNT(DISTINCT c.customer_id)
-           FROM customers c
-           JOIN connections con ON c.customer_id = con.customer_id
-           WHERE c.status = 'Active' AND con.status = 'Active' AND {op_flt_c}
-             AND c.customer_id NOT IN (
-               SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
-               UNION
-               SELECT customer_id FROM paypakka_payments
-               WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
-             )"""),
-        {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
-    ).scalar()
+    if has_local:
+        unpaid = db.execute(
+            text(f"""SELECT COUNT(DISTINCT c.customer_id)
+               FROM customers c
+               JOIN connections con ON c.customer_id = con.customer_id
+               WHERE c.status = 'Active' AND con.status = 'Active' AND {op_flt_c}
+                 AND c.customer_id NOT IN (
+                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                 )"""),
+            {"ms": month_start_str, "ne": now_end},
+        ).scalar()
+    else:
+        unpaid = db.execute(
+            text(f"""SELECT COUNT(DISTINCT c.customer_id)
+               FROM customers c
+               JOIN connections con ON c.customer_id = con.customer_id
+               WHERE c.status = 'Active' AND con.status = 'Active' AND {op_flt_c}
+                 AND c.customer_id NOT IN (
+                   SELECT customer_id FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   UNION
+                   SELECT customer_id FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
+                 )"""),
+            {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
+        ).scalar()
 
-    # Payments by area (UNION ALL + LEFT JOIN — text bridge)
-    by_area_rows = db.execute(
-        text(f"""SELECT COALESCE(c.area, 'Unknown') as area, COUNT(DISTINCT sub.customer_id) as paid_count,
-                  SUM(sub.amount) as total_amount
-           FROM (
-               SELECT customer_id, amount FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
-               UNION ALL
-               SELECT customer_id, collection_amount FROM paypakka_payments
-               WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
-           ) sub
-           LEFT JOIN customers c ON sub.customer_id = c.customer_id
-           GROUP BY COALESCE(c.area, 'Unknown')
-           ORDER BY total_amount DESC"""),
-        {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
-    ).fetchall()
+    # Payments by area
+    if has_local:
+        by_area_rows = db.execute(
+            text(f"""SELECT COALESCE(c.area, 'Unknown') as area, COUNT(DISTINCT sub.customer_id) as paid_count,
+                      SUM(sub.amount) as total_amount
+               FROM (
+                   SELECT customer_id, amount FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+               ) sub
+               LEFT JOIN customers c ON sub.customer_id = c.customer_id
+               GROUP BY COALESCE(c.area, 'Unknown')
+               ORDER BY total_amount DESC"""),
+            {"ms": month_start_str, "ne": now_end},
+        ).fetchall()
+    else:
+        by_area_rows = db.execute(
+            text(f"""SELECT COALESCE(c.area, 'Unknown') as area, COUNT(DISTINCT sub.customer_id) as paid_count,
+                      SUM(sub.amount) as total_amount
+               FROM (
+                   SELECT customer_id, amount FROM payments WHERE collected_at >= :ms AND collected_at <= :ne AND {op_flt}
+                   UNION ALL
+                   SELECT customer_id, collection_amount FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms2 AND paypakka_created_at <= :ne2 AND {op_flt}
+               ) sub
+               LEFT JOIN customers c ON sub.customer_id = c.customer_id
+               GROUP BY COALESCE(c.area, 'Unknown')
+               ORDER BY total_amount DESC"""),
+            {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
+        ).fetchall()
 
     by_area = [dict(r._mapping) for r in by_area_rows]
 
