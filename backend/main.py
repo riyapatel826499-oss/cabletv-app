@@ -262,12 +262,16 @@ async def import_local_data(request: Request):
     auth = request.headers.get("authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(401, "Not authenticated")
-    # Quick token check
     token = auth[7:]
-    from deps_orm import _decode_token
-    user = _decode_token(token)
-    if not user or user.get("role") != "master":
-        raise HTTPException(403, "Master admin only")
+    # Decode JWT directly
+    import jwt as _jwt
+    from config import SECRET_KEY, ALGORITHM
+    try:
+        payload = _jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "master":
+            raise HTTPException(403, "Master admin only")
+    except Exception:
+        raise HTTPException(403, "Invalid token")
     
     export_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_export.json")
     if not os.path.exists(export_path):
