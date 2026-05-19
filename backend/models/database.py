@@ -410,8 +410,8 @@ def init_db():
         if op_count == 0:
             ph_op = _ph(4)
             c.execute(
-                f"INSERT INTO operators (id, name, business_name, phone) VALUES ({ph_op})",
-                (1, 'SSN Cables', 'SSN Cables', '7708551139')
+                f"INSERT INTO operators (id, business_name, owner_name, phone) VALUES ({ph_op})",
+                (1, 'SSN Cables', 'Prabhu', '7708551139')
             )
             conn.commit()
         
