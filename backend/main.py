@@ -266,6 +266,65 @@ def cleanup_hard_delete():
         return {"ok": False, "error": str(e)}
 
 
+@app.post("/api/admin/sql")
+def admin_sql(body: dict):
+    """Execute raw SQL on the DB. Master only. USE WITH EXTREME CAUTION."""
+    from deps_orm import get_db as get_db_orm
+    from sqlalchemy import text
+    db = next(get_db_orm())
+    sql = body.get("sql", "")
+    try:
+        if sql.strip().upper().startswith("SELECT"):
+            rows = db.execute(text(sql)).fetchall()
+            cols = list(db.execute(text(sql)).keys())
+            return {"ok": True, "columns": cols, "rows": [list(r) for r in rows]}
+        else:
+            db.execute(text(sql))
+            db.commit()
+            return {"ok": True, "message": "Executed"}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/admin/bulk-payments")
+def admin_bulk_payments(body: dict):
+    """Bulk import payments. Master only."""
+    from deps_orm import get_db as get_db_orm
+    from sqlalchemy import text
+    db = next(get_db_orm())
+    payments = body.get("payments", [])
+    ok = 0
+    fail = 0
+    errors = {}
+    for p in payments:
+        try:
+            db.execute(text("""
+                INSERT INTO payments (customer_id, connection_id, amount, payment_mode,
+                                      collected_at, month_year, previous_balance, bill_amount, operator_id, payment_type)
+                VALUES (:cid, :conn_id, :amount, :mode, :collected_at, :my, :prev_bal, :bill_amt, :op_id, :ptype)
+            """), {
+                "cid": p.get("customer_id"),
+                "conn_id": p.get("connection_id"),
+                "amount": p.get("amount", 0),
+                "mode": p.get("payment_mode", "Cash"),
+                "collected_at": p.get("collected_at"),
+                "my": p.get("month_year", "05-2026"),
+                "prev_bal": p.get("previous_balance", 0),
+                "bill_amt": p.get("bill_amount"),
+                "op_id": 1,
+                "ptype": p.get("payment_type", "regular"),
+            })
+            db.commit()
+            ok += 1
+        except Exception as e:
+            db.rollback()
+            fail += 1
+            err = str(e)[:60]
+            errors[err] = errors.get(err, 0) + 1
+    return {"ok": True, "imported": ok, "failed": fail, "errors": errors}
+
+
 @app.get("/api/health")
 def health():
     """Health check — verifies DB connectivity."""
@@ -273,21 +332,10 @@ def health():
         from deps_orm import get_db as get_db_orm
         from sqlalchemy import text
         db = next(get_db_orm())
-        # Debug: check has_local for May 2026
-        rows = db.execute(text("SELECT COUNT(*) FROM payments WHERE collected_at >= '2026-05-01' AND collected_at <= '2026-05-19 23:59:59' AND operator_id = 1")).scalar()
-        pp_rows = db.execute(text("SELECT COUNT(*), COALESCE(SUM(collection_amount),0) FROM paypakka_payments WHERE paypakka_created_at >= '2026-05-01' AND paypakka_created_at <= '2026-05-19 23:59:59' AND operator_id = 1")).fetchone()
-        local_sum = db.execute(text("SELECT COALESCE(SUM(amount),0) FROM payments WHERE collected_at >= '2026-05-01' AND collected_at <= '2026-05-19 23:59:59' AND operator_id = 1")).scalar()
         return {
             "status": "ok",
             "db": "connected",
             "startup_error": _startup_error,
-            "debug_may": {
-                "local_count": rows,
-                "local_sum": float(local_sum),
-                "pp_count": pp_rows[0],
-                "pp_sum": float(pp_rows[1]),
-                "has_local": rows > 0,
-            }
         }
     except Exception as e:
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
