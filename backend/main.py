@@ -440,6 +440,12 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "legacy-frontend")
 
+print(f"DEBUG: LEGACY_DIR={LEGACY_DIR}, exists={os.path.exists(LEGACY_DIR)}")
+print(f"DEBUG: BUNDLED_DIR={BUNDLED_DIR}, exists={os.path.exists(BUNDLED_DIR)}")
+print(f"DEBUG: STATIC_DIR={STATIC_DIR}, exists={os.path.exists(STATIC_DIR)}")
+print(f"DEBUG: BUNDLED_DIR contents={os.listdir(BUNDLED_DIR) if os.path.exists(BUNDLED_DIR) else 'N/A'}")
+print(f"DEBUG: dashboard.html exists={os.path.exists(os.path.join(BUNDLED_DIR, 'dashboard.html'))}")
+
 if os.path.exists(os.path.join(LEGACY_DIR, "dashboard.html")):
     FRONTEND_DIR = LEGACY_DIR
 elif os.path.exists(os.path.join(BUNDLED_DIR, "dashboard.html")):
@@ -449,6 +455,7 @@ elif os.path.exists(os.path.join(STATIC_DIR, "index.html")):
 else:
     FRONTEND_DIR = None
     print("WARNING: No frontend directory found!")
+    print(f"DEBUG: All files in cwd: {os.listdir(os.path.dirname(os.path.abspath(__file__)))}")
 
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
