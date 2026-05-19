@@ -443,8 +443,26 @@ BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "legacy-f
 print(f"DEBUG: LEGACY_DIR={LEGACY_DIR}, exists={os.path.exists(LEGACY_DIR)}")
 print(f"DEBUG: BUNDLED_DIR={BUNDLED_DIR}, exists={os.path.exists(BUNDLED_DIR)}")
 print(f"DEBUG: STATIC_DIR={STATIC_DIR}, exists={os.path.exists(STATIC_DIR)}")
-print(f"DEBUG: BUNDLED_DIR contents={os.listdir(BUNDLED_DIR) if os.path.exists(BUNDLED_DIR) else 'N/A'}")
-print(f"DEBUG: dashboard.html exists={os.path.exists(os.path.join(BUNDLED_DIR, 'dashboard.html'))}")
+if os.path.exists(BUNDLED_DIR):
+    print(f"DEBUG: BUNDLED_DIR contents={os.listdir(BUNDLED_DIR)}")
+    print(f"DEBUG: dashboard.html exists={os.path.exists(os.path.join(BUNDLED_DIR, 'dashboard.html'))}")
+
+@app.get("/debug-frontend")
+async def debug_frontend():
+    import os as _os
+    bundled = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "legacy-frontend")
+    return {
+        "cwd": _os.getcwd(),
+        "__file__": __file__,
+        "bundled_dir": bundled,
+        "bundled_exists": _os.path.exists(bundled),
+        "bundled_contents": _os.listdir(bundled) if _os.path.exists(bundled) else "N/A",
+        "dashboard_exists": _os.path.exists(_os.path.join(bundled, "dashboard.html")),
+        "frontend_dir": FRONTEND_DIR,
+        "static_dir": _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static"),
+        "static_exists": _os.path.exists(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static")),
+        "static_contents": _os.listdir(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static"))[:10] if _os.path.exists(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "static")) else "N/A",
+    }
 
 if os.path.exists(os.path.join(LEGACY_DIR, "dashboard.html")):
     FRONTEND_DIR = LEGACY_DIR
