@@ -227,7 +227,7 @@ def bulk_import_customers(
     return {"created": len(created), "customer_ids": created}
 
 
-@router.post("/customers")
+@router.get("/customers")
 def list_customers(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=200),
