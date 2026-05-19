@@ -461,6 +461,20 @@ if FRONTEND_DIR:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
 
+    @app.get("/debug-frontend")
+    async def debug_frontend():
+        return {
+            "frontend_dir": FRONTEND_DIR,
+            "exists": os.path.isdir(FRONTEND_DIR) if FRONTEND_DIR else False,
+            "files": os.listdir(FRONTEND_DIR) if FRONTEND_DIR and os.path.isdir(FRONTEND_DIR) else [],
+            "legacy_dir": LEGACY_DIR,
+            "legacy_exists": os.path.isdir(LEGACY_DIR),
+            "bundled_dir": BUNDLED_DIR,
+            "bundled_exists": os.path.isdir(BUNDLED_DIR),
+            "static_dir": STATIC_DIR,
+            "static_exists": os.path.isdir(STATIC_DIR),
+        }
+
     @app.get("/dashboard")
     async def serve_dashboard():
         return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
