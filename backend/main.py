@@ -250,6 +250,132 @@ def backup_db():
     return {"ok": True, "file": backup_path, "size_mb": round(size_mb, 2), "kept": kept, "removed": removed}
 
 
+# ── One-time data import endpoint ──────────────────────────────────────
+@app.post("/api/import-local-data")
+async def import_local_data(request: Request):
+    """Import data from local SQLite export JSON into PostgreSQL. One-time use."""
+    import json as _json
+    from deps_orm import get_current_user as _gcu
+    from models.base import engine
+    
+    # Auth check
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Not authenticated")
+    # Quick token check
+    token = auth[7:]
+    from deps_orm import _decode_token
+    user = _decode_token(token)
+    if not user or user.get("role") != "master":
+        raise HTTPException(403, "Master admin only")
+    
+    export_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_export.json")
+    if not os.path.exists(export_path):
+        return {"error": "No data_export.json found"}
+    
+    with open(export_path) as f:
+        data = _json.load(f)
+    
+    from sqlalchemy import text
+    results = {}
+    OPERATOR_ID = 1
+    
+    with engine.connect() as conn:
+        # Import order (FK constraints)
+        import_order = [
+            ('plans', True, []),
+            ('customers', True, []),
+            ('connections', True, []),
+            ('customer_plans', True, []),
+            ('stb_inventory', True, []),
+        ]
+        
+        for table_name, has_op_id, skip_roles in import_order:
+            if table_name not in data:
+                results[table_name] = "skipped (not in export)"
+                continue
+            
+            cols = data[table_name]['columns']
+            rows = data[table_name]['rows']
+            
+            # Get actual PG columns
+            pg_cols_result = conn.execute(text(
+                f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}' ORDER BY ordinal_position"
+            ))
+            pg_cols = [r[0] for r in pg_cols_result]
+            common = [c for c in cols if c in pg_cols]
+            
+            # Clear existing
+            conn.execute(text(f"DELETE FROM {table_name}"))
+            
+            col_str = ', '.join(common)
+            placeholders = ', '.join([f':{c}' for c in common])
+            
+            count = 0
+            for row in rows:
+                params = {}
+                for c in common:
+                    v = row.get(c)
+                    if c == 'operator_id' and has_op_id:
+                        params[c] = None if row.get('role') in ('master',) else OPERATOR_ID
+                    else:
+                        params[c] = None if v is None or v == '' else v
+                
+                try:
+                    conn.execute(text(f"INSERT INTO {table_name} ({col_str}) VALUES ({placeholders})"), params)
+                    count += 1
+                except Exception as e:
+                    results[f"{table_name}_error_{count}"] = str(e)[:100]
+            
+            conn.commit()
+            results[table_name] = f"{count} imported"
+        
+        # Import users (skip existing)
+        if 'users' in data:
+            count = 0
+            for row in data['users']['rows']:
+                username = row.get('username')
+                existing = conn.execute(text("SELECT id FROM users WHERE username = :u"), {"u": username}).fetchone()
+                if existing:
+                    results[f"user_{username}"] = "skipped (exists)"
+                    continue
+                
+                cols = data['users']['columns']
+                pg_cols_result = conn.execute(text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position"
+                ))
+                pg_cols = [r[0] for r in pg_cols_result]
+                common = [c for c in cols if c in pg_cols]
+                
+                col_str = ', '.join(common)
+                placeholders = ', '.join([f':{c}' for c in common])
+                
+                params = {}
+                for c in common:
+                    v = row.get(c)
+                    if c == 'operator_id':
+                        params[c] = None if row.get('role') == 'master' else OPERATOR_ID
+                    else:
+                        params[c] = None if v is None or v == '' else v
+                
+                try:
+                    conn.execute(text(f"INSERT INTO users ({col_str}) VALUES ({placeholders})"), params)
+                    count += 1
+                except Exception as e:
+                    results[f"user_{username}_error"] = str(e)[:100]
+            
+            conn.commit()
+            results['users'] = f"{count} imported"
+    
+    # Verify
+    for t in ['customers','connections','plans','users','customer_plans','stb_inventory']:
+        with engine.connect() as conn:
+            cnt = conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar()
+            results[f"verify_{t}"] = cnt
+    
+    return {"status": "ok", "results": results}
+
+
 # Serve frontend static files
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")

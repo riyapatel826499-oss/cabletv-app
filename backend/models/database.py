@@ -91,11 +91,23 @@ def init_db():
         from models.base import engine, Base
         from models import tables  # Ensure all models are registered
         
-        # Drop all tables first (fresh DB — safe to do)
-        Base.metadata.drop_all(bind=engine)
-        print("Dropped existing tables")
+        # Check if DB already has data (skip drop_all if so)
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
+        has_data = False
+        if 'users' in existing_tables:
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT COUNT(*) FROM users"))
+                has_data = result.scalar() > 0
         
-        # Create all tables from ORM models (complete column definitions)
+        if not has_data:
+            Base.metadata.drop_all(bind=engine)
+            print("Fresh DB — dropped and recreating tables")
+        else:
+            print(f"DB has existing data — preserving (found {len(existing_tables)} tables)")
+        
+        # Create all tables from ORM models (safe: only adds missing tables/columns)
         Base.metadata.create_all(bind=engine)
         print("SQLAlchemy create_all() completed — all tables created from ORM models")
     except Exception as e:
