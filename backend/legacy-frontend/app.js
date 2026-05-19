@@ -12,14 +12,14 @@ let _empList = [];
 let _stbInventory = [];
 let _surrenderRequests = [];
 
-if (!token) window.location.href = 'index.html';
+if (!token) window.location.href = '/login';
 
 async function api(path, opts = {}) {
   const headers = {'Content-Type': 'application/json'};
   if (token) headers['Authorization'] = 'Bearer ' + token;
   try {
     const r = await fetch(API + path, {...opts, headers: {...headers, ...(opts.headers || {})}});
-    if (r.status === 401) { sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.'); localStorage.removeItem('token'); window.location.href = 'index.html'; return; }
+    if (r.status === 401) { sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
     const text = await r.text();
     let d;
     try { d = JSON.parse(text); } catch(e) { throw new Error(r.status + ': ' + text.substring(0, 200)); }
@@ -3448,7 +3448,7 @@ async function doLogout(msg) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     if (msg) { sessionStorage.setItem('logoutMsg', msg); }
-    window.location.href = 'index.html';
+    window.location.href = '/login';
 }
 
 function logout() {
@@ -3988,7 +3988,7 @@ api('/api/me').then(u => {
   // Auth failed — redirect to login instead of showing admin UI
   localStorage.removeItem('token');
   sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.');
-  window.location.href = '/index.html';
+  window.location.href = '/login';
 });
 
 loadDashboard();
