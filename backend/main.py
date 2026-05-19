@@ -400,7 +400,8 @@ if FRONTEND_DIR:
 
     @app.get("/")
     async def serve_root():
-        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/login")
 
     @app.get("/dashboard")
     async def serve_dashboard():
