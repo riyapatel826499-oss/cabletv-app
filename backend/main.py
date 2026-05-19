@@ -206,11 +206,6 @@ def health():
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
 
 
-@app.get("/")
-async def root():
-    return RedirectResponse(url="/login")
-
-
 @app.post("/api/backup")
 def backup_db():
     """Daily DB backup — copies cabletv.db to backups/ folder, keeps last 7 days."""
