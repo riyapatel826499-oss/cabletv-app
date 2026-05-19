@@ -408,7 +408,7 @@ def init_db():
         c.execute("SELECT COUNT(*) FROM operators")
         op_count = c.fetchone()[0]
         if op_count == 0:
-            ph_op = _ph(3)
+            ph_op = _ph(4)
             c.execute(
                 f"INSERT INTO operators (id, name, business_name, phone) VALUES ({ph_op})",
                 (1, 'SSN Cables', 'SSN Cables', '7708551139')
