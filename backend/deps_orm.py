@@ -131,6 +131,14 @@ def require_lco_role(*roles: str):
     return checker
 
 
+
+def block_master(current_user: dict = Depends(get_current_user)) -> dict:
+    """Dependency: blocks master role from LCO transaction endpoints.
+    Add as Depends(block_master) to any POST/PUT/DELETE that master should not access."""
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot perform this action. Use an operator admin account.")
+    return current_user
+
 def require_permission(permission: str):
     """Dependency factory: require user to have a specific permission."""
     def checker(current_user: dict = Depends(get_current_user)) -> dict:

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import calendar
 
 from models.base import get_db
-from deps_orm import get_current_user, require_role, apply_op_filter, _op_flt, op_id
+from deps_orm import get_current_user, require_role, apply_op_filter, _op_flt, op_id, block_master
 from conn import get_conn as _get_conn
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
@@ -945,7 +945,7 @@ class CustomerCreateRequest(BaseModel):
 
 
 @router.post("/customers", status_code=201)
-def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user)):
+def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user), _master_check=Depends(block_master)):
     if current_user.get("role") == "master":
         raise HTTPException(status_code=403, detail="Master admin cannot create customers. Use an operator admin account.")
     with _get_conn() as conn:

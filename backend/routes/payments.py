@@ -9,7 +9,7 @@ from sqlalchemy import select, update, func, text, or_, and_
 from sqlalchemy.orm import Session
 
 from models.base import get_db
-from deps_orm import get_current_user, require_role, apply_op_filter, op_id
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id, block_master
 from models.tables import (
     Payment, Customer, Connection, PaypakkaPayment,
     CustomerPlan, Plan, User, PaypakkaEmployee,
@@ -53,6 +53,7 @@ def create_payment(
     data: PaymentCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
+    _master_check=Depends(block_master),
 ):
     # Master cannot create payments
     if current_user.get("role") == "master":
