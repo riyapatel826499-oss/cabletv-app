@@ -4,8 +4,21 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import calendar
 
-from models.base import get_db
+from models.base import get_db, SessionLocal
 from deps_orm import get_current_user, require_role, apply_op_filter, op_id
+
+# _get_conn: context-manager version of get_db for raw SQL routes
+# (get_db is a FastAPI generator dependency, can't be used as `with get_db()`)
+from contextlib import contextmanager
+
+@contextmanager
+def _get_conn():
+    """Get a raw SQLAlchemy session as a context manager for raw SQL routes."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month
@@ -108,7 +121,7 @@ def area_suggestions(
     current_user=Depends(get_current_user),
 ):
     """Return matching area names for autocomplete."""
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         rows = conn.execute(f"""
             SELECT DISTINCT area FROM customers
@@ -128,7 +141,7 @@ def get_paid_filters(
     current_user=Depends(get_current_user),
 ):
     """Return unique areas, amounts, modes, collectors from paid customers."""
-    with get_db() as conn:
+    with _get_conn() as conn:
         month_start, month_end, current_month = get_date_range(paid_from, paid_to)
         _of = op_filter(current_user)
 
@@ -207,7 +220,7 @@ def list_customers(
     plan_id: Optional[int] = Query(None, description="Filter by plan ID"),
     current_user=Depends(get_current_user),
 ):
-    with get_db() as conn:
+    with _get_conn() as conn:
         month_start, month_end, current_month = get_date_range(paid_from, paid_to)
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
@@ -411,7 +424,7 @@ def get_unpaid_customers(
 ):
     """Get customers with expired connections (unpaid).
     as_of: optional date to check who was unpaid BY that date (default: today)."""
-    with get_db() as db:
+    with _get_conn() as db:
         _of = op_filter(current_user)
         # Use as_of date or today
         if as_of:
@@ -550,7 +563,7 @@ def get_not_renewed_customers(
     """Customers whose subscription expired IN a specific month.
     Meaning they paid through that month but didn't renew for the next.
     Default: last month."""
-    with get_db() as db:
+    with _get_conn() as db:
         _of = op_filter(current_user)
         # Default to last month
         if not month:
@@ -679,7 +692,7 @@ def get_collection_list(
 ):
     """Get customers grouped by payment status for collection screen.
     Filters: due_today, due_tomorrow, unpaid, paid, all."""
-    with get_db() as db:
+    with _get_conn() as db:
         _of = op_filter(current_user)
         today = datetime.now().strftime("%Y-%m-%d")
         tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -856,7 +869,7 @@ def search_customers(
     q: str = Query(..., min_length=1),
     current_user=Depends(get_current_user),
 ):
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _of_c = op_filter(current_user, "c.")
         month_start, month_end, current_month = get_date_range()
@@ -883,7 +896,7 @@ def search_customers(
 @router.get("/customers/temp-disconnected")
 def list_temp_disconnected(current_user=Depends(get_current_user)):
     """List all Temp Disconnected customers with their reclaimed STBs."""
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user, "c.")
         rows = conn.execute(f"""
             SELECT c.customer_id, c.name, c.phone, c.area, c.address
@@ -910,7 +923,7 @@ def list_temp_disconnected(current_user=Depends(get_current_user)):
 
 @router.get("/customers/{customer_id}")
 def get_customer(customer_id: str, current_user=Depends(get_current_user)):
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _of_c = op_filter(current_user, "c.")
         row = conn.execute(f"""
@@ -945,7 +958,7 @@ class CustomerCreateRequest(BaseModel):
 
 @router.post("/customers", status_code=201)
 def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user)):
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _oid = op_id(current_user)
         # Generate customer_id using operator's prefix
@@ -1047,7 +1060,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
 
 @router.put("/customers/{customer_id}")
 def update_customer(customer_id: str, data: CustomerUpdate, current_user=Depends(get_current_user)):
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
         existing = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? {_of_c}", [customer_id]).fetchone()
@@ -1106,7 +1119,7 @@ def update_customer(customer_id: str, data: CustomerUpdate, current_user=Depends
 def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can delete customers")
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
         existing = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? {_of_c}", [customer_id]).fetchone()
@@ -1138,7 +1151,7 @@ def update_connection_expiry(customer_id: str, conn_id: int, data: UpdateExpiryR
         datetime.strptime(data.expiry_date, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _of_conn = "" if _of == "1=1" else f"AND {_of}"
         # Verify connection belongs to this customer
@@ -1161,7 +1174,7 @@ class ChangePlanRequest(BaseModel):
 
 @router.put("/customers/{customer_id}/change-plan")
 def change_customer_plan(customer_id: str, data: ChangePlanRequest, current_user=Depends(get_current_user)):
-    with get_db() as conn:
+    with _get_conn() as conn:
         _of = op_filter(current_user)
         _oid = op_id(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
