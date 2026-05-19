@@ -46,6 +46,7 @@ class PaymentCreate(BaseModel):
     longitude: Optional[float] = None
     previous_balance: Optional[float] = 0
     bill_amount: Optional[float] = 0
+    collected_at: Optional[str] = None  # Allow setting collected_at timestamp
 
 
 @router.post("/payments", status_code=201)
@@ -103,6 +104,7 @@ def create_payment(
         payment_mode=data.payment_mode,
         payment_type=data.payment_type or "regular",
         collected_by=current_user["id"],
+        collected_at=data.collected_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         month_year=data.month_year,
         months_paid=data.months_paid or 1,
         notes=data.notes,
@@ -256,6 +258,24 @@ def create_payment(
             pass
 
     return payment_data
+
+
+@router.post("/payments/fix-collected-at")
+def fix_collected_at(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Fix payments where collected_at is NULL — set from month_year."""
+    from sqlalchemy import text as sql_text
+    # For month_year format "MM-YYYY", construct "YYYY-MM-01 00:00:00"
+    db.execute(sql_text("""
+        UPDATE payments 
+        SET collected_at = SUBSTRING(month_year, 4, 4) || '-' || SUBSTRING(month_year, 1, 2) || '-01 12:00:00'
+        WHERE collected_at IS NULL AND month_year IS NOT NULL
+    """))
+    db.commit()
+    count = db.execute(sql_text("SELECT COUNT(*) FROM payments WHERE collected_at IS NULL")).scalar()
+    return {"remaining_null": count, "message": "Fixed payments with NULL collected_at"}
 
 
 @router.get("/payments/history")
