@@ -3,8 +3,8 @@ from conn import get_conn
      2|from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
      3|from pydantic import BaseModel
      4|from typing import Optional, List
-     5|import sqlite3
-     6|import csv
+     5|
+6|import csv
      7|import io
      8|import json
      9|import re
@@ -184,9 +184,9 @@ from conn import get_conn
    183|@router.post("/migrate")
    184|def run_migration(user=Depends(require_master)):
    185|    """Run multi-tenant migration on DB — idempotent, safe to re-run."""
-   186|    import sqlite3
-   187|    conn = sqlite3.connect(DB_PATH)
-   188|    conn.row_factory = sqlite3.Row
+   186|
+with get_conn() as conn:
+   188|
    189|    results = []
    190|
    191|    # Tables that need operator_id
@@ -771,9 +771,9 @@ from conn import get_conn
    770|@router.post("/fix-sr-status")
    771|def fix_sr_status(user=Depends(require_master)):
    772|    """Force-fix all open SRs that have an assigned_to value."""
-   773|    import sqlite3
-   774|    conn = sqlite3.connect(DB_PATH)
-   775|    conn.row_factory = sqlite3.Row
+   773|
+with get_conn() as conn:
+   775|
    776|    results = []
    777|
    778|    # Debug: show what's in the DB

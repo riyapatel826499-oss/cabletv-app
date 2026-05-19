@@ -5,7 +5,7 @@
      5|
      6|from models.base import get_db
 from conn import get_conn
-     7|from deps_orm import get_current_user, apply_op_filter, op_id
+     7|from deps_orm import _op_flt, get_current_user, apply_op_filter, op_id
      8|try:
      9|    from config import SR_BOT_TOKEN, SR_GROUP_ID
     10|except ImportError:
@@ -73,8 +73,8 @@ from conn import get_conn
     72|    current_user: dict = Depends(get_current_user),
     73|):
     74|    with get_conn() as conn:
-    75|        _opf = op_filter(current_user)
-    76|        _opfsr = op_filter(current_user, "sr")
+    75|        _opf = _op_flt(current_user)
+    76|        _opfsr = _op_flt(current_user, "sr")
     77|        # Validate customer
     78|        customer = conn.execute(
     79|            f"SELECT customer_id, name, phone, area FROM customers WHERE customer_id = ? AND {_opf}",
@@ -180,7 +180,7 @@ from conn import get_conn
    179|):
    180|    with get_conn() as conn:
    181|        try:
-   182|            _opf = op_filter(current_user, "sr")
+   182|            _opf = _op_flt(current_user, "sr")
    183|            where = f"WHERE {_opf}"
    184|            params = []
    185|            if status:
@@ -213,7 +213,7 @@ from conn import get_conn
    212|    current_user: dict = Depends(get_current_user),
    213|):
    214|    with get_conn() as conn:
-   215|        _opf = op_filter(current_user, "sr")
+   215|        _opf = _op_flt(current_user, "sr")
    216|        sr = conn.execute(
    217|            f"""
    218|            SELECT 
@@ -241,8 +241,8 @@ from conn import get_conn
    240|    current_user: dict = Depends(get_current_user),
    241|):
    242|    with get_conn() as conn:
-   243|        _opf = op_filter(current_user)
-   244|        _opfsr = op_filter(current_user, "sr")
+   243|        _opf = _op_flt(current_user)
+   244|        _opfsr = _op_flt(current_user, "sr")
    245|        sr = conn.execute(
    246|            f"SELECT * FROM service_requests WHERE ticket_no = ? AND {_opf}",
    247|            (ticket_no,),
@@ -299,8 +299,8 @@ from conn import get_conn
    298|    current_user: dict = Depends(get_current_user),
    299|):
    300|    with get_conn() as conn:
-   301|        _opf = op_filter(current_user)
-   302|        _opfsr = op_filter(current_user, "sr")
+   301|        _opf = _op_flt(current_user)
+   302|        _opfsr = _op_flt(current_user, "sr")
    303|        sr = conn.execute(
    304|            f"SELECT * FROM service_requests WHERE ticket_no = ? AND {_opf}",
    305|            (ticket_no,),
@@ -336,7 +336,7 @@ from conn import get_conn
    335|):
    336|    with get_conn() as conn:
    337|        try:
-   338|            _opf = op_filter(current_user)
+   338|            _opf = _op_flt(current_user)
    339|            stats = conn.execute(
    340|                f"""
    341|                SELECT 
@@ -363,7 +363,7 @@ from conn import get_conn
    362|    current_user: dict = Depends(get_current_user),
    363|):
    364|    with get_conn() as conn:
-   365|        _opf = op_filter(current_user, "sr")
+   365|        _opf = _op_flt(current_user, "sr")
    366|        srs = conn.execute(
    367|            f"""
    368|            SELECT 

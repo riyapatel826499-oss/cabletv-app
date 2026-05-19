@@ -7,7 +7,7 @@
      7|from models.base import get_db
 from conn import get_conn
      8|from deps_orm import get_current_user, require_role
-     9|from config import VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY_PATH, VAPID_CLAIMS, DB_PATH
+     9|from config import VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY_PATH, VAPID_CLAIMS
     10|
     11|router = APIRouter(prefix="/api", tags=["Push Notifications"])
     12|
@@ -76,8 +76,8 @@ from conn import get_conn
     75|
     76|def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None):
     77|    """Send a push notification to all subscriptions of a user."""
-    78|        conn = sqlite3.connect(DB_PATH)
-    79|    conn.row_factory = sqlite3.Row
+    with get_conn() as conn:
+    79|
     80|    subs = conn.execute(
     81|        "SELECT * FROM push_subscriptions WHERE user_id=?",
     82|        (user_id,)
@@ -124,8 +124,8 @@ from conn import get_conn
    123|
    124|def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None):
    125|    """Send push notification to all users with given roles."""
-   126|        conn = sqlite3.connect(DB_PATH)
-   127|    conn.row_factory = sqlite3.Row
+   with get_conn() as conn:
+   127|
    128|    users = conn.execute(
    129|        "SELECT id FROM users WHERE role IN ({}) AND status='Active'".format(
    130|            ",".join(["?"] * len(roles))
@@ -142,10 +142,9 @@ from conn import get_conn
    141|
    142|def _remove_subscription(sub_id: int):
    143|    """Remove an expired push subscription."""
-   144|        conn = sqlite3.connect(DB_PATH)
+   with get_conn() as conn:
    145|    conn.execute("DELETE FROM push_subscriptions WHERE id=?", (sub_id,))
    146|    conn.commit()
-   147|    conn.close()
    148|
    149|
    150|# ── Daily Summary Endpoint (called by cron) ──
@@ -166,8 +165,8 @@ from conn import get_conn
    165|    yesterday = datetime.now() - timedelta(days=1)
    166|    date_str = yesterday.strftime("%Y-%m-%d")
    167|
-   168|        conn = sqlite3.connect(DB_PATH)
-   169|    conn.row_factory = sqlite3.Row
+   with get_conn() as conn:
+   169|
    170|
    171|    # Get yesterday's local payments
    172|    row = conn.execute("""

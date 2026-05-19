@@ -4,21 +4,9 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import calendar
 
-from models.base import get_db, SessionLocal
-from deps_orm import get_current_user, require_role, apply_op_filter, op_id
-
-# _get_conn: context-manager version of get_db for raw SQL routes
-# (get_db is a FastAPI generator dependency, can't be used as `with get_db()`)
-from contextlib import contextmanager
-
-@contextmanager
-def _get_conn():
-    """Get a raw SQLAlchemy session as a context manager for raw SQL routes."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+from models.base import get_db
+from deps_orm import get_current_user, require_role, apply_op_filter, _op_flt, op_id
+from conn import get_conn as _get_conn
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month
@@ -122,7 +110,7 @@ def area_suggestions(
 ):
     """Return matching area names for autocomplete."""
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         rows = conn.execute(f"""
             SELECT DISTINCT area FROM customers
             WHERE area IS NOT NULL AND area != ''
@@ -143,7 +131,7 @@ def get_paid_filters(
     """Return unique areas, amounts, modes, collectors from paid customers."""
     with _get_conn() as conn:
         month_start, month_end, current_month = get_date_range(paid_from, paid_to)
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
 
         # Get unique areas from paid customers (always use date-range mode for filter queries)
         paid_subq = paid_customer_subquery(None)
@@ -224,8 +212,8 @@ def list_customers(
         month_start, month_end, current_month = get_date_range(paid_from, paid_to)
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
-        _of = op_filter(current_user)
-        _of_c = op_filter(current_user, "c.")
+        _of = _op_flt(current_user)
+        _of_c = _op_flt(current_user, "c.")
 
         query = """SELECT c.*, CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid,
             (SELECT conn2.stb_no FROM connections conn2 WHERE conn2.customer_id = c.customer_id AND conn2.status = 'Active' LIMIT 1) as stb_no
@@ -258,7 +246,7 @@ def list_customers(
 
         # Plan filter
         if plan_id:
-            _of_cp = op_filter(current_user, "cp.")
+            _of_cp = _op_flt(current_user, "cp.")
             query += f" AND c.customer_id IN (SELECT DISTINCT cp.customer_id FROM customer_plans cp WHERE cp.plan_id = ? AND cp.status = 'Active' AND {_of_cp})"
             params.append(plan_id)
 
@@ -289,7 +277,7 @@ def list_customers(
         elif payment_filter == "unpaid":
             count_query += " AND p.customer_id IS NULL"
         if plan_id:
-            _of_cp = op_filter(current_user, "cp.")
+            _of_cp = _op_flt(current_user, "cp.")
             count_query += f" AND c.customer_id IN (SELECT DISTINCT cp.customer_id FROM customer_plans cp WHERE cp.plan_id = ? AND cp.status = 'Active' AND {_of_cp})"
             count_params.append(plan_id)
         total = conn.execute(count_query, count_params).fetchone()[0]
@@ -425,7 +413,7 @@ def get_unpaid_customers(
     """Get customers with expired connections (unpaid).
     as_of: optional date to check who was unpaid BY that date (default: today)."""
     with _get_conn() as db:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         # Use as_of date or today
         if as_of:
             try:
@@ -441,8 +429,8 @@ def get_unpaid_customers(
         # Base query: active connections with expired expiry OR
         # active connections with future expiry but no payment this month
         # (imported customers may have future expiry_date from Paypakka but haven't actually paid)
-        _of_conn = op_filter(current_user, "conn.")
-        _of_c = op_filter(current_user, "c.")
+        _of_conn = _op_flt(current_user, "conn.")
+        _of_c = _op_flt(current_user, "c.")
         month_start = ref_date.strftime("%Y-%m-01")
         # month_end for payment check = end of ref_date's month
         if ref_date.month == 12:
@@ -564,7 +552,7 @@ def get_not_renewed_customers(
     Meaning they paid through that month but didn't renew for the next.
     Default: last month."""
     with _get_conn() as db:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         # Default to last month
         if not month:
             now = datetime.now()
@@ -590,8 +578,8 @@ def get_not_renewed_customers(
         offset = (page - 1) * per_page
 
         # Find active connections whose expiry_date falls within the target month
-        _of_conn = op_filter(current_user, "conn.")
-        _of_c = op_filter(current_user, "c.")
+        _of_conn = _op_flt(current_user, "conn.")
+        _of_c = _op_flt(current_user, "c.")
         where = f"WHERE conn.status = 'Active' AND conn.expiry_date >= ? AND conn.expiry_date <= ? AND {_of_conn} AND {_of_c}"
         params: list = [first_day, last_day]
 
@@ -657,7 +645,7 @@ def get_not_renewed_customers(
         ).fetchall() if a["area"]]
 
         # MSO list for filter dropdown
-        _of_conn2 = f"AND {op_filter(current_user, 'conn.')}"
+        _of_conn2 = f"AND {_op_flt(current_user, 'conn.')}"
         msos = [m["mso"] for m in db.execute(
             f"SELECT DISTINCT mso FROM connections WHERE mso IS NOT NULL AND mso != '' {_of_conn2} ORDER BY mso"
         ).fetchall() if m["mso"]]
@@ -693,14 +681,14 @@ def get_collection_list(
     """Get customers grouped by payment status for collection screen.
     Filters: due_today, due_tomorrow, unpaid, paid, all."""
     with _get_conn() as db:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         today = datetime.now().strftime("%Y-%m-%d")
         tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         current_month_start = datetime.now().replace(day=1).strftime("%Y-%m-%d")
         current_month_end_fmt = datetime.now().strftime("%Y-%m-%d")
         # For "paid" filter: check if payment exists this month
-        _of_c = op_filter(current_user, "c.")
-        _of_conn = op_filter(current_user, "conn.")
+        _of_c = _op_flt(current_user, "c.")
+        _of_conn = _op_flt(current_user, "conn.")
 
         offset = (page - 1) * per_page
 
@@ -818,8 +806,8 @@ def get_collection_list(
             })
 
         # Get counts for each filter tab
-        _of_count_c = op_filter(current_user, "c.")
-        _of_count_conn = op_filter(current_user, "conn.")
+        _of_count_c = _op_flt(current_user, "c.")
+        _of_count_conn = _op_flt(current_user, "conn.")
         base_join = f"connections conn JOIN customers c ON c.customer_id = conn.customer_id"
 
         count_due_today = db.execute(
@@ -870,8 +858,8 @@ def search_customers(
     current_user=Depends(get_current_user),
 ):
     with _get_conn() as conn:
-        _of = op_filter(current_user)
-        _of_c = op_filter(current_user, "c.")
+        _of = _op_flt(current_user)
+        _of_c = _op_flt(current_user, "c.")
         month_start, month_end, current_month = get_date_range()
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
@@ -897,7 +885,7 @@ def search_customers(
 def list_temp_disconnected(current_user=Depends(get_current_user)):
     """List all Temp Disconnected customers with their reclaimed STBs."""
     with _get_conn() as conn:
-        _of = op_filter(current_user, "c.")
+        _of = _op_flt(current_user, "c.")
         rows = conn.execute(f"""
             SELECT c.customer_id, c.name, c.phone, c.area, c.address
             FROM customers c
@@ -924,8 +912,8 @@ def list_temp_disconnected(current_user=Depends(get_current_user)):
 @router.get("/customers/{customer_id}")
 def get_customer(customer_id: str, current_user=Depends(get_current_user)):
     with _get_conn() as conn:
-        _of = op_filter(current_user)
-        _of_c = op_filter(current_user, "c.")
+        _of = _op_flt(current_user)
+        _of_c = _op_flt(current_user, "c.")
         row = conn.execute(f"""
             SELECT c.*, conn.stb_no, conn.id as conn_id, conn.can_id, conn.mso, conn.status as conn_status
             FROM customers c
@@ -959,7 +947,7 @@ class CustomerCreateRequest(BaseModel):
 @router.post("/customers", status_code=201)
 def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user)):
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         _oid = op_id(current_user)
         # Generate customer_id using operator's prefix
         if _oid is not None:
@@ -982,7 +970,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
 
         # Validate STB uniqueness
         stb_no = (data.stb_number or "").strip()
-        _of_c = op_filter(current_user, "c.")
+        _of_c = _op_flt(current_user, "c.")
         _of_bare = "" if _of == "1=1" else f"AND {_of}"
         if stb_no:
             existing = conn.execute(
@@ -1061,7 +1049,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
 @router.put("/customers/{customer_id}")
 def update_customer(customer_id: str, data: CustomerUpdate, current_user=Depends(get_current_user)):
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
         existing = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? {_of_c}", [customer_id]).fetchone()
         if not existing:
@@ -1120,7 +1108,7 @@ def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Only Admin can delete customers")
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
         existing = conn.execute(f"SELECT * FROM customers WHERE customer_id = ? {_of_c}", [customer_id]).fetchone()
         if not existing:
@@ -1152,7 +1140,7 @@ def update_connection_expiry(customer_id: str, conn_id: int, data: UpdateExpiryR
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         _of_conn = "" if _of == "1=1" else f"AND {_of}"
         # Verify connection belongs to this customer
         connection = conn.execute(
@@ -1175,7 +1163,7 @@ class ChangePlanRequest(BaseModel):
 @router.put("/customers/{customer_id}/change-plan")
 def change_customer_plan(customer_id: str, data: ChangePlanRequest, current_user=Depends(get_current_user)):
     with _get_conn() as conn:
-        _of = op_filter(current_user)
+        _of = _op_flt(current_user)
         _oid = op_id(current_user)
         _of_c = "" if _of == "1=1" else f"AND {_of}"
         _of_conn = "" if _of == "1=1" else f"AND {_of}"

@@ -167,6 +167,18 @@ def op_id(user: dict):
     return user.get("operator_id")
 
 
+def _op_flt(user: dict, prefix: str = "") -> str:
+    """Raw SQL WHERE clause for operator_id filtering (for text() queries).
+    
+    Returns e.g. "operator_id = 1" or "c.operator_id = 1" (with prefix).
+    Master admin (operator_id=None) gets "1=1" (no filter).
+    """
+    oid = user.get("operator_id")
+    if oid is not None:
+        return f"{prefix}operator_id = {oid}"
+    return "1=1"
+
+
 # ── Customer Auth Dependency ──────────────────────────────────────────────
 
 def get_current_customer(

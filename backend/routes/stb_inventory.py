@@ -5,7 +5,7 @@
      5|
      6|from models.base import get_db
 from conn import get_conn
-     7|from deps_orm import get_current_user, apply_op_filter, op_id
+     7|from deps_orm import _op_flt, get_current_user, apply_op_filter, op_id
      8|
      9|router = APIRouter(prefix="/api", tags=["STB Inventory"])
     10|
@@ -29,7 +29,7 @@ from conn import get_conn
     28|    if current_user.get("role") == "master" and operator_id is not None:
     29|        flt = f"operator_id = {operator_id}"
     30|    else:
-    31|        flt = op_filter(current_user)
+    31|        flt = _op_flt(current_user)
     32|    with get_conn() as conn:
     33|        query = f"SELECT * FROM stb_inventory WHERE {flt}"
     34|        params = []
@@ -47,8 +47,8 @@ from conn import get_conn
     46|@router.post("/stb-inventory")
     47|def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=Depends(get_current_user)):
     48|    """Add a spare STB to inventory. Master can pass ?operator_id=X."""
-    49|    flt = op_filter(current_user)
-    50|    flt_con = op_filter(current_user, "con.")
+    49|    flt = _op_flt(current_user)
+    50|    flt_con = _op_flt(current_user, "con.")
     51|    if current_user.get("role") == "master" and operator_id is not None:
     52|        _oid = operator_id
     53|    else:
@@ -83,7 +83,7 @@ from conn import get_conn
     82|    if current_user.get("role") == "master" and operator_id is not None:
     83|        flt = f"operator_id = {operator_id}"
     84|    else:
-    85|        flt = op_filter(current_user)
+    85|        flt = _op_flt(current_user)
     86|    with get_conn() as conn:
     87|        row = conn.execute(f"SELECT * FROM stb_inventory WHERE id = ? AND {flt}", [stb_id]).fetchone()
     88|        if not row:
@@ -101,8 +101,8 @@ from conn import get_conn
    100|    if current_user["role"] not in ["master", "admin", "support"]:
    101|        raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
    102|
-   103|    flt = op_filter(current_user)
-   104|    flt_con = op_filter(current_user, "con.")
+   103|    flt = _op_flt(current_user)
+   104|    flt_con = _op_flt(current_user, "con.")
    105|    _oid = op_id(current_user)
    106|
    107|    with get_conn() as conn:
@@ -154,7 +154,7 @@ from conn import get_conn
    153|@router.get("/stb-inventory/available")
    154|def list_available_stbs(network: Optional[str] = None, current_user=Depends(get_current_user)):
    155|    """List spare/available STBs for assignment, optionally filtered by network/MSO."""
-   156|    flt = op_filter(current_user)
+   156|    flt = _op_flt(current_user)
    157|    with get_conn() as conn:
    158|        query = f"SELECT * FROM stb_inventory WHERE status IN ('spare', 'available') AND {flt}"
    159|        params = []

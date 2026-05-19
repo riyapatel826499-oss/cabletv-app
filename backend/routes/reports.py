@@ -3,7 +3,7 @@
      3|from typing import Optional
      4|from models.base import get_db
 from conn import get_conn
-     5|from deps_orm import get_current_user, apply_op_filter, op_id
+     5|from deps_orm import _op_flt, get_current_user, apply_op_filter, op_id
      6|
      7|router = APIRouter(prefix="/api/reports", tags=["Reports"])
      8|
@@ -15,8 +15,8 @@ from conn import get_conn
     14|    current_user=Depends(get_current_user),
     15|):
     16|    """Area-wise collection report combining local + Paypakka payments."""
-    17|    flt_pp = op_filter(current_user, "pp.")
-    18|    flt_p = op_filter(current_user, "p.")
+    17|    flt_pp = _op_flt(current_user, "pp.")
+    18|    flt_p = _op_flt(current_user, "p.")
     19|
     20|    with get_conn() as conn:
     21|        # Build area→amount map from BOTH payment sources
@@ -104,8 +104,8 @@ from conn import get_conn
    103|    current_user=Depends(get_current_user),
    104|):
    105|    """Collector-wise collection performance combining local + Paypakka payments."""
-   106|    flt_pp = op_filter(current_user, "pp.")
-   107|    flt_p = op_filter(current_user, "p.")
+   106|    flt_pp = _op_flt(current_user, "pp.")
+   107|    flt_p = _op_flt(current_user, "p.")
    108|
    109|    with get_conn() as conn:
    110|        collector_data = {}  # name -> {total_collected, payment_count}
@@ -190,9 +190,9 @@ from conn import get_conn
    189|    current_user=Depends(get_current_user),
    190|):
    191|    """MSO-wise summary: customer counts + collection amounts."""
-   192|    flt = op_filter(current_user)
-   193|    flt_pp = op_filter(current_user, "pp.")
-   194|    flt_p = op_filter(current_user, "p.")
+   192|    flt = _op_flt(current_user)
+   193|    flt_pp = _op_flt(current_user, "pp.")
+   194|    flt_p = _op_flt(current_user, "p.")
    195|
    196|    with get_conn() as conn:
    197|        # 1. Customer/connection counts by MSO
@@ -279,9 +279,9 @@ from conn import get_conn
    278|    """Agent's own collection report — payments collected by THIS logged-in user."""
    279|    user_id = current_user["id"]
    280|    username = current_user.get("username", "")
-   281|    flt = op_filter(current_user)
-   282|    flt_pp = op_filter(current_user, "pp.")
-   283|    flt_p = op_filter(current_user, "p.")
+   281|    flt = _op_flt(current_user)
+   282|    flt_pp = _op_flt(current_user, "pp.")
+   283|    flt_p = _op_flt(current_user, "p.")
    284|
    285|    with get_conn() as conn:
    286|        # Try to find paypakka employee mapping by username matching employee name
@@ -403,8 +403,8 @@ from conn import get_conn
    402|    from datetime import datetime, date
    403|    import calendar
    404|
-   405|    flt_c = op_filter(current_user, "c.")
-   406|    flt_pp = op_filter(current_user, "pp.")
+   405|    flt_c = _op_flt(current_user, "c.")
+   406|    flt_pp = _op_flt(current_user, "pp.")
    407|    now = datetime.now()
    408|
    409|    # Build list of months to query

@@ -7,7 +7,8 @@ import logging
 
 from models.base import get_db
 from deps_orm import get_current_user, apply_op_filter, op_id
-from config import DB_PATH
+from conn import get_conn
+from config import DB_ENGINE
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -20,15 +21,21 @@ DEFAULTS = {
 
 
 def _get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("""CREATE TABLE IF NOT EXISTS notification_settings (
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        operator_id INTEGER,
-        PRIMARY KEY (key, operator_id)
-    )""")
+    """Get a raw DB connection (use with conn.close() pattern)."""
+    ctx = get_conn()
+    conn = ctx.__enter__()
+    # Store context to cleanup later
+    conn._ctx = ctx
     return conn
+
+
+def _close_conn(conn):
+    """Close a connection opened with _get_conn()."""
+    ctx = getattr(conn, '_ctx', None)
+    if ctx:
+        ctx.__exit__(None, None, None)
+    else:
+        _close_conn(conn)
 
 
 def get_settings(operator_id: int = None) -> dict:
@@ -45,7 +52,7 @@ def get_settings(operator_id: int = None) -> dict:
                 settings[k] = v
         return settings
     finally:
-        conn.close()
+        _close_conn(conn)
 
 
 def get_telegram_config(operator_id: int = None) -> dict:
@@ -71,7 +78,7 @@ def get_telegram_config(operator_id: int = None) -> dict:
             "has_chats": bool(chat_ids),
         }
     finally:
-        conn.close()
+        _close_conn(conn)
 
 
 def should_notify_payment(customer_status: str, operator_id: int = None) -> bool:
@@ -136,7 +143,7 @@ def update_notification_settings(data: NotifySettingUpdate, user=Depends(get_cur
         conn.commit()
         return {"ok": True, "updated": list(updates.keys())}
     finally:
-        conn.close()
+        _close_conn(conn)
 
 
 class TelegramTokenInput(BaseModel):
@@ -203,7 +210,7 @@ def verify_telegram_token(data: TelegramTokenInput, user=Depends(get_current_use
         )
         conn.commit()
     finally:
-        conn.close()
+        _close_conn(conn)
 
     return {
         "ok": True,
@@ -248,7 +255,7 @@ def detect_telegram_chats(operator_id: int = None, user=Depends(get_current_user
         )
         conn.commit()
     finally:
-        conn.close()
+        _close_conn(conn)
 
     return {
         "ok": True,
@@ -269,4 +276,4 @@ def unlink_telegram(operator_id: int = None, user=Depends(get_current_user)):
         conn.commit()
         return {"ok": True, "message": "Telegram bot unlinked."}
     finally:
-        conn.close()
+        _close_conn(conn)
