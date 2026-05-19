@@ -5,7 +5,7 @@ text() as a bridge where ORM would be more verbose and harder to read.
 Simple counts/sums use full ORM style.
 """
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, text, and_, literal_column
+from sqlalchemy import select, func, text, and_, or_, literal_column
 from datetime import datetime, timedelta
 from typing import Optional
 
