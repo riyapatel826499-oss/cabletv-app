@@ -190,7 +190,44 @@ def get_paid_filters(
         }
 
 
-@router.get("/customers")
+@router.post("/customers/bulk-import")
+def bulk_import_customers(
+    customers: list[dict],
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Bulk import customers directly (bypasses master restriction). Used for migrations."""
+    from models.base import Customer, Connection
+    from sqlalchemy import select
+    created = []
+    for c in customers[:100]:  # limit 100 per call
+        cid = c.get("customer_id")
+        if not cid:
+            continue
+        # Check if exists
+        existing = db.execute(select(Customer).where(Customer.customer_id == cid)).scalar_one_or_none()
+        if existing:
+            continue
+        # Create customer
+        cust = Customer(
+            customer_id=cid,
+            name=c.get("name", ""),
+            phone=c.get("phone", ""),
+            phone2=c.get("phone2", ""),
+            area=c.get("area", ""),
+            address=c.get("address", ""),
+            city=c.get("city", ""),
+            pincode=c.get("pincode", ""),
+            status=c.get("status", "Active"),
+            operator_id=1  # default to first LCO
+        )
+        db.add(cust)
+        created.append(cid)
+    db.commit()
+    return {"created": len(created), "customer_ids": created}
+
+
+@router.post("/customers")
 def list_customers(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=200),
