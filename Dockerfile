@@ -9,12 +9,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all backend code
 COPY backend/ .
 
-# Remove placeholder static dir, copy legacy frontend as static
-RUN rm -rf static
-COPY frontend/ ./static/
+# Copy legacy frontend files (the working SPA)
+COPY backend/legacy-frontend/ ./legacy-frontend/
 
-# Also remove .bak files to keep image small
-RUN rm -f static/*.bak
+# Remove .bak files to keep image small
+RUN rm -f legacy-frontend/*.bak
 
 EXPOSE 8000
 
