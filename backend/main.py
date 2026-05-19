@@ -383,11 +383,14 @@ async def import_local_data(request: Request):
 # Serve frontend static files
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "legacy-frontend")
 
-if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
-    FRONTEND_DIR = STATIC_DIR
-elif os.path.exists(LEGACY_DIR):
+if os.path.exists(os.path.join(LEGACY_DIR, "dashboard.html")):
     FRONTEND_DIR = LEGACY_DIR
+elif os.path.exists(os.path.join(BUNDLED_DIR, "dashboard.html")):
+    FRONTEND_DIR = BUNDLED_DIR
+elif os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+    FRONTEND_DIR = STATIC_DIR
 else:
     FRONTEND_DIR = None
     print("WARNING: No frontend directory found!")

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Login - Cable TV Manager</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e1b4b 0%,#312e81 30%,#4338ca 60%,#6366f1 100%);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;overflow:hidden}
+.login-container{width:100%;max-width:420px;padding:20px;animation:fadeUp .6s ease}
+@media(max-width:480px){.login-container{padding:10px}.login-card{padding:32px 24px}.brand h1{font-size:18px}.login-btn{padding:14px;font-size:15px}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.login-card{background:rgba(255,255,255,.97);border-radius:24px;padding:48px 40px;box-shadow:0 25px 60px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.1)}
+.brand{text-align:center;margin-bottom:36px}
+.brand-icon{width:72px;height:72px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:20px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 8px 24px rgba(99,102,241,.4)}
+.brand-icon svg{width:36px;height:36px;fill:#fff}
+.brand h1{font-size:20px;color:#1e1b4b;font-weight:700;line-height:1.3}
+.brand p{color:#6b7280;font-size:14px;margin-top:4px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.form-group input{width:100%;padding:14px 16px 14px 48px;border:2px solid #e5e7eb;border-radius:14px;font-size:16px;transition:all .25s;background:#f9fafb;color:#1f2937}
+.form-group input:focus{outline:none;border-color:#6366f1;background:#fff;box-shadow:0 0 0 4px rgba(99,102,241,.1)}
+.input-wrap{position:relative}
+.input-wrap>.lock-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:20px;height:20px;fill:#9ca3af;transition:fill .25s;pointer-events:none}
+.form-group input:focus~.lock-icon,.input-wrap:focus-within>.lock-icon{fill:#6366f1}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;z-index:2}
+.eye-btn svg{width:22px;height:22px;fill:#9ca3af;position:static!important;left:auto!important;top:auto!important;transform:none!important;transition:fill .25s}
+.eye-btn:hover svg{fill:#6366f1}
+.input-wrap:has(.eye-btn) input{padding-right:48px}
+.login-btn{width:100%;padding:16px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 4px 16px rgba(99,102,241,.4);margin-top:8px;letter-spacing:.3px}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.5)}
+.login-btn:active{transform:translateY(0)}
+.login-btn:disabled{opacity:.7;cursor:not-allowed;transform:none}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:#fef2f2;color:#ef4444;padding:12px 16px;border-radius:12px;font-size:14px;margin-bottom:20px;display:none;align-items:center;gap:8px;border:1px solid #fecaca}
+.error-msg.show{display:flex}
+.footer-text{text-align:center;margin-top:24px;color:#9ca3af;font-size:13px}
+.bg-shapes{position:fixed;inset:0;pointer-events:none;z-index:0}
+.bg-shapes div{position:absolute;border-radius:50%;background:rgba(255,255,255,.05)}
+.bg-shapes .s1{width:400px;height:400px;top:-100px;right:-100px}
+.bg-shapes .s2{width:300px;height:300px;bottom:-50px;left:-80px}
+.bg-shapes .s3{width:200px;height:200px;top:50%;left:50%;transform:translate(-50%,-50%)}
+.confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
+.confirm-overlay.show{display:flex}
+.confirm-box{background:#fff;border-radius:20px;padding:32px;max-width:360px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.confirm-box h3{margin-bottom:12px;color:#1e1b4b;font-size:17px}
+.confirm-box p{color:#6b7280;font-size:14px;margin-bottom:24px;line-height:1.5}
+.confirm-btns{display:flex;gap:12px;justify-content:center}
+.confirm-btns button{padding:12px 24px;border-radius:12px;border:none;font-weight:600;cursor:pointer;font-size:14px}
+.btn-cancel{background:#f3f4f6;color:#374151}
+.btn-confirm{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,.4)}
+</style>
+</head>
+<body>
+<div class="bg-shapes"><div class="s1"></div><div class="s2"></div><div class="s3"></div></div>
+<div class="login-container">
+<div class="login-card">
+<div class="brand">
+<div class="brand-icon">
+<svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12zM8 15l5-3.5L8 8v7z"/></svg>
+</div>
+<h1>Selvanaayakki Amman Cables</h1>
+<p>Cable TV Management</p>
+</div>
+<div id="errorMsg" class="error-msg">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+<span id="errorText"></span>
+</div>
+<form id="loginForm" onsubmit="handleLogin(event)">
+<div class="form-group">
+<label>Username</label>
+<div class="input-wrap">
+<input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
+<svg class="lock-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+</div>
+</div>
+<div class="form-group">
+<label>Password</label>
+<div class="input-wrap">
+<input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+<svg class="lock-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+<button type="button" class="eye-btn" onclick="togglePwd()" tabindex="-1" aria-label="Toggle password visibility">
+<svg id="eyeOpen" viewBox="0 0 24 24" style="display:none"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+<svg id="eyeClosed" viewBox="0 0 24 24"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.8 11.8 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.35-3-3-3l-.17.01z"/></svg>
+</button>
+</div>
+</div>
+<button type="submit" class="login-btn" id="loginBtn">
+Sign In
+</button>
+</form>
+<div class="footer-text">Secure login</div>
+</div>
+</div>
+<div id="confirmOverlay" class="confirm-overlay">
+<div class="confirm-box">
+<h3>⚠️ Already Logged In</h3>
+<p id="confirmMsg">This account is already logged in on another device. Do you want to continue? The other session will be logged out.</p>
+<div class="confirm-btns">
+<button class="btn-cancel" onclick="cancelForce()">Cancel</button>
+<button class="btn-confirm" onclick="forceLogin()">Yes, Login</button>
+</div>
+</div>
+</div>
+<script>
+const API=window.location.origin;
+
+// Show logout message if redirected from timeout
+const logoutMsg = sessionStorage.getItem('logoutMsg');
+if (logoutMsg) {
+  sessionStorage.removeItem('logoutMsg');
+  setTimeout(() => showError(logoutMsg), 300);
+}
+
+if(localStorage.getItem('token'))window.location.href='dashboard.html';
+
+// Password eye toggle
+function togglePwd(){
+  const inp=document.getElementById('password');
+  const open=document.getElementById('eyeOpen');
+  const closed=document.getElementById('eyeClosed');
+  if(inp.type==='password'){inp.type='text';open.style.display='block';closed.style.display='none';}
+  else{inp.type='password';open.style.display='none';closed.style.display='block';}
+}
+
+function showError(msg){
+const el=document.getElementById('errorMsg');
+document.getElementById('errorText').textContent=msg;
+el.classList.add('show');
+setTimeout(()=>el.classList.remove('show'),5000);
+}
+
+let pendingCreds=null;
+
+function cancelForce(){
+  document.getElementById('confirmOverlay').classList.remove('show');
+  pendingCreds=null;
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=false;btn.innerHTML='Sign In';
+}
+
+async function forceLogin(){
+  if(!pendingCreds)return;
+  document.getElementById('confirmOverlay').classList.remove('show');
+  await doLogin(pendingCreds.u,pendingCreds.p,true);
+  pendingCreds=null;
+}
+
+async function doLogin(u,p,force=false){
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span>Signing in...';
+  try{
+    const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p,force:force})});
+    const d=await r.json();
+    if(!r.ok){
+      // Check for session conflict (409)
+      if(r.status===409){
+        pendingCreds={u,p};
+        document.getElementById('confirmOverlay').classList.add('show');
+        btn.disabled=false;btn.innerHTML='Sign In';
+        return;
+      }
+      throw new Error(d.detail||d.error||d.message||'Login failed');
+    }
+    localStorage.setItem('token',d.access_token||d.data?.token||d.token);
+    localStorage.setItem('user',JSON.stringify(d.user||d.data?.user||{name:u}));
+    window.location.href='dashboard.html';
+  }catch(err){showError(err.message)}finally{btn.disabled=false;btn.innerHTML='Sign In'}
+}
+
+async function handleLogin(e){
+e.preventDefault();
+const u=document.getElementById('username').value.trim();
+const p=document.getElementById('password').value;
+if(!u||!p)return showError('Please enter both username and password');
+await doLogin(u,p,false);
+}
+</script>
+</body>
+</html>
