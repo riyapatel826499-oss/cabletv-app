@@ -264,13 +264,13 @@ async def import_local_data(request: Request):
         raise HTTPException(401, "Not authenticated")
     token = auth[7:]
     # Decode JWT directly
-    import jwt as _jwt
+    from jose import jwt as _jwt, JWTError
     from config import SECRET_KEY, ALGORITHM
     try:
         payload = _jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("role") != "master":
             raise HTTPException(403, "Master admin only")
-    except Exception:
+    except JWTError:
         raise HTTPException(403, "Invalid token")
     
     export_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_export.json")
