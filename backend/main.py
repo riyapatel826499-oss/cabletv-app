@@ -380,6 +380,61 @@ async def import_local_data(request: Request):
     return {"status": "ok", "results": results}
 
 
+# ── Paypakka payments bulk import ──────────────────────────────────────
+@app.post("/api/import-paypakka-payments")
+async def import_paypakka_payments(request: Request):
+    """Bulk import paypakka_payments from local SQLite. Master only. Batches of 500."""
+    from deps_orm import get_current_user as _gcu
+    from models.base import engine
+    from sqlalchemy import text
+
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Not authenticated")
+    token = auth[7:]
+    from jose import jwt as _jwt, JWTError
+    from config import SECRET_KEY, ALGORITHM
+    try:
+        payload = _jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "master":
+            raise HTTPException(403, "Master admin only")
+    except JWTError:
+        raise HTTPException(403, "Invalid token")
+
+    body = await request.json()
+    rows = body.get("rows", [])
+    if not rows:
+        return {"status": "error", "message": "No rows provided"}
+
+    columns = [
+        "id", "customer_id", "payment_ref_id", "transaction_id",
+        "service_ref_id", "plan_amount", "bill_amount", "collection_amount",
+        "discount_amount", "tax", "payment_type", "status",
+        "paypakka_created_at", "imported_at", "emp_ref_id", "operator_id"
+    ]
+    col_str = ", ".join(columns)
+    placeholders = ", ".join([f":{c}" for c in columns])
+
+    with engine.connect() as conn:
+        count = 0
+        errors = []
+        for row in rows:
+            params = {}
+            for c in columns:
+                v = row.get(c)
+                params[c] = None if v is None or v == "" else v
+            try:
+                conn.execute(text(f"INSERT INTO paypakka_payments ({col_str}) VALUES ({placeholders})"), params)
+                count += 1
+            except Exception as e:
+                if "unique" not in str(e).lower() and "duplicate" not in str(e).lower():
+                    errors.append(f"row {row.get('id','?')}: {str(e)[:80]}")
+                # Skip duplicates silently
+        conn.commit()
+
+    return {"status": "ok", "imported": count, "errors": errors[:10]}
+
+
 # Serve frontend static files
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 LEGACY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
