@@ -194,6 +194,49 @@ def debug_startup():
     }
 
 
+@app.post("/api/nuke-data")
+def nuke_data():
+    """Nuclear wipe: delete all business data (keep operators, users, settings).
+    Only callable by master. USE WITH CAUTION."""
+    from deps_orm import get_db as get_db_orm, require_role
+    from sqlalchemy import text
+    db = next(get_db_orm())
+    try:
+        tables_to_wipe = [
+            "audit_logs", "service_request_timeline", "service_requests",
+            "surrender_requests", "complaints", "notifications_settings",
+            "online_payments", "sms_logs", "push_subscriptions",
+            "customer_plans", "payments", "connections", "customers",
+            "stb_inventory", "paypakka_payments", "paypakka_plans",
+            "paypakka_customer_plans", "paypakka_employees",
+            "plans", "active_sessions", "customer_auth",
+        ]
+        results = {}
+        for table in tables_to_wipe:
+            try:
+                count = db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+                db.execute(text(f"DELETE FROM {table}"))
+                results[table] = count
+            except Exception as e:
+                results[table] = f"error: {e}"
+        db.commit()
+        
+        # Reset customer_id sequence
+        try:
+            db.execute(text("ALTER SEQUENCE IF EXISTS customers_id_seq RESTART WITH 1"))
+            db.execute(text("ALTER SEQUENCE IF EXISTS payments_id_seq RESTART WITH 1"))
+            db.execute(text("ALTER SEQUENCE IF EXISTS connections_id_seq RESTART WITH 1"))
+            db.execute(text("ALTER SEQUENCE IF EXISTS plans_id_seq RESTART WITH 1"))
+            db.commit()
+        except:
+            pass
+        
+        return {"ok": True, "wiped": results}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "error": str(e)}
+
+
 @app.post("/api/cleanup-hard-delete-payments")
 def cleanup_hard_delete():
     """Hard-delete all soft-deleted payments (deleted=1). One-time cleanup."""
