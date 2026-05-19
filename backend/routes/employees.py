@@ -52,8 +52,8 @@ def list_employees(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """List all employees. Admin and Support can access."""
-    if current_user["role"] not in ["admin", "support"]:
+    """List all employees. Master views all, Admin and Support see their operator."""
+    if current_user["role"] not in ["master", "admin", "support"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     # Build operator filter clause for text queries

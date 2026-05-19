@@ -946,6 +946,8 @@ class CustomerCreateRequest(BaseModel):
 
 @router.post("/customers", status_code=201)
 def create_customer(data: CustomerCreateRequest, current_user=Depends(get_current_user)):
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot create customers. Use an operator admin account.")
     with _get_conn() as conn:
         _of = _op_flt(current_user)
         _oid = op_id(current_user)

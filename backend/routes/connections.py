@@ -222,6 +222,8 @@ def temp_disconnect(
     """Mark a connection as 'Temp Disconnected' — STB reclaimed, customer stays Active.
     STB becomes available in inventory for reassignment. No refund given.
     Customer can reconnect anytime without extra charges."""
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot disconnect connections. Use an operator admin account.")
     if current_user["role"] not in ("admin", "support", "collection_agent"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -350,6 +352,8 @@ def reconnect_customer(
 ):
     """Reconnect a Temp Disconnected customer — assigns STB (can be same or different),
     sets connection back to Active. No installation/extra charges."""
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot reconnect connections. Use an operator admin account.")
     if current_user["role"] not in ("admin", "support", "collection_agent"):
         raise HTTPException(status_code=403, detail="Not authorized")
 

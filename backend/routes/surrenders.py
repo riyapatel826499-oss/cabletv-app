@@ -83,8 +83,8 @@ def surrender_customer(customer_id: str, req: SurrenderRequest = SurrenderReques
    # ========== SURRENDER REQUESTS (Admin) ==========
 @router.get("/surrender-requests")
 def list_surrender_requests(status: Optional[str] = None, current_user=Depends(get_current_user)):
-   """List surrender requests. Admin/Support only."""
-   if current_user["role"] not in ["admin", "support"]:
+   """List surrender requests. Master views all, Admin/Support see their operator."""
+   if current_user["role"] not in ["master", "admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can view surrender requests")
    
    flt = _op_flt(current_user)

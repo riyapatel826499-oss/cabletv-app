@@ -54,6 +54,9 @@ def create_payment(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Master cannot create payments
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot collect payments. Use an operator admin account.")
     # Validate customer
     cust_query = select(Customer).where(Customer.customer_id == data.customer_id)
     cust_query = apply_op_filter(cust_query, Customer, current_user)
