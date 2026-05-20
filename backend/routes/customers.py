@@ -685,9 +685,8 @@ def get_not_renewed_customers(
         ).fetchall() if a["area"]]
 
         # MSO list for filter dropdown
-        _of_conn2 = f"AND {_op_flt(current_user, 'conn.')}"
         msos = [m["mso"] for m in db.execute(
-            f"SELECT DISTINCT mso FROM connections WHERE mso IS NOT NULL AND mso != '' {_of_conn2} ORDER BY mso"
+            f"SELECT DISTINCT mso FROM connections WHERE mso IS NOT NULL AND mso != '' AND {_op_flt(current_user)} ORDER BY mso"
         ).fetchall() if m["mso"]]
 
         # Month label for display
