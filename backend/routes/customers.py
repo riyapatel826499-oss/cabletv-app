@@ -992,13 +992,13 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
         # Generate customer_id using operator's prefix
         if _oid is not None:
             prefix_row = conn.execute(
-                "SELECT customer_prefix FROM operators WHERE id = " + _ph(), [_oid]
+                "SELECT customer_prefix FROM operators WHERE id = ?", [_oid]
             ).fetchone()
         else:
             prefix_row = None
         prefix = prefix_row["customer_prefix"] if prefix_row and prefix_row["customer_prefix"] else "SSA"
         last = conn.execute(
-            "SELECT customer_id FROM customers WHERE customer_id LIKE " + _ph() + " ORDER BY customer_id DESC LIMIT 1",
+            "SELECT customer_id FROM customers WHERE customer_id LIKE ? ORDER BY customer_id DESC LIMIT 1",
             [f"{prefix}-%"],
         ).fetchone()
         if last:
