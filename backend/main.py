@@ -341,6 +341,16 @@ def health():
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
 
 
+@app.get("/api/debug/db-url")
+def debug_db_url():
+    """Temporary: expose masked DATABASE_URL for migration."""
+    import re
+    url = os.getenv("DATABASE_URL", "")
+    # Mask password
+    masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
+    return {"database_url_masked": masked, "has_url": bool(url), "engine": os.getenv("DB_ENGINE", "unknown")}
+
+
 @app.post("/api/backup")
 def backup_db():
     """Daily DB backup — copies cabletv.db to backups/ folder, keeps last 7 days."""
