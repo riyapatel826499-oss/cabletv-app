@@ -198,7 +198,7 @@ def bulk_import_customers(
     current_user=Depends(get_current_user),
 ):
     """Bulk import customers directly (bypasses master restriction). Used for migrations."""
-    from models.base import Customer
+    from models.tables import Customer
     from sqlalchemy import select
     created = []
     for c in customers[:100]:  # limit 100 per call
