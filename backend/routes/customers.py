@@ -589,7 +589,9 @@ def get_not_renewed_customers(
     """Customers whose subscription expired IN a specific month.
     Meaning they paid through that month but didn't renew for the next.
     Default: last month."""
-    with _get_conn() as db:
+    import traceback
+    try:
+     with _get_conn() as db:
         _of = _op_flt(current_user)
         # Default to last month
         if not month:
@@ -705,6 +707,9 @@ def get_not_renewed_customers(
             "first_day": first_day,
             "last_day": last_day,
         }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/customers/collection-list")
