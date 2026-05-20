@@ -520,6 +520,152 @@ async def import_local_data(request: Request):
     return {"status": "ok", "results": results}
 
 
+# ── Direct Migration (accepts JSON body, uses ORM) ────────────────────
+@app.post("/api/migrate")
+async def migrate_data(request: Request):
+    """Insert customers, connections, payments from JSON body. Master only. Uses SQLAlchemy text() for PG compat."""
+    import json as _json
+    from sqlalchemy import text
+    from models.base import engine
+
+    # Auth check — master only
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(401, "Not authenticated")
+    token = auth[7:]
+    from jose import jwt as _jwt, JWTError
+    from config import SECRET_KEY, ALGORITHM
+    try:
+        payload = _jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "master":
+            raise HTTPException(403, "Master admin only")
+    except JWTError:
+        raise HTTPException(403, "Invalid token")
+
+    data = await request.json()
+    results = {}
+    OPERATOR_ID = 1
+
+    with engine.connect() as conn:
+        # 1. Customers
+        if "customers" in data:
+            count = 0
+            for c in data["customers"]:
+                cid = c.get("customer_id")
+                if not cid:
+                    continue
+                existing = conn.execute(text("SELECT 1 FROM customers WHERE customer_id = :cid"), {"cid": cid}).fetchone()
+                if existing:
+                    continue
+                try:
+                    conn.execute(text("""
+                        INSERT INTO customers (customer_id, name, phone, phone2, area, address, city, pincode, status, operator_id)
+                        VALUES (:customer_id, :name, :phone, :phone2, :area, :address, :city, :pincode, :status, :operator_id)
+                    """), {
+                        "customer_id": cid,
+                        "name": c.get("name", ""),
+                        "phone": c.get("phone", ""),
+                        "phone2": c.get("phone2"),
+                        "area": c.get("area"),
+                        "address": c.get("address"),
+                        "city": c.get("city"),
+                        "pincode": c.get("pincode"),
+                        "status": c.get("status", "Active"),
+                        "operator_id": OPERATOR_ID,
+                    })
+                    count += 1
+                except Exception as e:
+                    results[f"customer_error_{cid}"] = str(e)[:100]
+            conn.commit()
+            results["customers"] = count
+
+        # 2. Connections
+        if "connections" in data:
+            count = 0
+            for cn in data["connections"]:
+                cid = cn.get("customer_id")
+                stb = cn.get("stb_no")
+                if not cid or not stb:
+                    continue
+                existing = conn.execute(text("SELECT 1 FROM connections WHERE customer_id = :cid AND stb_no = :stb"), {"cid": cid, "stb": stb}).fetchone()
+                if existing:
+                    continue
+                try:
+                    conn.execute(text("""
+                        INSERT INTO connections (customer_id, stb_no, can_id, mso, service_type, billing_type, status, created_at, plan_name, plan_amount, network, operator_id)
+                        VALUES (:customer_id, :stb_no, :can_id, :mso, :service_type, :billing_type, :status, :created_at, :plan_name, :plan_amount, :network, :operator_id)
+                    """), {
+                        "customer_id": cid,
+                        "stb_no": stb,
+                        "can_id": cn.get("can_id"),
+                        "mso": cn.get("mso"),
+                        "service_type": cn.get("service_type", "Cable"),
+                        "billing_type": cn.get("billing_type", "Prepaid"),
+                        "status": cn.get("status", "Active"),
+                        "created_at": cn.get("created_at"),
+                        "plan_name": cn.get("plan_name"),
+                        "plan_amount": cn.get("plan_amount"),
+                        "network": cn.get("network", cn.get("mso")),
+                        "operator_id": OPERATOR_ID,
+                    })
+                    count += 1
+                except Exception as e:
+                    results[f"conn_error_{cid}_{stb}"] = str(e)[:100]
+            conn.commit()
+            results["connections"] = count
+
+        # 3. Payments
+        if "payments" in data:
+            count = 0
+            for p in data["payments"]:
+                cid = p.get("customer_id")
+                amount = p.get("amount")
+                if not cid or amount is None:
+                    continue
+                # Find connection_id for this customer
+                conn_row = conn.execute(text("SELECT id FROM connections WHERE customer_id = :cid LIMIT 1"), {"cid": cid}).fetchone()
+                conn_id = conn_row[0] if conn_row else None
+
+                # Find collected_by employee
+                collected_by_val = p.get("collected_by")
+                emp_id = None
+                if collected_by_val:
+                    emp = conn.execute(text("SELECT id FROM employees WHERE emp_name = :name LIMIT 1"), {"name": str(collected_by_val)}).fetchone()
+                    if emp:
+                        emp_id = emp[0]
+
+                try:
+                    conn.execute(text("""
+                        INSERT INTO payments (customer_id, amount, payment_mode, month_year, collected_at, collected_by, connection_id, notes, operator_id)
+                        VALUES (:customer_id, :amount, :payment_mode, :month_year, :collected_at, :collected_by, :connection_id, :notes, :operator_id)
+                    """), {
+                        "customer_id": cid,
+                        "amount": float(amount),
+                        "payment_mode": p.get("payment_mode", "Cash"),
+                        "month_year": p.get("month_year", "05-2026"),
+                        "collected_at": p.get("collected_at") or p.get("created_at"),
+                        "collected_by": emp_id,
+                        "connection_id": conn_id,
+                        "notes": p.get("notes", ""),
+                        "operator_id": OPERATOR_ID,
+                    })
+                    count += 1
+                except Exception as e:
+                    results[f"payment_error_{cid}"] = str(e)[:100]
+            conn.commit()
+            results["payments"] = count
+
+    # Verify counts
+    for t in ["customers", "connections", "payments"]:
+        try:
+            cnt = conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar()
+            results[f"verify_{t}"] = cnt
+        except:
+            pass
+
+    return {"status": "ok", "results": results}
+
+
 # ── Paypakka payments bulk import ──────────────────────────────────────
 @app.post("/api/import-paypakka-payments")
 async def import_paypakka_payments(request: Request):
