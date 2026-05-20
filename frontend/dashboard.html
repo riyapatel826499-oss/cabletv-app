@@ -16,7 +16,7 @@
 #hamburgerBtn{display:none;position:fixed;top:16px;left:16px;z-index:1100;background:var(--white);color:var(--text);border:0.5px solid var(--border);padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:1.2rem;box-shadow:var(--shadow);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
 .page{display:none;animation:fadeIn 0.35s ease}.page.active{display:block}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}.stat-card{background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);padding:22px;border-radius:var(--radius);border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:var(--transition)}.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-2px)}.stat-card h3{font-size:0.8rem;font-weight:500;color:var(--text-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em}.stat-card .value{font-size:1.8rem;font-weight:700;color:var(--primary);letter-spacing:-0.02em}.stat-card.success .value{color:var(--success)}.stat-card.warning .value{color:var(--warning)}.stat-card.danger .value{color:var(--danger)}
-table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);overflow:hidden;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}th,td{padding:13px 16px;text-align:left;border-bottom:0.5px solid var(--border)}th{background:rgba(245,245,247,0.6);font-weight:600;color:var(--text-light);text-transform:uppercase;font-size:0.72rem;letter-spacing:0.06em}tr:last-child td{border-bottom:none}tr{transition:background 0.15s ease}tr:hover td{background:rgba(0,113,227,0.03)}.empty-state{text-align:center;padding:40px;color:var(--text-light)}.table-wrap{overflow-x:auto;border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);overflow:hidden;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}th,td{padding:13px 16px;text-align:left;border-bottom:1px solid rgba(0,0,0,0.05)}th{background:rgba(245,245,247,0.6);font-weight:600;color:#4b5563;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.06em}tr:last-child td{border-bottom:none}tr{transition:background 0.15s ease}tr:hover td{background:rgba(0,113,227,0.03)}.empty-state{text-align:center;padding:40px;color:var(--text-light)}.table-wrap{overflow-x:auto;border-radius:var(--radius)}
 .btn{padding:10px 18px;border:none;border-radius:980px;cursor:pointer;font-weight:500;transition:var(--transition);display:inline-flex;align-items:center;gap:8px;font-size:0.88rem;letter-spacing:-0.01em}.btn-primary{background:var(--primary);color:var(--white)}.btn-primary:hover{background:var(--primary-dark);transform:scale(1.02)}.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:rgba(0,0,0,0.03)}.btn-danger{background:var(--danger);color:var(--white)}.btn-danger:hover{background:#e0342b}.btn-success{background:var(--success);color:var(--white)}.btn-success:hover{background:#2db84d}.btn-warning{background:var(--warning);color:var(--white)}.btn-sm{padding:5px 12px;font-size:0.78rem}
 .form-group{margin-bottom:16px}.form-group label{display:block;margin-bottom:6px;font-weight:500;font-size:0.88rem;color:var(--text)}.form-control{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3.5px rgba(0,113,227,0.12)}.form-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
 .badge{display:inline-block;padding:4px 10px;border-radius:980px;font-size:0.72rem;font-weight:600}.badge-success{background:rgba(52,199,89,0.12);color:var(--success)}.badge-danger{background:rgba(255,59,48,0.12);color:var(--danger)}.badge-primary{background:rgba(0,113,227,0.1);color:var(--primary)}.badge-warning{background:rgba(255,159,10,0.12);color:var(--warning)}.badge-info{background:rgba(90,200,250,0.12);color:var(--info)}
@@ -276,7 +276,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="footer"><div class="user-info"><div class="avatar" id="userAvatar">A</div><div><div style="font-weight:600" id="userName">Admin</div><div style="font-size:0.8rem;color:rgba(255,255,255,0.7)" id="userRole">Administrator</div></div></div></div>
 </aside>
 <main class="main">
-<div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="topbar-actions"><button class="btn btn-outline btn-sm" id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle dark mode" style="font-size:16px;padding:6px 10px">🌙</button><button class="btn btn-outline btn-sm" id="pushBellBtn" onclick="togglePushSubscription()" title="Notifications" style="display:none">🔔</button><button class="btn btn-outline btn-sm" onclick="logout()">&#128682; Logout</button></div></div>
+<div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="topbar-actions"><button id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text);font-size:18px;line-height:1">🌙</button><button id="pushBellBtn" onclick="togglePushSubscription()" title="Notifications" style="display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text);font-size:18px;line-height:1">🔔</button><button onclick="logout()" title="Logout" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text-light);font-size:18px;line-height:1">⏻</button></div></div>
 <div class="content">
 
 <!-- Dashboard Page -->
@@ -328,14 +328,16 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <!-- Customers Page -->
 <div id="page-customers" class="page">
 <div class="search-box"><input type="text" id="customerSearch" class="form-control" placeholder="Search by name, phone, STB, ID..." oninput="debounceSearch()"></div>
-<div class="filter-row">
-<select id="custSortBy" onchange="loadCustomers(1)"><option value="name">Sort: Name</option><option value="customer_id">Sort: ID</option><option value="area">Sort: Area</option></select>
-<select id="custSortOrder" onchange="loadCustomers(1)"><option value="asc">ASC</option><option value="desc">DESC</option></select>
-<select id="custPerPage" onchange="loadCustomers(1)"><option value="10" selected>10/page</option><option value="20">20/page</option><option value="50">50/page</option></select>
-<select id="custStatusFilter" onchange="loadCustomers(1)"><option value="">All Status</option><option value="Active" selected>Active</option><option value="Temp Disconnected">Temp Disconnected</option><option value="Surrendered">Surrendered</option><option value="Pending Surrender">Pending Surrender</option></select>
-<select id="custPlanFilter" onchange="loadCustomers(1)"><option value="">All Plans</option></select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')">📥 Excel</button>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+<select id="custStatusFilter" onchange="loadCustomers(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All Status</option><option value="Active" selected>Active</option><option value="Temp Disconnected">Temp Disconnected</option><option value="Surrendered">Surrendered</option><option value="Pending Surrender">Pending Surrender</option></select>
+<select id="custPlanFilter" onchange="loadCustomers(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All Plans</option></select>
+</div>
+<div class="filter-row" style="gap:8px;margin-bottom:16px">
+<select id="custSortBy" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="name">Sort: Name</option><option value="customer_id">Sort: ID</option><option value="area">Sort: Area</option></select>
+<select id="custSortOrder" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="asc">ASC</option><option value="desc">DESC</option></select>
+<select id="custPerPage" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="10" selected>10/page</option><option value="20">20/page</option><option value="50">50/page</option></select>
+<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
 </div>
 <div class="tabs" id="custTabs">
 <div class="tab active" data-filter="all" onclick="filterCustomers('all')">All</div>
@@ -761,21 +763,25 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="stat-card warning"><h3>Not Renewed</h3><div class="value" id="nrCount">0</div></div>
 <div class="stat-card"><h3>Lost Revenue</h3><div class="value" id="nrTotalAmt">₹0</div></div>
 </div>
-<div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-<button class="chip active" data-nr="last1" onclick="setNrMonth('last1',this)">Last Month</button>
-<button class="chip" data-nr="last2" onclick="setNrMonth('last2',this)">2 Months Ago</button>
-<button class="chip" data-nr="last3" onclick="setNrMonth('last3',this)">3 Months Ago</button>
-<input type="month" id="nrMonthPicker" class="form-control" style="max-width:170px;padding:6px 8px;font-size:13px" onchange="setNrMonthCustom(this.value)">
+<div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:0;align-items:center">
+<div style="display:inline-flex;border-radius:var(--radius-xs);overflow:hidden;border:1px solid var(--border)">
+<button class="chip active" data-nr="last1" onclick="setNrMonth('last1',this)" style="border-radius:0;border-right:none;margin:0">Last Month</button>
+<button class="chip" data-nr="last2" onclick="setNrMonth('last2',this)" style="border-radius:0;border-right:none;margin:0">2 Months Ago</button>
+<button class="chip" data-nr="last3" onclick="setNrMonth('last3',this)" style="border-radius:0;margin:0">3 Months Ago</button>
 </div>
-<div class="filter-row" style="margin-bottom:16px">
-<input type="text" id="nrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceNotRenewed()">
-<select id="nrArea" class="form-control" onchange="loadNotRenewed(1)"><option value="">All Areas</option></select>
-<select id="nrMso" class="form-control" onchange="loadNotRenewed(1)"><option value="">All MSO</option></select>
-<select id="nrPerPage" class="form-control" style="max-width:80px" onchange="loadNotRenewed(1)">
+<input type="month" id="nrMonthPicker" class="form-control" style="max-width:170px;padding:6px 8px;font-size:13px;margin-left:10px" onchange="setNrMonthCustom(this.value)">
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+<select id="nrArea" onchange="loadNotRenewed(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All Areas</option></select>
+<select id="nrMso" onchange="loadNotRenewed(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All MSO</option></select>
+</div>
+<div class="filter-row" style="gap:8px;margin-bottom:16px">
+<input type="text" id="nrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceNotRenewed()" style="flex:1">
+<select id="nrPerPage" onchange="loadNotRenewed(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none;max-width:80px">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')">📥 Excel</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
 </div>
 <div class="table-wrap" id="nrTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Last Paid</th><th>Expired</th><th>📞</th></tr></thead><tbody id="nrBody"></tbody></table></div>
 <div class="pagination" id="nrPagination"></div>
@@ -880,14 +886,14 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </select>
 </div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px">
-<div><h3 style="margin-bottom:16px">Change Password</h3>
+<div><h3 style="margin-bottom:16px;margin-top:32px;display:flex;align-items:center;gap:8px">🔑 Change Password</h3>
 <form onsubmit="changePassword(event)">
 <div class="form-group"><label>Current Password</label><input id="curPwd" type="password" class="form-control" required></div>
 <div class="form-group"><label>New Password</label><input id="newPwd" type="password" class="form-control" required></div>
 <div class="form-group"><label>Confirm Password</label><input id="confirmPwd" type="password" class="form-control" required></div>
 <button type="submit" class="btn btn-primary">Change Password</button>
 </form></div>
-<div><h3 style="margin-bottom:16px">🔔 Telegram Notifications</h3>
+<div><h3 style="margin-bottom:16px;margin-top:32px;display:flex;align-items:center;gap:8px">🔔 Telegram Notifications</h3>
 <div id="tgSetupSection">
 <div id="tgNotLinked" style="display:none">
 <p style="margin-bottom:12px">Link your own Telegram bot to receive payment notifications. Follow these steps:</p>
@@ -929,7 +935,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </div>
 </div>
 </div>
-<div><h3 style="margin-bottom:16px">STB Inventory</h3>
+<div><h3 style="margin-bottom:16px;margin-top:32px;display:flex;align-items:center;gap:8px">📦 STB Inventory</h3>
 <div class="filter-row"><select id="invStatusFilter" onchange="loadStbInventory()"><option value="">All</option><option value="available">Available</option><option value="spare">Spare</option><option value="faulty">Faulty</option><option value="with_mso">With MSO</option></select>
 <button class="btn btn-primary btn-sm" onclick="showAddStbModal()">+ Add STB</button></div>
 <div class="table-wrap"><table><thead><tr><th>STB No</th><th>Status</th><th>Notes</th><th>Added</th><th>Actions</th></tr></thead><tbody id="stbInvBody"></tbody></table></div>
