@@ -1068,6 +1068,21 @@ async function deleteCustomer(id, name) {
 
 async function addCustomer(e) {
   e.preventDefault();
+  // JS-side validation with clear messages (replaces silent HTML5 validation)
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  const mso = document.getElementById('custMSO').value;
+  const plan = document.getElementById('custPlan').value;
+  const area = document.getElementById('custArea').value.trim();
+  const stb = document.getElementById('custSTB').value;
+  const activation = document.getElementById('custActivation').value;
+  if (!name) { toast('Please enter customer name', 'error'); return; }
+  if (!phone) { toast('Please enter phone number', 'error'); return; }
+  if (!mso) { toast('Please select MSO', 'error'); return; }
+  if (!plan) { toast('Please select a plan', 'error'); return; }
+  if (!area) { toast('Please enter area', 'error'); return; }
+  if (!stb) { toast('Please select an STB number', 'error'); return; }
+  if (!activation) { toast('Please select activation date', 'error'); return; }
   const connFee = parseFloat(document.getElementById('custConnFee').value) || 0;
   try {
     await api('/api/customers', {method: 'POST', body: JSON.stringify({
