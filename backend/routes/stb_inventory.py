@@ -138,5 +138,5 @@ def list_available_stbs(network: Optional[str] = None, current_user=Depends(get_
            elif network.upper() == "GTPL":
                query += " AND stb_no NOT LIKE '172%' AND stb_no NOT LIKE '173%' AND stb_no NOT LIKE '5000%'"
        query += " ORDER BY stb_no ASC"
-       rows = conn.execute(query, params).fetchall()
+       rows = conn.execute(query, params if params else None).fetchall()
    return {"available": [dict(r) for r in rows], "total": len(rows)}

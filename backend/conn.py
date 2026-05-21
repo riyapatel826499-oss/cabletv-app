@@ -55,6 +55,7 @@ class _PgConnection:
     def execute(self, query, params=None):
         q = query.replace("?", "%s")
         cur = self._conn.cursor()
+        # Empty list triggers psycopg2 % substitution on raw % in LIKE patterns
         if params:
             cur.execute(q, params)
         else:
