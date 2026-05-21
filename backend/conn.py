@@ -55,7 +55,7 @@ class _PgConnection:
     def execute(self, query, params=None):
         q = query.replace("?", "%s")
         cur = self._conn.cursor()
-        if params is not None:
+        if params:
             cur.execute(q, params)
         else:
             cur.execute(q)
