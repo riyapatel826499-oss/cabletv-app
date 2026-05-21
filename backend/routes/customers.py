@@ -578,7 +578,7 @@ def get_unpaid_customers(
 
 @router.get("/customers/not-renewed")
 def get_not_renewed_customers(
-    month: str = None, # YYYY-MM format, e.g. "2026-04" = paid in April, not renewed May
+    month: str = None, # YYYY-MM format, e.g. "2026-05" = not renewed for May
     q: Optional[str] = None,
     area: Optional[str] = None,
     mso: Optional[str] = None,
@@ -586,40 +586,29 @@ def get_not_renewed_customers(
     per_page: int = 50,
     current_user: dict = Depends(get_current_user),
 ):
-    """Customers who paid for the reference month but did NOT pay for the NEXT month.
-    Default: last month (paid April, not renewed May).
-    month_year format is MM-YYYY (e.g. '05-2026')."""
+    """Active customers who have NOT paid for the selected month.
+    Default: current month. Shows who hasn't renewed yet."""
     import traceback
     try:
      with _get_conn() as db:
         _of = _op_flt(current_user)
         _of_c = _op_flt(current_user, "c.")
-        _of_p = _op_flt(current_user, "p1.")
         _of_conn = _op_flt(current_user, "conn.")
 
-        # Calculate reference month (the month they paid) and next month (the month they didn't pay)
+        # Determine target month (the month they haven't paid for)
         if not month:
             now = datetime.now()
-            # Default to current month = who paid this month but hasn't renewed for next month
-            ref_year, ref_month = now.year, now.month
+            target_year, target_month = now.year, now.month
         else:
             try:
-                ref_year, ref_month = month.split("-")
-                ref_year, ref_month = int(ref_year), int(ref_month)
+                target_year, target_month = month.split("-")
+                target_year, target_month = int(target_year), int(target_month)
             except (ValueError, AttributeError):
                 now = datetime.now()
-                ref_year = now.year if now.month > 1 else now.year - 1
-                ref_month = now.month - 1 if now.month > 1 else 12
-
-        # Next month (the one they didn't renew for)
-        if ref_month == 12:
-            next_year, next_month = ref_year + 1, 1
-        else:
-            next_year, next_month = ref_year, ref_month + 1
+                target_year, target_month = now.year, now.month
 
         # month_year format in DB is MM-YYYY
-        ref_my = f"{ref_month:02d}-{ref_year}"
-        next_my = f"{next_month:02d}-{next_year}"
+        target_my = f"{target_month:02d}-{target_year}"
 
         offset = (page - 1) * per_page
 
@@ -637,22 +626,18 @@ def get_not_renewed_customers(
             extra_where += " AND conn.mso = ?"
             params.append(mso)
 
-        # Count + Lost Revenue (across ALL pages)
+        # Count + Lost Revenue: active customers with NO payment for target month
         agg_row = db.execute(f"""
-            SELECT COUNT(*) as cnt, COALESCE(SUM(plan_amount), 0) as lost_rev
-            FROM (
-                SELECT DISTINCT p1.customer_id, conn.plan_amount
-                FROM payments p1
-                JOIN customers c ON c.customer_id = p1.customer_id
-                LEFT JOIN connections conn ON conn.customer_id = p1.customer_id AND conn.status = 'Active'
-                WHERE p1.month_year = ? AND {_of_p} AND {_of_c}
-                AND NOT EXISTS (
-                    SELECT 1 FROM payments p2
-                    WHERE p2.customer_id = p1.customer_id AND p2.month_year = ? AND {_op_flt(current_user, 'p2.')}
-                )
-                {extra_where}
-            ) sub
-        """, [ref_my, next_my] + params).fetchone()
+            SELECT COUNT(*) as cnt, COALESCE(SUM(conn.plan_amount), 0) as lost_rev
+            FROM customers c
+            JOIN connections conn ON conn.customer_id = c.customer_id AND conn.status = 'Active'
+            WHERE c.status = 'Active' AND {_of_c} AND {_of_conn}
+            AND NOT EXISTS (
+                SELECT 1 FROM payments p
+                WHERE p.customer_id = c.customer_id AND p.month_year = ?
+            )
+            {extra_where}
+        """, [target_my] + params).fetchone()
         total = agg_row["cnt"] if agg_row else 0
         lost_revenue = agg_row["lost_rev"] if agg_row else 0
 
@@ -663,21 +648,17 @@ def get_not_renewed_customers(
                    conn.expiry_date, conn.network,
                    (SELECT MAX(p3.collected_at) FROM payments p3
                     WHERE p3.customer_id = c.customer_id) as last_paid_date
-            FROM payments p1
-            JOIN customers c ON c.customer_id = p1.customer_id
-            LEFT JOIN connections conn ON conn.customer_id = p1.customer_id AND conn.status = 'Active'
-            WHERE p1.month_year = ? AND {_of_p} AND {_of_c}
+            FROM customers c
+            JOIN connections conn ON conn.customer_id = c.customer_id AND conn.status = 'Active'
+            WHERE c.status = 'Active' AND {_of_c} AND {_of_conn}
             AND NOT EXISTS (
-                SELECT 1 FROM payments p2
-                WHERE p2.customer_id = p1.customer_id AND p2.month_year = ? AND {_op_flt(current_user, 'p2.')}
+                SELECT 1 FROM payments p
+                WHERE p.customer_id = c.customer_id AND p.month_year = ?
             )
             {extra_where}
-            GROUP BY c.customer_id, c.name, c.phone, c.phone2, c.area, c.address,
-                     conn.id, conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
-                     conn.expiry_date, conn.network
             ORDER BY c.area, c.name
             LIMIT ? OFFSET ?
-        """, [ref_my, next_my] + params + [per_page, offset]).fetchall()
+        """, [target_my] + params + [per_page, offset]).fetchall()
 
         results = []
         for r in rows:
@@ -707,7 +688,7 @@ def get_not_renewed_customers(
             f"SELECT DISTINCT mso FROM connections WHERE mso IS NOT NULL AND mso != '' AND {_op_flt(current_user)} ORDER BY mso"
         ).fetchall() if m["mso"]]
 
-        month_label = datetime(ref_year, ref_month, 1).strftime("%B %Y")
+        month_label = datetime(target_year, target_month, 1).strftime("%B %Y")
 
         return {
             "customers": results,
@@ -718,7 +699,7 @@ def get_not_renewed_customers(
             "total_pages": (total + per_page - 1) // per_page,
             "areas": areas,
             "msos": msos,
-            "month": f"{ref_year}-{ref_month:02d}",
+            "month": f"{target_year}-{target_month:02d}",
             "month_label": month_label,
         }
     except Exception as e:
