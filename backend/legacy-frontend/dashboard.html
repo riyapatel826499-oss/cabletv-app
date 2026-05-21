@@ -680,9 +680,9 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <div class="stat-card"><h3>Lost Revenue</h3><div class="value" id="agNrAmt">₹0</div></div>
   </div>
   <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-    <button class="chip active" data-anr="last1" onclick="agSetNrMonth('last1',this)">Last Month</button>
+    <button class="chip active" data-anr="this" onclick="agSetNrMonth('this',this)">This Month</button>
+    <button class="chip" data-anr="last1" onclick="agSetNrMonth('last1',this)">Last Month</button>
     <button class="chip" data-anr="last2" onclick="agSetNrMonth('last2',this)">2 Months Ago</button>
-    <button class="chip" data-anr="last3" onclick="agSetNrMonth('last3',this)">3 Months Ago</button>
     <input type="month" id="agNrMonthPicker" class="form-control" style="max-width:170px;padding:6px 8px;font-size:13px" onchange="agSetNrMonthCustom(this.value)">
   </div>
   <div class="filter-row" style="margin-bottom:16px">
@@ -765,9 +765,9 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </div>
 <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:0;align-items:center">
 <div style="display:inline-flex;border-radius:var(--radius-xs);overflow:hidden;border:1px solid var(--border)">
-<button class="chip active" data-nr="last1" onclick="setNrMonth('last1',this)" style="border-radius:0;border-right:none;margin:0">Last Month</button>
-<button class="chip" data-nr="last2" onclick="setNrMonth('last2',this)" style="border-radius:0;border-right:none;margin:0">2 Months Ago</button>
-<button class="chip" data-nr="last3" onclick="setNrMonth('last3',this)" style="border-radius:0;margin:0">3 Months Ago</button>
+<button class="chip active" data-nr="this" onclick="setNrMonth('this',this)" style="border-radius:0;border-right:none;margin:0">This Month</button>
+<button class="chip" data-nr="last1" onclick="setNrMonth('last1',this)" style="border-radius:0;border-right:none;margin:0">Last Month</button>
+<button class="chip" data-nr="last2" onclick="setNrMonth('last2',this)" style="border-radius:0;margin:0">2 Months Ago</button>
 </div>
 <input type="month" id="nrMonthPicker" class="form-control" style="max-width:170px;padding:6px 8px;font-size:13px;margin-left:10px" onchange="setNrMonthCustom(this.value)">
 </div>

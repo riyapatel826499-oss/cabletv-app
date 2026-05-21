@@ -12,14 +12,14 @@ let _empList = [];
 let _stbInventory = [];
 let _surrenderRequests = [];
 
-if (!token) window.location.href = '/login';
+if (!token) window.location.href = 'index.html';
 
 async function api(path, opts = {}) {
   const headers = {'Content-Type': 'application/json'};
   if (token) headers['Authorization'] = 'Bearer ' + token;
   try {
     const r = await fetch(API + path, {...opts, headers: {...headers, ...(opts.headers || {})}});
-    if (r.status === 401) { sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
+    if (r.status === 401) { sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.'); localStorage.removeItem('token'); window.location.href = 'index.html'; return; }
     const text = await r.text();
     let d;
     try { d = JSON.parse(text); } catch(e) { throw new Error(r.status + ': ' + text.substring(0, 200)); }
@@ -2961,9 +2961,9 @@ function agSetNrMonth(period, btn) {
   btn.classList.add('active');
   const now = new Date();
   let m, y;
-  if (period === 'last1') { m = now.getMonth(); y = now.getFullYear(); if (m === 0) { m = 12; y--; } }
+  if (period === 'this') { m = now.getMonth() + 1; y = now.getFullYear(); }
+  else if (period === 'last1') { m = now.getMonth(); y = now.getFullYear(); if (m === 0) { m = 12; y--; } }
   else if (period === 'last2') { m = now.getMonth() - 1; y = now.getFullYear(); if (m <= 0) { m += 12; y--; } }
-  else if (period === 'last3') { m = now.getMonth() - 2; y = now.getFullYear(); if (m <= 0) { m += 12; y--; } }
   _agNrMonth = y + '-' + String(m).padStart(2, '0');
   document.getElementById('agNrMonthPicker').value = '';
   agLoadNR(1);
@@ -3448,7 +3448,7 @@ async function doLogout(msg) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     if (msg) { sessionStorage.setItem('logoutMsg', msg); }
-    window.location.href = '/login';
+    window.location.href = 'index.html';
 }
 
 function logout() {
@@ -3988,7 +3988,7 @@ api('/api/me').then(u => {
   // Auth failed — redirect to login instead of showing admin UI
   localStorage.removeItem('token');
   sessionStorage.setItem('logoutMsg', 'Session expired. Please login again.');
-  window.location.href = '/login';
+  window.location.href = '/index.html';
 });
 
 loadDashboard();
@@ -4190,7 +4190,8 @@ function setNrMonth(period, btn) {
   btn.classList.add('active');
   document.getElementById('nrMonthPicker').value = '';
   const d = new Date();
-  if (period === 'last1') { d.setMonth(d.getMonth() - 1); _nrMonth = d.toISOString().slice(0,7); }
+  if (period === 'this') { _nrMonth = d.toISOString().slice(0,7); }
+  else if (period === 'last1') { d.setMonth(d.getMonth() - 1); _nrMonth = d.toISOString().slice(0,7); }
   else if (period === 'last2') { d.setMonth(d.getMonth() - 2); _nrMonth = d.toISOString().slice(0,7); }
   else if (period === 'last3') { d.setMonth(d.getMonth() - 3); _nrMonth = d.toISOString().slice(0,7); }
   loadNotRenewed(1);

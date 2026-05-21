@@ -600,11 +600,8 @@ def get_not_renewed_customers(
         # Calculate reference month (the month they paid) and next month (the month they didn't pay)
         if not month:
             now = datetime.now()
-            # Default to last month = the month before current
-            if now.month == 1:
-                ref_year, ref_month = now.year - 1, 12
-            else:
-                ref_year, ref_month = now.year, now.month - 1
+            # Default to current month = who paid this month but hasn't renewed for next month
+            ref_year, ref_month = now.year, now.month
         else:
             try:
                 ref_year, ref_month = month.split("-")

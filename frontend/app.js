@@ -2961,9 +2961,9 @@ function agSetNrMonth(period, btn) {
   btn.classList.add('active');
   const now = new Date();
   let m, y;
-  if (period === 'last1') { m = now.getMonth(); y = now.getFullYear(); if (m === 0) { m = 12; y--; } }
+  if (period === 'this') { m = now.getMonth() + 1; y = now.getFullYear(); }
+  else if (period === 'last1') { m = now.getMonth(); y = now.getFullYear(); if (m === 0) { m = 12; y--; } }
   else if (period === 'last2') { m = now.getMonth() - 1; y = now.getFullYear(); if (m <= 0) { m += 12; y--; } }
-  else if (period === 'last3') { m = now.getMonth() - 2; y = now.getFullYear(); if (m <= 0) { m += 12; y--; } }
   _agNrMonth = y + '-' + String(m).padStart(2, '0');
   document.getElementById('agNrMonthPicker').value = '';
   agLoadNR(1);
@@ -4190,7 +4190,8 @@ function setNrMonth(period, btn) {
   btn.classList.add('active');
   document.getElementById('nrMonthPicker').value = '';
   const d = new Date();
-  if (period === 'last1') { d.setMonth(d.getMonth() - 1); _nrMonth = d.toISOString().slice(0,7); }
+  if (period === 'this') { _nrMonth = d.toISOString().slice(0,7); }
+  else if (period === 'last1') { d.setMonth(d.getMonth() - 1); _nrMonth = d.toISOString().slice(0,7); }
   else if (period === 'last2') { d.setMonth(d.getMonth() - 2); _nrMonth = d.toISOString().slice(0,7); }
   else if (period === 'last3') { d.setMonth(d.getMonth() - 3); _nrMonth = d.toISOString().slice(0,7); }
   loadNotRenewed(1);
