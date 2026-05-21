@@ -182,6 +182,14 @@ for name, router in _router_map.items():
 @app.get("/api/debug-startup")
 def debug_startup():
     """Return startup + import error details for debugging."""
+    # Read first 20 lines of key files for deploy verification
+    def _head(path, n=25):
+        try:
+            with open(path) as f:
+                return f.read().splitlines()[:n]
+        except:
+            return ["FILE NOT FOUND"]
+
     return {
         "startup_error": _startup_error,
         "import_errors": _import_errors,
@@ -191,6 +199,8 @@ def debug_startup():
         "python_version": sys.version,
         "cwd": os.getcwd(),
         "files_in_cwd": os.listdir(".")[:20],
+        "conn_py_head": _head("conn.py"),
+        "stb_inventory_tail": _head("routes/stb_inventory.py", 50),
     }
 
 
