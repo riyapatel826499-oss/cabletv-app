@@ -665,7 +665,7 @@ def get_not_renewed_customers(
                    conn.id as conn_id, conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
                    conn.expiry_date, conn.network,
                    (SELECT MAX(p3.collected_at) FROM payments p3
-                    WHERE p3.customer_id = p1.customer_id) as last_paid_date
+                    WHERE p3.customer_id = c.customer_id) as last_paid_date
             FROM payments p1
             JOIN customers c ON c.customer_id = p1.customer_id
             LEFT JOIN connections conn ON conn.customer_id = p1.customer_id AND conn.status = 'Active'
