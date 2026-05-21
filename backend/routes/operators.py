@@ -323,7 +323,7 @@ def run_migration(user=Depends(require_master)):
             temp_pwd = f"{username}@2025"
             conn.execute(
                 """INSERT INTO users (username, password, name, role, phone, operator_id, status, created_at)
-                   VALUES (?, ?, ?, 'admin', ?, ?, 'Active', datetime('now'))""",
+                   VALUES (?, ?, ?, 'admin', ?, ?, 'Active', NOW())""",
                 (username, hash_password(temp_pwd), f"{op['business_name']} Admin", op["phone"], op["id"]),
             )
             results.append(f"Created LCO admin '{username}' (password: {temp_pwd}) for operator '{op['business_name']}'")
@@ -716,7 +716,7 @@ def import_confirm(data: ImportConfirmRequest, user=Depends(require_master)):
                     conn.execute(
                         """INSERT INTO connections (customer_id, stb_no, can_id, mso, service_type, billing_type,
                            status, network, created_at, plan_name, plan_amount, operator_id)
-                           VALUES (?, ?, ?, ?, 'Cable', 'Prepaid', 'Active', ?, datetime('now'), ?, ?, ?)""",
+                           VALUES (?, ?, ?, ?, 'Cable', 'Prepaid', 'Active', ?, NOW(), ?, ?, ?)""",
                         (customer_id, stb_no, row.get("can_id", ""), row.get("mso", "GTPL"), network,
                          row.get("plan_name", ""), row.get("plan_amount"), operator_id),
                     )
@@ -740,7 +740,7 @@ def import_confirm(data: ImportConfirmRequest, user=Depends(require_master)):
                             conn.execute(
                                 """INSERT INTO customer_plans (customer_id, connection_id, plan_id, amount,
                                    start_date, expiry_date, status, created_at, operator_id)
-                                   VALUES (?, ?, ?, ?, ?, ?, 'Active', datetime('now'), ?)""",
+                                   VALUES (?, ?, ?, ?, ?, ?, 'Active', NOW(), ?)""",
                                 (customer_id, cn["id"], plan_id, row.get("plan_amount", 0),
                                  today, expiry, operator_id),
                             )

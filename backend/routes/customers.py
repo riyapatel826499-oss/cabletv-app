@@ -1045,7 +1045,7 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
                 network = "TACTV" if (stb_no.startswith("172") or stb_no.startswith("173")) else ("SCV" if stb_no.startswith("5000") else "GTPL")
                 conn.execute("""
                     INSERT INTO connections (customer_id, stb_no, mso, service_type, billing_type, status, network, created_at, operator_id)
-                    VALUES (?, ?, ?, 'Cable', 'Prepaid', 'Active', ?, datetime('now'), ?)
+                    VALUES (?, ?, ?, 'Cable', 'Prepaid', 'Active', ?, NOW(), ?)
                 """, [customer_id, stb_no, network, network, _oid])
 
                 # Remove STB from inventory (if it was there as spare)
