@@ -642,10 +642,9 @@ def get_not_renewed_customers(
 
         # Count + Lost Revenue (across ALL pages)
         agg_row = db.execute(f"""
-            SELECT COUNT(DISTINCT p1.customer_id) as cnt,
-                   COALESCE(SUM(DIST_PLAN), 0) as lost_rev
+            SELECT COUNT(*) as cnt, COALESCE(SUM(plan_amount), 0) as lost_rev
             FROM (
-                SELECT DISTINCT p1.customer_id, conn.plan_amount as DIST_PLAN
+                SELECT DISTINCT p1.customer_id, conn.plan_amount
                 FROM payments p1
                 JOIN customers c ON c.customer_id = p1.customer_id
                 LEFT JOIN connections conn ON conn.customer_id = p1.customer_id AND conn.status = 'Active'
