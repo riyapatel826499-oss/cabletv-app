@@ -586,8 +586,8 @@ def get_not_renewed_customers(
     per_page: int = 50,
     current_user: dict = Depends(get_current_user),
 ):
-    """Active customers who have NOT paid for the selected month.
-    Default: current month. Shows who hasn't renewed yet."""
+    """Active customers who paid LAST month but have NOT paid for the SELECTED month.
+    Default: current month = who paid last month but hasn't renewed this month."""
     import traceback
     try:
      with _get_conn() as db:
@@ -607,8 +607,15 @@ def get_not_renewed_customers(
                 now = datetime.now()
                 target_year, target_month = now.year, now.month
 
+        # Previous month (the month they DID pay)
+        if target_month == 1:
+            prev_year, prev_month = target_year - 1, 12
+        else:
+            prev_year, prev_month = target_year, target_month - 1
+
         # month_year format in DB is MM-YYYY
         target_my = f"{target_month:02d}-{target_year}"
+        prev_my = f"{prev_month:02d}-{prev_year}"
 
         offset = (page - 1) * per_page
 
@@ -626,18 +633,22 @@ def get_not_renewed_customers(
             extra_where += " AND conn.mso = ?"
             params.append(mso)
 
-        # Count + Lost Revenue: active customers with NO payment for target month
+        # Count + Lost Revenue: paid prev month, NOT paid target month
         agg_row = db.execute(f"""
             SELECT COUNT(*) as cnt, COALESCE(SUM(conn.plan_amount), 0) as lost_rev
             FROM customers c
             JOIN connections conn ON conn.customer_id = c.customer_id AND conn.status = 'Active'
             WHERE c.status = 'Active' AND {_of_c} AND {_of_conn}
+            AND EXISTS (
+                SELECT 1 FROM payments p
+                WHERE p.customer_id = c.customer_id AND p.month_year = ?
+            )
             AND NOT EXISTS (
                 SELECT 1 FROM payments p
                 WHERE p.customer_id = c.customer_id AND p.month_year = ?
             )
             {extra_where}
-        """, [target_my] + params).fetchone()
+        """, [prev_my, target_my] + params).fetchone()
         total = agg_row["cnt"] if agg_row else 0
         lost_revenue = agg_row["lost_rev"] if agg_row else 0
 
@@ -651,6 +662,10 @@ def get_not_renewed_customers(
             FROM customers c
             JOIN connections conn ON conn.customer_id = c.customer_id AND conn.status = 'Active'
             WHERE c.status = 'Active' AND {_of_c} AND {_of_conn}
+            AND EXISTS (
+                SELECT 1 FROM payments p
+                WHERE p.customer_id = c.customer_id AND p.month_year = ?
+            )
             AND NOT EXISTS (
                 SELECT 1 FROM payments p
                 WHERE p.customer_id = c.customer_id AND p.month_year = ?
@@ -658,7 +673,7 @@ def get_not_renewed_customers(
             {extra_where}
             ORDER BY c.area, c.name
             LIMIT ? OFFSET ?
-        """, [target_my] + params + [per_page, offset]).fetchall()
+        """, [prev_my, target_my] + params + [per_page, offset]).fetchall()
 
         results = []
         for r in rows:
