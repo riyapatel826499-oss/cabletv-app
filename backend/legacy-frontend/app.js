@@ -489,7 +489,7 @@ async function loadCustomers(page = 1) {
         const stbBadge = c.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + escAttr(c.stb_no) + '\')" title="Click to copy">' + esc(c.stb_no) + '</span>' : '<span style="color:var(--text-light)">--</span>';
         const statusBadge = '<span class="badge ' + (c.status === 'Active' ? 'badge-success' : (c.status === 'Surrendered' ? 'badge-danger' : 'badge-warning')) + '">' + esc(c.status || '--') + '</span>';
         const paidBadge = c.is_paid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-danger">Unpaid</span>';
-        let actions = '<button class="btn btn-outline btn-sm" title="View Details" onclick="viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">👁</button>';
+        let actions = '<div class="row-actions"><button class="btn btn-outline btn-sm" title="View Details" onclick="viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">👁</button>';
         if (currentFilter === 'paid') {
           actions += '<button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">✏️</button>';
         } else {
@@ -504,7 +504,7 @@ async function loadCustomers(page = 1) {
         } else if (c.status === 'Active') {
           actions += '<button class="btn btn-danger btn-sm" style="font-weight:600" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
         }
-        return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td>' + esc(c.name || '--') + '</td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td>' + statusBadge + '</td><td>' + paidBadge + '</td><td>' + actions + '</td></tr>';
+        return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td>' + esc(c.name || '--') + '</td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td>' + statusBadge + '</td><td>' + paidBadge + '</td><td>' + actions + '</div></td></tr>';
       }).join('');
     } else { tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No customers found</p></td></tr>'; }
     const pg = document.getElementById('custPagination');
