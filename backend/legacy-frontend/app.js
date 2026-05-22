@@ -497,12 +497,12 @@ async function loadCustomers(page = 1) {
           actions += '<button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button>';
         }
         if (c.status === 'Surrendered') {
-          actions += '<button class="btn btn-success btn-sm" title="Reactivate Customer" onclick="reactivateCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">↩️</button>';
+          actions += '<button class="btn btn-success btn-sm" title="Reactivate Customer" onclick="reactivateCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">↩️ Reactivate</button>';
         } else if (c.status === 'Temp Disconnected') {
-          actions += '<button class="btn btn-primary btn-sm" title="Reconnect" onclick="openReconnectModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⚡</button>';
-          actions += '<button class="btn btn-warning btn-sm" title="Surrender" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
+          actions += '<button class="btn btn-primary btn-sm" title="Reconnect" onclick="openReconnectModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button>';
+          actions += '<button class="btn btn-danger btn-sm" style="font-weight:600" title="Surrender" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
         } else if (c.status === 'Active') {
-          actions += '<button class="btn btn-warning btn-sm" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
+          actions += '<button class="btn btn-danger btn-sm" style="font-weight:600" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
         }
         return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td>' + esc(c.name || '--') + '</td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td>' + statusBadge + '</td><td>' + paidBadge + '</td><td>' + actions + '</td></tr>';
       }).join('');
@@ -643,11 +643,11 @@ async function viewCustomer(id) {
     document.getElementById('custDetailTitle').textContent = esc(c.name || 'Customer');
     document.getElementById('custDetailFooter').innerHTML = '';
     if (c.status === 'Surrendered') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-success" onclick="reactivateCustomer(\'' + escAttr(id) + '\')">Reactivate</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-success" onclick="reactivateCustomer(\'' + escAttr(id) + '\')">↩️ Reactivate</button>';
     } else if (c.status === 'Temp Disconnected') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-primary" onclick="openReconnectModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button> <button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-primary" onclick="openReconnectModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button> <button class="btn btn-danger" style="font-weight:600" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
     } else if (c.status === 'Active') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-danger" style="font-weight:600" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
     }
     // Load 3 parallel API calls
     const [plans, payments, sms] = await Promise.all([
@@ -1180,7 +1180,11 @@ async function submitSurrender() {
   const reason = document.getElementById('surrenderReason').value;
   try {
     const result = await api('/api/customers/' + id + '/surrender', {method: 'POST', body: JSON.stringify({reason: reason})});
-    toast('Surrender submitted!', 'success');
+    if (result.status === 'pending_approval') {
+      toast('Surrender request submitted. Awaiting admin approval.', 'info');
+    } else {
+      toast('Customer surrendered successfully!', 'success');
+    }
     closeSurrenderModal();
     loadCustomers(1);
     if (_custData) viewCustomer(id);
@@ -3592,8 +3596,8 @@ function applyRoleAccess(user) {
     'admin': ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','audit','settings'],
     'collection_agent': ['payments','unpaid','not-renewed','reports'],
     'agent': ['payments','unpaid','not-renewed','reports'],
-    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports'],
-    'support': ['dashboard','customers','add-customer','payments','service-requests','reports']
+    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req'],
+    'support': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req']
   };
 
   const allowed = roleAccess[_userRole] || roleAccess['agent'];
@@ -3988,8 +3992,8 @@ api('/api/me').then(u => {
     'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','service-requests','reports','settings'],
     'collection_agent': ['payments','reports'],
     'agent': ['payments','reports'],
-    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports'],
-    'support': ['dashboard','customers','add-customer','payments','service-requests','reports']
+    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req'],
+    'support': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req']
   };
   const myAllowed = allowed[(u.role || 'agent').toLowerCase()] || allowed['agent'];
   const activePage = document.querySelector('.page.active');
