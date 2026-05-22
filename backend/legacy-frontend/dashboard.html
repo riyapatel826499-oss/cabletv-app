@@ -249,34 +249,66 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   .ph-perpage{width:auto!important}
   .ph-actions{margin-top:8px;flex-wrap:wrap}
 }
+/* ===== SVG ICON SYSTEM ===== */
+.icon{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.icon svg{width:20px;height:20px}
+.brand-icon{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center}
+.brand-icon svg{width:26px;height:26px}
+.topbar-icon{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);transition:background 0.2s ease;cursor:pointer;background:none;border:none;color:var(--text);padding:0}
+.topbar-icon:hover{background:rgba(0,0,0,0.05)}
+.dark-mode .topbar-icon:hover{background:rgba(255,255,255,0.08)}
+.topbar-icon svg{width:20px;height:20px}
+.section-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-right:6px}
+.section-icon svg{width:18px;height:18px}
+
+/* ===== STAT CARD ENHANCEMENTS ===== */
+.stat-card{position:relative;overflow:hidden;border-left:4px solid var(--primary)!important}
+.stat-card.success{border-left-color:var(--success)!important}
+.stat-card.warning{border-left-color:var(--warning)!important}
+.stat-card.danger{border-left-color:var(--danger)!important}
+.stat-card::after{content:'';position:absolute;top:-15px;right:-15px;width:80px;height:80px;border-radius:50%;background:var(--primary);opacity:0.04;pointer-events:none}
+.stat-card.success::after{background:var(--success)}
+.stat-card.warning::after{background:var(--warning)}
+.stat-card.danger::after{background:var(--danger)}
+
+/* ===== SIDEBAR ACTIVE STATE ===== */
+#sidebar .nav-item.active{background:rgba(0,113,227,0.15);color:#fff;border-left:3px solid var(--primary);border-radius:0 var(--radius-sm) var(--radius-sm) 0;margin-left:0;padding-left:17px}
+
+/* ===== QUICK ACTIONS ===== */
+.quick-actions{display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.quick-actions::-webkit-scrollbar{display:none}
+.quick-action-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:980px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.88rem;font-weight:500;cursor:pointer;white-space:nowrap;transition:var(--transition);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);font-family:inherit}
+.quick-action-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
+.quick-action-btn svg{width:18px;height:18px}
+
+/* ===== MOBILE NAV SVG ===== */
+.mob-nav-item .mob-icon svg{width:22px;height:22px}
 </style>
 </head>
 <body>
 <button id="hamburgerBtn">&#9776;</button>
 <aside id="sidebar">
-<div class="brand">📺 Wasool</div>
+<div class="brand"><span class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span> Wasool</div>
 <nav class="nav">
-<div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">&#128202; Dashboard</div>
-<div class="nav-item" data-page="customers" onclick="showPage('customers')">&#128101; Customers</div>
-<div class="nav-item" data-page="add-customer" onclick="showPage('add-customer')">&#10133; Add Customer</div>
-<div class="nav-item" data-page="plans" onclick="showPage('plans')">&#128203; Plans</div>
-<div class="nav-item" data-page="payments" onclick="showPage('payments')">&#128176; Payments</div>
-<div class="nav-item" data-page="unpaid" onclick="showPage('unpaid')">&#128308; Unpaid</div>
-<div class="nav-item" data-page="not-renewed" onclick="showPage('not-renewed')">&#128683; Not Renewed</div>
-<div class="nav-item" data-page="employees" onclick="showPage('employees')">&#128100; Employees</div>
-<div class="nav-item" data-page="service-requests" onclick="showPage('service-requests')">
-            🔧 Service Requests
-          </div>
-<div class="nav-item" data-page="reports" onclick="showPage('reports')">&#128200; Reports</div>
-<div class="nav-item" data-page="reminders" onclick="showPage('reminders')">&#128276; Reminders</div>
-<div class="nav-item" data-page="audit" onclick="showPage('audit')" id="navAudit" style="display:none">&#128269; Audit Log</div>
-<div class="nav-item" data-page="settings" onclick="showPage('settings')">&#9881; Settings</div>
-<div class="nav-item" data-page="operators" onclick="showPage('operators')" id="navOperators" style="display:none">&#127970; Operators</div>
+<div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Dashboard</div>
+<div class="nav-item" data-page="customers" onclick="showPage('customers')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Customers</div>
+<div class="nav-item" data-page="add-customer" onclick="showPage('add-customer')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Add Customer</div>
+<div class="nav-item" data-page="plans" onclick="showPage('plans')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Plans</div>
+<div class="nav-item" data-page="payments" onclick="showPage('payments')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Payments</div>
+<div class="nav-item" data-page="unpaid" onclick="showPage('unpaid')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Unpaid</div>
+<div class="nav-item" data-page="not-renewed" onclick="showPage('not-renewed')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Not Renewed</div>
+<div class="nav-item" data-page="employees" onclick="showPage('employees')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Employees</div>
+<div class="nav-item" data-page="service-requests" onclick="showPage('service-requests')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Service Requests</div>
+<div class="nav-item" data-page="reports" onclick="showPage('reports')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Reports</div>
+<div class="nav-item" data-page="reminders" onclick="showPage('reminders')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Reminders</div>
+<div class="nav-item" data-page="audit" onclick="showPage('audit')" id="navAudit" style="display:none"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Audit Log</div>
+<div class="nav-item" data-page="settings" onclick="showPage('settings')"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings</div>
+<div class="nav-item" data-page="operators" onclick="showPage('operators')" id="navOperators" style="display:none"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg> Operators</div>
 </nav>
 <div class="footer"><div class="user-info"><div class="avatar" id="userAvatar">A</div><div><div style="font-weight:600" id="userName">Admin</div><div style="font-size:0.8rem;color:rgba(255,255,255,0.7)" id="userRole">Administrator</div></div></div></div>
 </aside>
 <main class="main">
-<div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="topbar-actions"><button id="darkModeBtn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text);font-size:18px;line-height:1">🌙</button><button id="pushBellBtn" onclick="togglePushSubscription()" title="Notifications" style="display:none;background:none;border:none;cursor:pointer;padding:6px;color:var(--text);font-size:18px;line-height:1">🔔</button><button onclick="logout()" title="Logout" style="background:none;border:none;cursor:pointer;padding:6px;color:var(--text-light);font-size:18px;line-height:1">⏻</button></div></div>
+<div class="topbar"><h1 id="pageTitle">Dashboard</h1><div class="topbar-actions"><button id="darkModeBtn" class="topbar-icon" onclick="toggleDarkMode()" title="Toggle dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button><button id="pushBellBtn" class="topbar-icon" onclick="togglePushSubscription()" title="Notifications" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></button><button class="topbar-icon" onclick="logout()" title="Logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button></div></div>
 <div class="content">
 
 <!-- Dashboard Page -->
@@ -291,11 +323,16 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="stat-card"><h3>Efficiency</h3><div class="value" id="mStatEfficiency">0%</div></div>
 <div class="stat-card"><h3>Current Month</h3><div class="value" id="mStatMonth" style="font-size:1.2rem">--</div></div>
 </div>
-<div style="margin-top:28px"><h3 style="margin:0 0 12px">📺 Operators Overview</h3>
+<div style="margin-top:28px"><h3 style="margin:0 0 12px"><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>Operators Overview</h3>
 <div class="table-wrap"><table><thead><tr><th>Operator</th><th>MSO</th><th>Area</th><th>Customers</th><th>Connections</th><th>Paid</th><th>Collected</th><th>Status</th><th>Prefix</th></tr></thead><tbody id="masterOpTable"></tbody></table></div></div>
 </div>
 <!-- LCO Dashboard (shown by default) -->
 <div id="lcoDashboard">
+<div class="quick-actions">
+<button class="quick-action-btn" onclick="showPage('payments')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Record Payment</button>
+<button class="quick-action-btn" onclick="showPage('add-customer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Add Customer</button>
+<button class="quick-action-btn" onclick="showPage('service-requests')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Service Requests</button>
+</div>
 <div class="stats-grid">
 <div class="stat-card"><h3>Total Customers</h3><div class="value" id="statTotal">0</div></div>
 <div class="stat-card success"><h3>Paid This Month</h3><div class="value" id="statPaid">0</div></div>
@@ -305,9 +342,9 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="stat-card"><h3>Current Month</h3><div class="value" id="statMonth" style="font-size:1.2rem">--</div></div>
 </div>
 <div id="chartsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px">
-<div class="chart-container"><h3 style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span>👤 Collector Performance</span><a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary)">View All-Time →</a></h3><div id="collectorChart"></div></div>
-<div class="chart-container"><h3 style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span>📡 MSO Summary</span><a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary)">View All-Time →</a></h3><div id="msoChart"></div></div>
-<div class="chart-container" style="margin-top:20px"><h3 style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span>📈 Month-over-Month Revenue</span><select id="momMonthsSelect" onchange="loadMomTrend()" style="font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)"><option value="6">Last 6 months</option><option value="12">Last 12 months</option><option value="3">Last 3 months</option></select></h3><div id="momChart" style="min-height:120px"></div></div>
+<div class="chart-container"><h3 style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>Collector Performance</span><a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary)">View All-Time →</a></h3><div id="collectorChart"></div></div>
+<div class="chart-container"><h3 style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg></span>MSO Summary</span><a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary)">View All-Time →</a></h3><div id="msoChart"></div></div>
+<div class="chart-container" style="margin-top:20px"><h3 style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Month-over-Month Revenue</span><select id="momMonthsSelect" onchange="loadMomTrend()" style="font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)"><option value="6">Last 6 months</option><option value="12">Last 12 months</option><option value="3">Last 3 months</option></select></h3><div id="momChart" style="min-height:120px"></div></div>
 </div>
 <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Recent Payments</h3><button class="btn btn-outline btn-sm" onclick="syncPaypakka()" id="btnSyncPP">🔄 Sync Paypakka</button></div><div id="mobRecentPayments" class="desktop-only-hide"></div><div class="table-wrap"><table><thead><tr><th>Customer</th><th>STB</th><th>Area</th><th>Amount</th><th>Mode</th><th>Collector</th><th>Date</th></tr></thead><tbody id="recentPaymentsBody"></tbody></table></div>
 </div><!-- end lcoDashboard -->
@@ -1141,13 +1178,13 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <!-- Mobile Bottom Navigation -->
 <nav class="mob-nav" id="mobNav">
   <div class="mob-nav-items">
-    <button class="mob-nav-item active" onclick="mobNav('dashboard',this)"><span class="mob-icon">📊</span><span class="mob-label">Home</span></button>
-    <button class="mob-nav-item" onclick="mobNav('payments',this)"><span class="mob-icon">💳</span><span class="mob-label">Collect</span></button>
-    <button class="mob-nav-item" onclick="mobNav('customers',this)"><span class="mob-icon">👥</span><span class="mob-label">Customers</span></button>
-    <button class="mob-nav-item" onclick="mobNav('unpaid',this)"><span class="mob-icon">🔴</span><span class="mob-label">Unpaid</span></button>
-    <button class="mob-nav-item" onclick="mobNav('more',this)"><span class="mob-icon">☰</span><span class="mob-label">More</span></button>
+    <button class="mob-nav-item active" onclick="mobNav('dashboard',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span><span class="mob-label">Home</span></button>
+    <button class="mob-nav-item" onclick="mobNav('payments',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span class="mob-label">Collect</span></button>
+    <button class="mob-nav-item" onclick="mobNav('customers',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="mob-label">Customers</span></button>
+    <button class="mob-nav-item" onclick="mobNav('unpaid',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span><span class="mob-label">Unpaid</span></button>
+    <button class="mob-nav-item" onclick="mobNav('more',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span><span class="mob-label">More</span></button>
   </div>
 </nav>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
