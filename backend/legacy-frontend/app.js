@@ -242,16 +242,15 @@ showPage = function(page) {
   history.replaceState(null, '', '#' + page);
 };
 
-// Restore page from URL hash, or default based on device
-if (token) {
+// Restore page from URL hash on refresh
+(function() {
   const hashPage = location.hash.slice(1);
   const validPages = ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','reminders','audit','settings','operators','my-collections'];
   if (hashPage && validPages.includes(hashPage)) {
-    setTimeout(() => showPage(hashPage), 150);
-  } else if (isMobile()) {
-    setTimeout(() => showPage('payments'), 150);
+    showPage(hashPage);
   }
-}
+  // No hash = first visit. Dashboard is already active (HTML default).
+})();
 
 async function syncPaypakka() {
   const btn = document.getElementById('btnSyncPP');
