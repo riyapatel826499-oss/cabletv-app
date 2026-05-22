@@ -19,6 +19,7 @@
 table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);overflow:hidden;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}th,td{padding:13px 16px;text-align:left;border-bottom:1px solid rgba(0,0,0,0.05)}th{background:rgba(245,245,247,0.6);font-weight:600;color:#4b5563;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.06em}tr:last-child td{border-bottom:none}tr{transition:background 0.15s ease}tr:hover td{background:rgba(0,113,227,0.03)}.empty-state{text-align:center;padding:40px;color:var(--text-light)}.table-wrap{overflow-x:auto;border-radius:var(--radius)}
 .btn{padding:10px 18px;border:none;border-radius:980px;cursor:pointer;font-weight:500;transition:var(--transition);display:inline-flex;align-items:center;gap:8px;font-size:0.88rem;letter-spacing:-0.01em}.btn-primary{background:var(--primary);color:var(--white)}.btn-primary:hover{background:var(--primary-dark);transform:scale(1.02)}.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:rgba(0,0,0,0.03)}.btn-danger{background:var(--danger);color:var(--white)}.btn-danger:hover{background:#e0342b}.btn-success{background:var(--success);color:var(--white)}.btn-success:hover{background:#2db84d}.btn-warning{background:var(--warning);color:var(--white)}.btn-sm{padding:5px 12px;font-size:0.78rem}
 .row-actions{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.export-btns{display:inline-flex;gap:0;margin-left:auto}.export-btns .btn-sm{border-radius:0;font-size:0.72rem;padding:4px 10px;background:transparent;border:1px solid var(--border)}.export-btns .btn-sm:first-child{border-radius:var(--radius-xs) 0 0 var(--radius-xs)}.export-btns .btn-sm:last-child{border-radius:0 var(--radius-xs) var(--radius-xs) 0;border-left:none}
 .form-group{margin-bottom:16px}.form-group label{display:block;margin-bottom:6px;font-weight:500;font-size:0.88rem;color:var(--text)}.form-control{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3.5px rgba(0,113,227,0.12)}.form-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
 .badge{display:inline-block;padding:4px 10px;border-radius:980px;font-size:0.72rem;font-weight:600}.badge-success{background:rgba(52,199,89,0.12);color:var(--success)}.badge-danger{background:rgba(255,59,48,0.12);color:var(--danger)}.badge-primary{background:rgba(0,113,227,0.1);color:var(--primary)}.badge-warning{background:rgba(255,159,10,0.12);color:var(--warning)}.badge-info{background:rgba(90,200,250,0.12);color:var(--info)}
 .tabs{display:flex;gap:4px;margin-bottom:20px;background:rgba(245,245,247,0.6);border-radius:var(--radius-sm);padding:4px}.tab{padding:8px 16px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--text-light);border-radius:var(--radius-xs);transition:var(--transition);font-size:0.85rem}.tab.active{background:var(--white);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08)}.tab:hover:not(.active){color:var(--text)}
@@ -378,8 +379,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="custSortBy" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="name">Sort: Name</option><option value="customer_id">Sort: ID</option><option value="area">Sort: Area</option></select>
 <select id="custSortOrder" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="asc">ASC</option><option value="desc">DESC</option></select>
 <select id="custPerPage" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="10" selected>10/page</option><option value="20">20/page</option><option value="50">50/page</option></select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
+<span class="export-btns"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')">CSV</button><button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')">Excel</button></span>
 </div>
 <div class="tabs" id="custTabs">
 <div class="tab active" data-filter="all" onclick="filterCustomers('all')">All</div>
@@ -689,8 +689,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <select id="agPaidPerPage" class="form-control" style="max-width:80px" onchange="agLoadPaid(1)">
       <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
     </select>
-    <button class="btn btn-outline btn-sm" onclick="agExportPaid('csv')">📥 CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="agExportPaid('xlsx')">📥 Excel</button>
+    <span class="export-btns"><button class="btn btn-outline btn-sm" onclick="agExportPaid('csv')">CSV</button><button class="btn btn-outline btn-sm" onclick="agExportPaid('xlsx')">Excel</button></span>
   </div>
   <div class="table-wrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>MSO</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th>GTPL</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
   <div id="mobAgPaid" class="mob-rpt-cards"></div>
@@ -762,8 +761,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div><label style="font-size:12px">From</label><input type="date" id="myCollFrom" class="form-control"></div>
 <div><label style="font-size:12px">To</label><input type="date" id="myCollTo" class="form-control"></div>
 <button class="btn btn-primary btn-sm" onclick="loadMyCollections(1)">Apply</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#myCollTableWrap table','My_Collections')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#myCollTableWrap table','My_Collections')">📥 Excel</button>
+<span class="export-btns"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#myCollTableWrap table','My_Collections')">CSV</button><button class="btn btn-outline btn-sm" onclick="exportTableExcel('#myCollTableWrap table','My_Collections')">Excel</button></span>
 </div>
 </div>
 <div class="table-wrap" id="myCollTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>Area</th><th>Amount</th><th>Mode</th><th>Date</th></tr></thead><tbody id="myCollBody"></tbody></table></div>
@@ -790,8 +788,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="unpPerPage" class="form-control" style="max-width:80px" onchange="loadUnpaid(1)">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#unpTableWrap table','Unpaid')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#unpTableWrap table','Unpaid')">📥 Excel</button>
+<span class="export-btns"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#unpTableWrap table','Unpaid')">CSV</button><button class="btn btn-outline btn-sm" onclick="exportTableExcel('#unpTableWrap table','Unpaid')">Excel</button></span>
 </div>
 <div class="table-wrap" id="unpTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Expired</th><th>Gap</th><th>Pending</th><th>📞</th></tr></thead><tbody id="unpBody"></tbody></table></div>
 <div class="pagination" id="unpPagination"></div>
@@ -822,8 +819,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="nrPerPage" onchange="loadNotRenewed(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none;max-width:80px">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
+<span class="export-btns"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')">CSV</button><button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')">Excel</button></span>
 </div>
 <div class="table-wrap" id="nrTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Last Paid</th><th>Expired</th><th>📞</th></tr></thead><tbody id="nrBody"></tbody></table></div>
 <div class="pagination" id="nrPagination"></div>
@@ -856,8 +852,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   <button class="btn btn-outline btn-sm" onclick="remSelectAll()">Select All</button>
   <button class="btn btn-outline btn-sm" onclick="remSelectNone()">Select None</button>
   <button class="btn btn-primary btn-sm" onclick="sendReminders()">📨 Send Reminders (<span id="remSelectedCount">0</span>)</button>
-  <button class="btn btn-outline btn-sm" onclick="exportTableCSV('#remTableWrap table','Reminders')">📥 CSV</button>
-  <button class="btn btn-outline btn-sm" onclick="exportTableExcel('#remTableWrap table','Reminders')">📥 Excel</button>
+  <span class="export-btns"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#remTableWrap table','Reminders')">CSV</button><button class="btn btn-outline btn-sm" onclick="exportTableExcel('#remTableWrap table','Reminders')">Excel</button></span>
 </div>
 
 <!-- Table -->
@@ -1190,6 +1185,6 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <button class="mob-nav-item" onclick="mobNav('more',this)"><span class="mob-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span><span class="mob-label">More</span></button>
   </div>
 </nav>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
