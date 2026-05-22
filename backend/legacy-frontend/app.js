@@ -235,14 +235,22 @@ showPage = function(page) {
   document.querySelectorAll('.mob-nav-item').forEach((b,i) => b.classList.toggle('active', i === idx));
 };
 
-// On mobile, auto-navigate to Payments (agent's primary task)
-if (isMobile() && token) {
-  setTimeout(() => {
-    showPage('payments');
-    const mobBtns = document.querySelectorAll('.mob-nav-item');
-    mobBtns[0].classList.remove('active');
-    mobBtns[1].classList.add('active');
-  }, 150);
+// Save current page to URL hash for refresh persistence
+const _origShowPage3 = showPage;
+showPage = function(page) {
+  _origShowPage3(page);
+  history.replaceState(null, '', '#' + page);
+};
+
+// Restore page from URL hash, or default based on device
+if (token) {
+  const hashPage = location.hash.slice(1);
+  const validPages = ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','reminders','audit','settings','operators','my-collections'];
+  if (hashPage && validPages.includes(hashPage)) {
+    setTimeout(() => showPage(hashPage), 150);
+  } else if (isMobile()) {
+    setTimeout(() => showPage('payments'), 150);
+  }
 }
 
 async function syncPaypakka() {
