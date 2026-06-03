@@ -196,7 +196,8 @@ def _op_flt(user: dict, prefix: str = "") -> str:
     """
     oid = user.get("operator_id")
     if oid is not None:
-        return f"{prefix}operator_id = {oid}"
+        sep = "." if prefix and not prefix.endswith(".") else ""
+        return f"{prefix}{sep}operator_id = {oid}"
     return "1=1"
 
 
