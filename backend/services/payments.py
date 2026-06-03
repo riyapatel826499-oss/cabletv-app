@@ -1,5 +1,12 @@
 """Shared payment query service — combines local + paypakka payment data."""
 from datetime import datetime, timedelta
+from config import DB_ENGINE
+
+def _gc(col):
+    """Return GROUP_CONCAT or STRING_AGG depending on DB engine."""
+    if DB_ENGINE == "postgresql":
+        return f"STRING_AGG(DISTINCT {col}, ', ')"
+    return f"GROUP_CONCAT(DISTINCT {col})"
 
 
 def get_date_range(paid_from=None, paid_to=None):
@@ -54,9 +61,9 @@ def paypakka_payment_details_sql(placeholders):
     """
     return f"""SELECT pp.customer_id,
             SUM(pp.collection_amount) as total_amount,
-            GROUP_CONCAT(DISTINCT pp.payment_type) as payment_modes,
+            {_gc('pp.payment_type')} as payment_modes,
             MAX(pp.paypakka_created_at) as last_payment_date,
-            GROUP_CONCAT(DISTINCT e.emp_name) as collected_by
+            {_gc('e.emp_name')} as collected_by
         FROM paypakka_payments pp
         LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
         WHERE pp.customer_id IN ({placeholders})
@@ -70,7 +77,7 @@ def local_payment_details_sql(placeholders, current_month):
     Always uses collected_at date range for consistency with paypakka queries.
     """
     return f"""SELECT customer_id, SUM(amount) as total_amount,
-            GROUP_CONCAT(DISTINCT payment_mode) as payment_modes,
+            {_gc('payment_mode')} as payment_modes,
             MAX(collected_at) as last_payment_date
         FROM payments WHERE customer_id IN ({placeholders})
         AND collected_at >= ? AND collected_at <= ?

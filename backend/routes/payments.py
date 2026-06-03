@@ -397,7 +397,7 @@ def all_payment_history(
                    p.month_year, p.notes, p.latitude, p.longitude,
                    p.previous_balance, p.bill_amount, p.connection_id,
                    c.name as customer_name, c.area, c.phone as customer_phone,
-                   u.name as collector_name, con.stb_no, con.mso
+                   u.name as collector_name, con.stb_no, con.mso, con.plan_name
             FROM payments p
             JOIN customers c ON p.customer_id = c.customer_id
             LEFT JOIN users u ON p.collected_by = u.id
@@ -426,7 +426,8 @@ def all_payment_history(
                    c.name as customer_name, c.area, c.phone as customer_phone,
                    e.emp_name as collector_name,
                    (SELECT con.stb_no FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as stb_no,
-                   (SELECT con.mso FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as mso
+                   (SELECT con.mso FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as mso,
+                   (SELECT con.plan_name FROM connections con WHERE con.customer_id = pp.customer_id AND con.status = 'Active' LIMIT 1) as plan_name
             FROM paypakka_payments pp
             JOIN customers c ON pp.customer_id = c.customer_id
             LEFT JOIN paypakka_employees e ON pp.emp_ref_id = e.emp_ref_id
@@ -469,6 +470,7 @@ def all_payment_history(
                 "deletable": current_user.get("role") in ("admin",),
                 "payment_type": m["payment_type"] or "regular",
                 "mso": m["mso"] or "",
+                "plan_name": m["plan_name"] or "",
             })
 
         for r in pp_rows:
@@ -496,6 +498,7 @@ def all_payment_history(
                 "discount_amount": m["discount_amount"] or 0,
                 "payment_type": "regular",
                 "mso": m["mso"] or "",
+                "plan_name": m["plan_name"] or "",
             })
 
         # Sort by date descending

@@ -32,10 +32,10 @@ function toast(msg, type = 'info') {
   const c = document.getElementById('toastContainer');
   const t = document.createElement('div');
   t.className = 'toast ' + type;
-  const icons = {success: '✅', error: '❌', info: 'ℹ️'};
-  t.innerHTML = (icons[type] || 'ℹ️') + ' ' + esc(String(msg));
+  const icons = {success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️'};
+  t.innerHTML = '<span class="toast-icon">' + (icons[type] || 'ℹ️') + '</span><span>' + esc(String(msg)) + '</span>';
   c.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3500);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-20px)'; setTimeout(() => t.remove(), 400); }, 4000);
 }
 
 function esc(s) {
@@ -168,6 +168,197 @@ async function exportPaymentsExcel() {
   toast('Excel exported: ' + data.total + ' payments', 'success');
 }
 
+/* ---------- Export All Pages Helpers ---------- */
+// Generic: fetch ALL pages from API (paginates automatically), convert to CSV/Excel
+async function _exportAll(url, columns, rowMapper, filename, format) {
+  try {
+    toast('Exporting...', 'info');
+    // Force per_page=200 (API max) for pagination
+    const base = url.replace(/per_page=\d+/, 'per_page=200');
+    const first = await api(base + (base.includes('?') ? '&' : '?') + 'page=1');
+    const items = first.customers || first.payments || first.items || [];
+    // API returns 'total' (count) not 'total_pages' - calculate it
+    const total = first.total || items.length;
+    const totalPages = Math.ceil(total / 200);
+    // Fetch remaining pages in parallel (batches of 5)
+    for (let p = 2; p <= totalPages; p += 5) {
+      const batch = [];
+      for (let b = 0; b < 5 && (p + b) <= totalPages; b++) {
+        batch.push(api(base + (base.includes('?') ? '&' : '?') + 'page=' + (p + b)));
+      }
+      const results = await Promise.all(batch);
+      results.forEach(r => {
+        const more = r.customers || r.payments || r.items || [];
+        items.push(...more);
+      });
+    }
+    if (!items.length) { toast('No data to export', 'error'); return; }
+    const rows = [columns];
+    items.forEach((item, i) => rows.push(rowMapper(item, i)));
+    if (format === 'csv') {
+      _downloadFile('\uFEFF' + _rowsToCSV(rows), filename + '.csv', 'text/csv');
+    } else {
+      _downloadFile(_rowsToExcel(rows), filename + '.xls', 'application/vnd.ms-excel');
+    }
+    toast((format === 'csv' ? 'CSV' : 'Excel') + ' exported: ' + items.length + ' rows', 'success');
+  } catch (e) { toast('Export failed: ' + e.message, 'error'); }
+}
+
+// --- Customers Export ---
+function _custExportUrl() {
+  const sortBy = document.getElementById('custSortBy').value;
+  const sortOrder = document.getElementById('custSortOrder').value;
+  const statusFilter = document.getElementById('custStatusFilter').value;
+  const planFilter = document.getElementById('custPlanFilter').value;
+  // Use name sorting as default (customer_id sort has backend issues with JOINs)
+  let url = '/api/customers?per_page=200&sort_by=' + sortBy + '&sort_order=' + sortOrder;
+  // Export: show ALL statuses by default (empty string = all in backend)
+  if (!statusFilter) url += '&status=';
+  else url += '&status=' + statusFilter;
+  if (currentFilter === 'paid') { url += '&payment_filter=paid'; }
+  else if (currentFilter === 'unpaid') { url += '&payment_filter=unpaid'; }
+  else if (currentFilter === 'all' && statusFilter) url += '&status=' + statusFilter;
+  if (currentFilter !== 'all' && currentFilter !== '') {
+    const from = document.getElementById('paidFrom').value;
+    const to = document.getElementById('paidTo').value;
+    if (from) url += '&paid_from=' + from;
+    if (to) url += '&paid_to=' + to;
+  }
+  if (currentFilter === 'paid') {
+    const fArea = document.getElementById('filterArea').value;
+    const fMode = document.getElementById('filterMode').value;
+    const fColl = document.getElementById('filterCollector').value;
+    const fAmt = document.getElementById('filterAmount').value;
+    if (fArea) url += '&paid_area=' + encodeURIComponent(fArea);
+    if (fMode) url += '&paid_mode=' + encodeURIComponent(fMode);
+    if (fColl) url += '&paid_collected_by=' + encodeURIComponent(fColl);
+    if (fAmt) url += '&paid_amount=' + encodeURIComponent(fAmt);
+  }
+  if (planFilter) url += '&plan_id=' + planFilter;
+  return url;
+}
+
+async function exportCustomersCSV() {
+  _exportAll(_custExportUrl(),
+    ['ID','Name','STB','Phone','Area','Status','Paid','Plan','Amount'],
+    c => [c.customer_id, c.name, c.stb_no||'', c.phone||'', c.area||'', c.status||'', c.is_paid?'Yes':'No', c.plan_name||'', c.plan_amount||''],
+    'Customers', 'csv');
+}
+async function exportCustomersExcel() {
+  _exportAll(_custExportUrl(),
+    ['ID','Name','STB','Phone','Area','Status','Paid','Plan','Amount'],
+    c => [c.customer_id, c.name, c.stb_no||'', c.phone||'', c.area||'', c.status||'', c.is_paid?'Yes':'No', c.plan_name||'', c.plan_amount||''],
+    'Customers', 'excel');
+}
+
+// --- Unpaid Export ---
+function _unpaidExportUrl() {
+  // Works for both standalone page (unpSearch/unpArea) and reports tab (agUnpSearch/agUnpArea/agUnpMso)
+  const q = document.getElementById('unpSearch')?.value?.trim() || document.getElementById('agUnpSearch')?.value?.trim() || '';
+  const area = document.getElementById('unpArea')?.value || document.getElementById('agUnpArea')?.value || '';
+  const mso = document.getElementById('agUnpMso')?.value || '';
+  let url = '/api/customers/unpaid?per_page=200';
+  if (q) url += '&q=' + encodeURIComponent(q);
+  if (area) url += '&area=' + encodeURIComponent(area);
+  if (mso) url += '&mso=' + encodeURIComponent(mso);
+  if (typeof _unpAsOf !== 'undefined' && _unpAsOf) url += '&as_of=' + encodeURIComponent(_unpAsOf);
+  return url;
+}
+
+async function exportUnpaidCSV() {
+  _exportAll(_unpaidExportUrl(),
+    ['S.No','ID','Name','STB','Area','Plan','Amount','Expiry','Gap (months)','Pending'],
+    (c,i) => [i+1, c.customer_id, c.name, c.stb_no||'', c.area||'', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.gap_months||0, c.pending_amount||0],
+    'Unpaid', 'csv');
+}
+async function exportUnpaidExcel() {
+  _exportAll(_unpaidExportUrl(),
+    ['S.No','ID','Name','STB','Area','Plan','Amount','Expiry','Gap (months)','Pending'],
+    (c,i) => [i+1, c.customer_id, c.name, c.stb_no||'', c.area||'', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.gap_months||0, c.pending_amount||0],
+    'Unpaid', 'excel');
+}
+
+// --- Not Renewed Export ---
+function _notRenewedExportUrl() {
+  // Works for both standalone page (nrSearch/nrArea/nrMso) and reports tab (agNrSearch/agNrArea/agNrMso)
+  const q = document.getElementById('nrSearch')?.value?.trim() || document.getElementById('agNrSearch')?.value?.trim() || '';
+  const area = document.getElementById('nrArea')?.value || document.getElementById('agNrArea')?.value || '';
+  const mso = document.getElementById('nrMso')?.value || document.getElementById('agNrMso')?.value || '';
+  let url = '/api/customers/not-renewed?per_page=200';
+  if (q) url += '&q=' + encodeURIComponent(q);
+  if (area) url += '&area=' + encodeURIComponent(area);
+  if (mso) url += '&mso=' + encodeURIComponent(mso);
+  // Check both _nrMonth (standalone) and _agNrMonth (reports tab)
+  const nrMonth = (typeof _nrMonth !== 'undefined' && _nrMonth) ? _nrMonth : (typeof _agNrMonth !== 'undefined' && _agNrMonth) ? _agNrMonth : '';
+  if (nrMonth) url += '&month=' + encodeURIComponent(nrMonth);
+  return url;
+}
+
+async function exportNotRenewedCSV() {
+  _exportAll(_notRenewedExportUrl(),
+    ['S.No','ID','Name','STB','Area','Plan','Amount','Expiry','Last Paid'],
+    (c,i) => [i+1, c.customer_id, c.name, c.stb_no||'', c.area||'', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.last_paid_date||''],
+    'Not_Renewed', 'csv');
+}
+async function exportNotRenewedExcel() {
+  _exportAll(_notRenewedExportUrl(),
+    ['S.No','ID','Name','STB','Area','Plan','Amount','Expiry','Last Paid'],
+    (c,i) => [i+1, c.customer_id, c.name, c.stb_no||'', c.area||'', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.last_paid_date||''],
+    'Not_Renewed', 'excel');
+}
+
+// --- Reminders Export ---
+async function exportRemindersCSV() {
+  const filter = document.getElementById('remFilter').value;
+  const network = document.getElementById('remNetwork').value;
+  let url = '/api/reminders/due?';
+  if (filter === 'due_soon') url += 'include_due_soon=true';
+  else if (filter === 'overdue') url += 'days_overdue=1';
+  else url += 'include_due_soon=true';
+  if (network) url += '&network=' + network;
+  const data = await api(url);
+  const items = data.customers || [];
+  if (!items.length) { toast('No reminders to export', 'error'); return; }
+  const rows = [['Name','Phone','MSO','Plan','Amount','Expiry','Sent Today']];
+  items.forEach(c => rows.push([c.name||'', c.phone||'', c.mso||'GTPL', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.sent_today?'Yes':'No']));
+  _downloadFile('\uFEFF' + _rowsToCSV(rows), 'Reminders.csv', 'text/csv');
+  toast('CSV exported: ' + items.length + ' rows', 'success');
+}
+async function exportRemindersExcel() {
+  const filter = document.getElementById('remFilter').value;
+  const network = document.getElementById('remNetwork').value;
+  let url = '/api/reminders/due?';
+  if (filter === 'due_soon') url += 'include_due_soon=true';
+  else if (filter === 'overdue') url += 'days_overdue=1';
+  else url += 'include_due_soon=true';
+  if (network) url += '&network=' + network;
+  const data = await api(url);
+  const items = data.customers || [];
+  if (!items.length) { toast('No reminders to export', 'error'); return; }
+  const rows = [['Name','Phone','MSO','Plan','Amount','Expiry','Sent Today']];
+  items.forEach(c => rows.push([c.name||'', c.phone||'', c.mso||'GTPL', c.plan_name||'', c.plan_amount||'', c.expiry_date||'', c.sent_today?'Yes':'No']));
+  _downloadFile(_rowsToExcel(rows), 'Reminders.xls', 'application/vnd.ms-excel');
+  toast('Excel exported: ' + items.length + ' rows', 'success');
+}
+
+// --- My Collections Export ---
+function _myCollExportUrl() {
+  const { from, to } = getCollDates();
+  return `/api/reports/my-collections?from_date=${from}&to_date=${to}&per_page=200`;
+}
+async function exportMyCollectionsCSV() {
+  _exportAll(_myCollExportUrl(),
+    ['S.No','Customer','Area','Amount','Mode','Date'],
+    (p,i) => [i+1, p.customer_name||'', p.area||'', p.amount||'', p.mode||'', p.date||''],
+    'My_Collections', 'csv');
+}
+async function exportMyCollectionsExcel() {
+  _exportAll(_myCollExportUrl(),
+    ['S.No','Customer','Area','Amount','Mode','Date'],
+    (p,i) => [i+1, p.customer_name||'', p.area||'', p.amount||'', p.mode||'', p.date||''],
+    'My_Collections', 'excel');
+}
+
 function msoBadge(net) { const n = (net || 'GTPL').toUpperCase(); const cls = n === 'TACTV' ? 'net-tactv' : n === 'SCV' ? 'net-scv' : 'net-gtpl'; return '<span class="net-badge ' + cls + '">' + esc(n) + '</span>'; }
 
 function isMobile() { return window.innerWidth <= 768; }
@@ -230,20 +421,27 @@ showPage = function(page) {
     page = 'my-collections';
   }
   _origShowPage2(page);
-  const pageMap = {'dashboard':0,'payments':1,'customers':2,'unpaid':3};
+  const pageMap = {'dashboard':0,'payments':1,'customers':2,'reports':3};
   const idx = pageMap[page];
   document.querySelectorAll('.mob-nav-item').forEach((b,i) => b.classList.toggle('active', i === idx));
 };
 
-// On mobile, auto-navigate to Payments (agent's primary task)
-if (isMobile() && token) {
-  setTimeout(() => {
-    showPage('payments');
-    const mobBtns = document.querySelectorAll('.mob-nav-item');
-    mobBtns[0].classList.remove('active');
-    mobBtns[1].classList.add('active');
-  }, 150);
-}
+// Save current page to URL hash for refresh persistence
+const _origShowPage3 = showPage;
+showPage = function(page) {
+  _origShowPage3(page);
+  history.replaceState(null, '', '#' + page);
+};
+
+// Restore page from URL hash on refresh
+(function() {
+  const hashPage = location.hash.slice(1);
+  const validPages = ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','reminders','audit','settings','operators','my-collections'];
+  if (hashPage && validPages.includes(hashPage)) {
+    showPage(hashPage);
+  }
+  // No hash = first visit. Dashboard is already active (HTML default).
+})();
 
 async function syncPaypakka() {
   const btn = document.getElementById('btnSyncPP');
@@ -489,7 +687,7 @@ async function loadCustomers(page = 1) {
         const stbBadge = c.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + escAttr(c.stb_no) + '\')" title="Click to copy">' + esc(c.stb_no) + '</span>' : '<span style="color:var(--text-light)">--</span>';
         const statusBadge = '<span class="badge ' + (c.status === 'Active' ? 'badge-success' : (c.status === 'Surrendered' ? 'badge-danger' : 'badge-warning')) + '">' + esc(c.status || '--') + '</span>';
         const paidBadge = c.is_paid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-danger">Unpaid</span>';
-        let actions = '<button class="btn btn-outline btn-sm" title="View Details" onclick="viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">👁</button>';
+        let actions = '<div class="row-actions">';
         if (currentFilter === 'paid') {
           actions += '<button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">✏️</button>';
         } else {
@@ -497,14 +695,14 @@ async function loadCustomers(page = 1) {
           actions += '<button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button>';
         }
         if (c.status === 'Surrendered') {
-          actions += '<button class="btn btn-success btn-sm" title="Reactivate Customer" onclick="reactivateCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">↩️</button>';
+          actions += '<button class="btn btn-success btn-sm" title="Reactivate Customer" onclick="reactivateCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">↩️ Reactivate</button>';
         } else if (c.status === 'Temp Disconnected') {
-          actions += '<button class="btn btn-primary btn-sm" title="Reconnect" onclick="openReconnectModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⚡</button>';
-          actions += '<button class="btn btn-warning btn-sm" title="Surrender" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
+          actions += '<button class="btn btn-primary btn-sm" title="Reconnect" onclick="openReconnectModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button>';
+          actions += '<button class="btn btn-danger btn-sm" style="font-weight:600" title="Surrender" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
         } else if (c.status === 'Active') {
-          actions += '<button class="btn btn-warning btn-sm" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏸️</button>';
+          actions += '<button class="btn btn-danger btn-sm" style="font-weight:600" title="Surrender Customer" onclick="openSurrenderModal(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
         }
-        return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td>' + esc(c.name || '--') + '</td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td>' + statusBadge + '</td><td>' + paidBadge + '</td><td>' + actions + '</td></tr>';
+        return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">' + esc(c.name || '--') + '</a></td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td>' + statusBadge + '</td><td>' + paidBadge + '</td><td>' + actions + '</div></td></tr>';
       }).join('');
     } else { tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No customers found</p></td></tr>'; }
     const pg = document.getElementById('custPagination');
@@ -545,7 +743,7 @@ function debounceSearch() {
       if (items.length) {
         tbody.innerHTML = items.map(c => {
           const stbBadge = c.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + escAttr(c.stb_no) + '\')">' + esc(c.stb_no) + '</span>' : '<span style="color:var(--text-light)">--</span>';
-          return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td>' + esc(c.name || '--') + '</td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td><span class="badge ' + (c.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + escAttr(c.status || '--') + '</span></td><td><span class="badge ' + (c.is_paid ? 'badge-success' : 'badge-danger') + '">' + (c.is_paid ? 'Paid' : 'Unpaid') + '</span></td><td><button class="btn btn-outline btn-sm" title="View Details" onclick="viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">👁</button><button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button></td></tr>';
+          return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">' + esc(c.name || '--') + '</a></td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td><span class="badge ' + (c.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + escAttr(c.status || '--') + '</span></td><td><span class="badge ' + (c.is_paid ? 'badge-success' : 'badge-danger') + '">' + (c.is_paid ? 'Paid' : 'Unpaid') + '</span></td><td><button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')\">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button></td></tr>';
         }).join('');
       } else { tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No results found</p></td></tr>'; }
     } catch (e) { toast('Search failed', 'error'); }
@@ -643,11 +841,11 @@ async function viewCustomer(id) {
     document.getElementById('custDetailTitle').textContent = esc(c.name || 'Customer');
     document.getElementById('custDetailFooter').innerHTML = '';
     if (c.status === 'Surrendered') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-success" onclick="reactivateCustomer(\'' + escAttr(id) + '\')">Reactivate</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-success" onclick="reactivateCustomer(\'' + escAttr(id) + '\')">↩️ Reactivate</button>';
     } else if (c.status === 'Temp Disconnected') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-primary" onclick="openReconnectModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button> <button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-primary" onclick="openReconnectModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⚡ Reconnect</button> <button class="btn btn-danger" style="font-weight:600" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
     } else if (c.status === 'Active') {
-      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-warning" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">Surrender</button>';
+      document.getElementById('custDetailFooter').innerHTML = '<button class="btn btn-danger" style="font-weight:600" onclick="openSurrenderModal(\'' + escAttr(id) + '\',\'' + escAttr(c.name || '') + '\')">⏹ Surrender</button>';
     }
     // Load 3 parallel API calls
     const [plans, payments, sms] = await Promise.all([
@@ -1180,7 +1378,11 @@ async function submitSurrender() {
   const reason = document.getElementById('surrenderReason').value;
   try {
     const result = await api('/api/customers/' + id + '/surrender', {method: 'POST', body: JSON.stringify({reason: reason})});
-    toast('Surrender submitted!', 'success');
+    if (result.status === 'pending_approval') {
+      toast('Surrender request submitted. Awaiting admin approval.', 'info');
+    } else {
+      toast('Customer surrendered successfully!', 'success');
+    }
     closeSurrenderModal();
     loadCustomers(1);
     if (_custData) viewCustomer(id);
@@ -2579,6 +2781,10 @@ function closeMapModal() { document.getElementById('mapModalOverlay').classList.
 
 // REPORTS
 async function loadReports() {
+  // Pre-load employees so collector dropdown is always populated
+  if (!_empList || !_empList.length) {
+    try { const d = await api('/api/employees'); _empList = d.employees || []; } catch(e) {}
+  }
   try {
     const isAdminOrMaster = _userRole === 'master' || _userRole === 'admin';
     const adminEl = document.getElementById('reportsAdmin');
@@ -2706,17 +2912,38 @@ function agLoadPaid(page = 1) {
     document.getElementById('agPaidCount').textContent = data.total || 0;
     document.getElementById('agPaidAmt').textContent = fmtRs(data.total_amount || 0);
 
-    // Populate area dropdown from results
-    if (document.getElementById('agPaidArea').options.length <= 1) {
+    // Populate area dropdown from results (always refresh)
+    {
+      const prevArea = document.getElementById('agPaidArea').value;
       const areas = [...new Set(payments.map(p => p.area).filter(Boolean))].sort();
       const sel = document.getElementById('agPaidArea');
+      sel.innerHTML = '<option value="">All Areas</option>';
       areas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+      if (prevArea && sel.querySelector('option[value="' + prevArea + '"]')) sel.value = prevArea;
     }
 
-    // Apply client-side area filter only
+    // Populate collector dropdown from employees + results (always all collectors)
+    {
+      const prevColl = document.getElementById('agPaidCollector').value;
+      const resultColls = [...new Set(payments.map(p => p.collector).filter(Boolean))];
+      const empColls = (_empList || []).map(e => e.name).filter(Boolean);
+      const allColls = [...new Set([...empColls, ...resultColls])].sort();
+      const sel = document.getElementById('agPaidCollector');
+      sel.innerHTML = '<option value="">All Collectors</option>';
+      allColls.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+      if (prevColl && sel.querySelector('option[value="' + prevColl + '"]')) sel.value = prevColl;
+    }
+
+    // Apply client-side area and collector filters
     const areaFilter = document.getElementById('agPaidArea').value;
+    const collFilter = document.getElementById('agPaidCollector').value;
     let filtered = payments;
     if (areaFilter) filtered = filtered.filter(p => p.area === areaFilter);
+    if (collFilter) filtered = filtered.filter(p => p.collector === collFilter);
+
+    // Update stats to reflect filtered results
+    document.getElementById('agPaidCount').textContent = filtered.length;
+    document.getElementById('agPaidAmt').textContent = fmtRs(filtered.reduce((s, p) => s + (p.amount || 0), 0));
 
     const tbody = document.getElementById('agPaidBody');
     const canDelete = (_userRole === 'admin' || _userRole === 'master');
@@ -2754,7 +2981,7 @@ function agLoadPaid(page = 1) {
           '<td>' + stbCell + '</td>' +
           '<td>' + esc(p.mso || '-') + '</td>' +
           '<td>' + esc(p.area || '-') + '</td>' +
-          '<td>' + esc(p.month_year || '-') + '</td>' +
+          '<td>' + esc(p.plan_name || p.month_year || '-') + '</td>' +
           '<td><strong>' + fmtRs(p.amount) + '</strong></td>' +
           '<td><span class="badge badge-primary">' + esc(p.payment_mode || '--') + '</span></td>' +
           '<td style="font-size:12px">' + dt + '</td>' +
@@ -2785,7 +3012,8 @@ function agLoadPaid(page = 1) {
           let tags = '';
           tags += '<span class="rcard-tag mode">' + esc(p.payment_mode || '--') + '</span>';
           if (p.area) tags += '<span class="rcard-tag area">📍 ' + esc(p.area) + '</span>';
-          if (p.month_year) tags += '<span class="rcard-tag plan">📅 ' + esc(p.month_year) + '</span>';
+          if (p.plan_name) tags += '<span class="rcard-tag plan">📦 ' + esc(p.plan_name) + '</span>';
+          else if (p.month_year) tags += '<span class="rcard-tag plan">📅 ' + esc(p.month_year) + '</span>';
           // Footer
           let footerRight = '';
           if (canGtpl && p.stb_no && p.stb_no.startsWith('338')) {
@@ -2874,10 +3102,10 @@ async function agExportPaid(format) {
     // Apply client-side area filter too
     if (areaFilter) payments = payments.filter(p => p.area === areaFilter);
 
-    const headers = ['S.No','Customer ID','Customer Name','Phone','STB','MSO','Area','Plan Month','Amount','Payment Mode','Date & Time','Collected By','Source'];
+    const headers = ['S.No','Customer ID','Customer Name','Phone','STB','MSO','Area','Plan','Amount','Payment Mode','Date & Time','Collected By','Source'];
     const rows = payments.map((p, i) => {
       const dt = p.date ? new Date(p.date + (p.date.endsWith('Z') ? '' : 'Z')).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}) : '';
-      return [i+1, p.customer_id||'', p.customer_name||'', p.customer_phone||'', p.stb_no||'', p.mso||'', p.area||'', p.month_year||'', p.amount||0, p.payment_mode||'', dt, p.collector||'', p.source||''];
+      return [i+1, p.customer_id||'', p.customer_name||'', p.customer_phone||'', p.stb_no||'', p.mso||'', p.area||'', p.plan_name||p.month_year||'', p.amount||0, p.payment_mode||'', dt, p.collector||'', p.source||''];
     });
 
     if (format === 'csv') {
@@ -3589,11 +3817,11 @@ function applyRoleAccess(user) {
   // Define which nav items each role can see
   const roleAccess = {
     'master': ['dashboard','operators','reports','audit','settings'],
-    'admin': ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','reports','audit','settings'],
-    'collection_agent': ['payments','unpaid','not-renewed','reports'],
-    'agent': ['payments','unpaid','not-renewed','reports'],
-    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports'],
-    'support': ['dashboard','customers','add-customer','payments','service-requests','reports']
+    'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','service-requests','reports','audit','settings'],
+    'collection_agent': ['payments','reports'],
+    'agent': ['payments','reports'],
+    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req'],
+    'support': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req']
   };
 
   const allowed = roleAccess[_userRole] || roleAccess['agent'];
@@ -3614,11 +3842,11 @@ function applyRoleAccess(user) {
   }
 
   // Show/hide mobile bottom nav items
-  // Layout: 0=Home, 1=Collect, 2=Unpaid, 3=Customers, 4=Reports, 5=More
-  const mobPages = ['dashboard','payments','unpaid','customers','reports'];
+  // Layout: 0=Home, 1=Collect, 2=Customers, 3=Reports, 4=More
+  const mobPages = ['dashboard','payments','customers','reports'];
   const mobBtns = document.querySelectorAll('.mob-nav-item');
   mobBtns.forEach((btn, i) => {
-    if (i === 5) {
+    if (i === 4) {
       // More button: show for admin (has hidden items) and agents
       btn.style.display = (_userRole === 'admin' || ['collection_agent','agent'].includes(_userRole)) ? '' : 'none';
     } else if (mobPages[i]) {
@@ -3984,12 +4212,12 @@ api('/api/me').then(u => {
   
   // Redirect to allowed page if current page is not accessible
   const allowed = {
-    'master': ['dashboard','customers','add-customer','plans','payments','unpaid','not-renewed','employees','surrender-req','service-requests','operators','reports','settings'],
+    'master': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','service-requests','operators','reports','settings'],
     'admin': ['dashboard','customers','add-customer','plans','payments','employees','surrender-req','service-requests','reports','settings'],
     'collection_agent': ['payments','reports'],
     'agent': ['payments','reports'],
-    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports'],
-    'support': ['dashboard','customers','add-customer','payments','service-requests','reports']
+    'service_agent': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req'],
+    'support': ['dashboard','customers','add-customer','payments','service-requests','reports','surrender-req']
   };
   const myAllowed = allowed[(u.role || 'agent').toLowerCase()] || allowed['agent'];
   const activePage = document.querySelector('.page.active');
@@ -4652,4 +4880,31 @@ async function doGtplPackChange() {
     btn.disabled = false; btn.textContent = '📦 Change Pack';
   }
 }
+
+
+// Clear search input and re-trigger search
+function clearSearch(inputId, callbackName, passValue) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.value = '';
+  // hide the X button
+  const wrap = input.closest('.search-clear-wrap');
+  if (wrap) wrap.classList.remove('has-value');
+  // trigger the search callback
+  if (passValue) {
+    window[callbackName]('');
+  } else {
+    const fn = window[callbackName];
+    if (typeof fn === 'function') fn();
+  }
+  input.focus();
+}
+
+// Show/hide clear button on input
+document.addEventListener('input', function(e) {
+  const wrap = e.target.closest('.search-clear-wrap');
+  if (!wrap) return;
+  if (e.target.value.length > 0) wrap.classList.add('has-value');
+  else wrap.classList.remove('has-value');
+});
 

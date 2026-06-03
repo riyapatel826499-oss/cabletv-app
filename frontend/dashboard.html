@@ -16,15 +16,15 @@
 #hamburgerBtn{display:none;position:fixed;top:16px;left:16px;z-index:1100;background:var(--white);color:var(--text);border:0.5px solid var(--border);padding:10px 14px;border-radius:var(--radius-sm);cursor:pointer;font-size:1.2rem;box-shadow:var(--shadow);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
 .page{display:none;animation:fadeIn 0.35s ease}.page.active{display:block}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}.stat-card{background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);padding:22px;border-radius:var(--radius);border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:var(--transition)}.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-2px)}.stat-card h3{font-size:0.8rem;font-weight:500;color:var(--text-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em}.stat-card .value{font-size:1.8rem;font-weight:700;color:var(--primary);letter-spacing:-0.02em}.stat-card.success .value{color:var(--success)}.stat-card.warning .value{color:var(--warning)}.stat-card.danger .value{color:var(--danger)}
-table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);overflow:hidden;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}th,td{padding:13px 16px;text-align:left;border-bottom:1px solid rgba(0,0,0,0.05)}th{background:rgba(245,245,247,0.6);font-weight:600;color:#4b5563;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.06em}tr:last-child td{border-bottom:none}tr{transition:background 0.15s ease}tr:hover td{background:rgba(0,113,227,0.03)}.empty-state{text-align:center;padding:40px;color:var(--text-light)}.table-wrap{overflow-x:auto;border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);overflow:hidden;border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}th,td{padding:13px 16px;text-align:left;border-bottom:1px solid rgba(0,0,0,0.05)}th{background:rgba(245,245,247,0.6);font-weight:600;color:#4b5563;text-transform:uppercase;font-size:0.72rem;letter-spacing:0.06em}tr:last-child td{border-bottom:none}tr{transition:background 0.15s ease}tr:hover td{background:rgba(0,113,227,0.03)}.empty-state{text-align:center;padding:40px;color:var(--text-light)}.table-wrap{overflow-x:auto;border-radius:var(--radius)}.sticky-col{position:sticky!important;z-index:3!important;background:var(--bg-card,#fff)!important}thead .sticky-col{z-index:4!important;background:rgba(245,245,247,0.95)!important}.sticky-edge::after{content:'';position:absolute;top:0;right:-6px;bottom:0;width:6px;background:linear-gradient(to right,rgba(0,0,0,0.08),transparent);pointer-events:none}@media(max-width:768px){.sticky-col{background:#fff!important}thead .sticky-col{background:rgba(245,245,247,1)!important}}
 .btn{padding:10px 18px;border:none;border-radius:980px;cursor:pointer;font-weight:500;transition:var(--transition);display:inline-flex;align-items:center;gap:8px;font-size:0.88rem;letter-spacing:-0.01em}.btn-primary{background:var(--primary);color:var(--white)}.btn-primary:hover{background:var(--primary-dark);transform:scale(1.02)}.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:rgba(0,0,0,0.03)}.btn-danger{background:var(--danger);color:var(--white)}.btn-danger:hover{background:#e0342b}.btn-success{background:var(--success);color:var(--white)}.btn-success:hover{background:#2db84d}.btn-warning{background:var(--warning);color:var(--white)}.btn-sm{padding:5px 12px;font-size:0.78rem}
 .form-group{margin-bottom:16px}.form-group label{display:block;margin-bottom:6px;font-weight:500;font-size:0.88rem;color:var(--text)}.form-control{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.form-control:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3.5px rgba(0,113,227,0.12)}.form-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
 .badge{display:inline-block;padding:4px 10px;border-radius:980px;font-size:0.72rem;font-weight:600}.badge-success{background:rgba(52,199,89,0.12);color:var(--success)}.badge-danger{background:rgba(255,59,48,0.12);color:var(--danger)}.badge-primary{background:rgba(0,113,227,0.1);color:var(--primary)}.badge-warning{background:rgba(255,159,10,0.12);color:var(--warning)}.badge-info{background:rgba(90,200,250,0.12);color:var(--info)}
 .tabs{display:flex;gap:4px;margin-bottom:20px;background:rgba(245,245,247,0.6);border-radius:var(--radius-sm);padding:4px}.tab{padding:8px 16px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--text-light);border-radius:var(--radius-xs);transition:var(--transition);font-size:0.85rem}.tab.active{background:var(--white);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08)}.tab:hover:not(.active){color:var(--text)}
-.search-box{margin-bottom:20px}.search-box input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.search-box input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3.5px rgba(0,113,227,0.12)}.chip-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.chip{padding:7px 16px;border-radius:980px;border:0.5px solid var(--border);background:var(--bg-card);color:var(--text-light);font-size:0.82rem;cursor:pointer;transition:var(--transition);white-space:nowrap;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}.chip:hover{border-color:var(--primary);color:var(--primary)}.chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}.filter-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end}.filter-row select,.filter-row input{padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.filter-row select:focus,.filter-row input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,113,227,0.1)}
+.search-box{margin-bottom:20px}.search-box input{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.95rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.search-box input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3.5px rgba(0,113,227,0.12)}.search-clear-wrap{position:relative;display:inline-flex;flex:1;min-width:0}.search-clear-wrap input{width:100%;padding-right:36px!important}.search-clear-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%) scale(0);background:rgba(120,120,128,0.12);border:none;cursor:pointer;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:transform .2s cubic-bezier(.175,.885,.32,1.275),background .15s,opacity .15s;opacity:0;padding:0}.search-clear-btn:hover{background:rgba(255,59,48,0.12)}.search-clear-btn:hover svg{stroke:#ff3b30}.search-clear-btn svg{width:12px;height:12px;stroke:#8e8e93;stroke-width:2.5;stroke-linecap:round;fill:none;transition:stroke .15s}.search-clear-wrap.has-value .search-clear-btn{transform:translateY(-50%) scale(1);opacity:1}.search-box .search-clear-wrap{width:100%}.cust-name-link{color:var(--text);font-weight:500;text-decoration:none;cursor:pointer;transition:color .15s}.cust-name-link:hover{color:var(--primary);text-decoration:underline}.chip-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.chip{padding:7px 16px;border-radius:980px;border:0.5px solid var(--border);background:var(--bg-card);color:var(--text-light);font-size:0.82rem;cursor:pointer;transition:var(--transition);white-space:nowrap;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}.chip:hover{border-color:var(--primary);color:var(--primary)}.chip.active{background:var(--primary);color:#fff;border-color:var(--primary)}.filter-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end}.filter-row select,.filter-row input{padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:rgba(255,255,255,0.8);transition:var(--transition)}.filter-row select:focus,.filter-row input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(0,113,227,0.1)}
 .pagination{display:flex;justify-content:center;gap:6px;margin-top:20px}.pagination button{padding:8px 14px;border:0.5px solid var(--border);background:var(--bg-card);cursor:pointer;border-radius:var(--radius-xs);font-size:0.85rem;transition:var(--transition);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}.pagination button.active{background:var(--primary);color:var(--white);border-color:var(--primary)}.pagination button:disabled{opacity:0.35;cursor:not-allowed}.pagination button:hover:not(:disabled):not(.active){background:rgba(0,0,0,0.03)}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:2000}.modal-overlay.show{display:flex}.modal{background:rgba(255,255,255,0.92);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border-radius:var(--radius);max-width:700px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15),0 0 0 0.5px rgba(0,0,0,0.05);border:0.5px solid rgba(255,255,255,0.5)}.modal-lg{max-width:900px}.modal-header{padding:22px 24px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center}.modal-header h2{font-size:1.2rem;font-weight:600;letter-spacing:-0.02em}.modal-body{padding:24px}.modal-footer{padding:18px 24px;border-top:0.5px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
-.toast-container{position:fixed;top:20px;right:20px;z-index:3000;display:flex;flex-direction:column;gap:10px}.toast{padding:14px 20px;border-radius:var(--radius-sm);color:var(--white);font-weight:500;font-size:0.88rem;box-shadow:0 8px 24px rgba(0,0,0,0.12);animation:slideIn 0.35s cubic-bezier(0.25,0.1,0.25,1);max-width:350px;backdrop-filter:blur(10px)}.toast.success{background:rgba(52,199,89,0.92)}.toast.error{background:rgba(255,59,48,0.92)}.toast.info{background:rgba(0,113,227,0.92)}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast-container{position:fixed;top:20px;right:20px;z-index:3000;display:flex;flex-direction:column;gap:10px;pointer-events:none}.toast{padding:14px 20px;border-radius:var(--radius-sm);color:var(--white);font-weight:600;font-size:0.92rem;box-shadow:0 8px 24px rgba(0,0,0,0.18);animation:toastIn .4s cubic-bezier(.175,.885,.32,1.275);max-width:380px;backdrop-filter:blur(10px);pointer-events:auto;display:flex;align-items:center;gap:10px}.toast .toast-icon{font-size:1.3rem;flex-shrink:0}.toast.success{background:rgba(52,199,89,0.95)}.toast.error{background:rgba(255,59,48,0.95)}.toast.info{background:rgba(0,113,227,0.95)}.toast.warning{background:rgba(255,149,0,0.95)}@keyframes toastIn{from{transform:translateY(-30px) scale(0.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
 .chart-container{background:var(--bg-card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);padding:22px;border-radius:var(--radius);border:0.5px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04)}.bar-item{display:inline-flex;flex-direction:column;align-items:center;gap:8px;margin:0 8px}.bar{width:40px;background:linear-gradient(180deg,var(--primary),var(--primary-dark));border-radius:6px 6px 0 0;min-height:8px;transition:height 0.6s cubic-bezier(0.25,0.1,0.25,1)}.bar-value{font-size:0.78rem;font-weight:600;letter-spacing:-0.01em}.bar-label{font-size:0.72rem;color:var(--text-light);text-align:center;max-width:60px;word-wrap:break-word}
 .summary-bar{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}.summary-card{padding:14px 22px;border-radius:var(--radius-sm);color:#fff;font-weight:600;min-width:180px;letter-spacing:-0.01em}.summary-card.paid-count{background:linear-gradient(135deg,var(--success),#248a3d)}.summary-card.paid-amount{background:linear-gradient(135deg,#0071e3,#64d2ff)}.summary-card span{font-size:1.4rem;margin-right:8px}
 .stb-badge{background:rgba(0,113,227,0.08);color:var(--primary);font-family:'SF Mono','Courier New',monospace;font-size:0.82rem;padding:3px 10px;border-radius:var(--radius-xs);cursor:pointer;display:inline-block;transition:var(--transition);border:0.5px solid rgba(0,113,227,0.15)}.stb-badge:hover{background:rgba(0,113,227,0.15)}
@@ -168,7 +168,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   .modal{width:100%;max-height:100%;border-radius:0}
   .modal-overlay{padding:0}
   .toast-container{top:auto;bottom:80px;right:10px;left:10px}
-  .toast{width:100%}
+  .toast{width:100%;font-size:0.95rem;padding:16px 18px;border-radius:12px}
   #hamburgerBtn{display:flex;width:44px;height:44px;font-size:22px;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:rgba(255,255,255,0.88);border:0.5px solid var(--border);cursor:pointer;position:fixed;top:12px;left:12px;z-index:1001;backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
   .filter-row{flex-direction:column;gap:8px}
   .filter-row select,.filter-row input{width:100%}
@@ -213,6 +213,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   /* Form controls bigger for mobile */
   .btn{min-height:44px;padding:10px 16px}
   .form-control{min-height:44px;font-size:16px} /* 16px prevents iOS zoom */
+  /* Modal close button: large touch target on mobile */
+  .modal-header .btn-sm{min-width:44px;min-height:44px;font-size:1.2rem;padding:8px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm)}
   
   /* Hide desktop-only elements */
   .desktop-only{display:none!important}
@@ -309,7 +311,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="chart-container"><h3 style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span>📡 MSO Summary</span><a href="#" onclick="showPage('reports');return false" style="font-size:11px;font-weight:400;color:var(--primary)">View All-Time →</a></h3><div id="msoChart"></div></div>
 <div class="chart-container" style="margin-top:20px"><h3 style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center"><span>📈 Month-over-Month Revenue</span><select id="momMonthsSelect" onchange="loadMomTrend()" style="font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)"><option value="6">Last 6 months</option><option value="12">Last 12 months</option><option value="3">Last 3 months</option></select></h3><div id="momChart" style="min-height:120px"></div></div>
 </div>
-<div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Recent Payments</h3><button class="btn btn-outline btn-sm" onclick="syncPaypakka()" id="btnSyncPP">🔄 Sync Paypakka</button></div><div id="mobRecentPayments" class="desktop-only-hide"></div><div class="table-wrap"><table><thead><tr><th>Customer</th><th>STB</th><th>Area</th><th>Amount</th><th>Mode</th><th>Collector</th><th>Date</th></tr></thead><tbody id="recentPaymentsBody"></tbody></table></div>
+<div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">Recent Payments</h3><button class="btn btn-outline btn-sm" onclick="syncPaypakka()" id="btnSyncPP">🔄 Sync Paypakka</button></div><div id="mobRecentPayments" class="desktop-only-hide"></div><div class="table-wrap" id="recentPayWrap"><table><thead><tr><th>Customer</th><th>STB</th><th>Area</th><th>Amount</th><th>Mode</th><th>Collector</th><th>Date</th></tr></thead><tbody id="recentPaymentsBody"></tbody></table></div>
 </div><!-- end lcoDashboard -->
 
 <!-- Agent Dashboard (service_agent / collection_agent) — only their own data -->
@@ -321,13 +323,13 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </div>
 <div style="margin-top:28px"><h3 style="margin:0">My Recent Payments</h3></div>
 <div id="mobAgRecentPayments" class="desktop-only-hide"></div>
-<div class="table-wrap"><table><thead><tr><th>Customer</th><th>STB</th><th>Area</th><th>Amount</th><th>Mode</th><th>Date</th></tr></thead><tbody id="agRecentPaymentsBody"></tbody></table></div>
+<div class="table-wrap" id="agRecentPayWrap"><table><thead><tr><th>Customer</th><th>STB</th><th>Area</th><th>Amount</th><th>Mode</th><th>Date</th></tr></thead><tbody id="agRecentPaymentsBody"></tbody></table></div>
 </div><!-- end agentDashboard -->
 </div>
 
 <!-- Customers Page -->
 <div id="page-customers" class="page">
-<div class="search-box"><input type="text" id="customerSearch" class="form-control" placeholder="Search by name, phone, STB, ID..." oninput="debounceSearch()"></div>
+<div class="search-box"><div class="search-clear-wrap"><input type="text" id="customerSearch" class="form-control" placeholder="Search by name, phone, STB, ID..." oninput="debounceSearch()"><button type="button" class="search-clear-btn" onclick="clearSearch('customerSearch','debounceSearch')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
 <select id="custStatusFilter" onchange="loadCustomers(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All Status</option><option value="Active" selected>Active</option><option value="Temp Disconnected">Temp Disconnected</option><option value="Surrendered">Surrendered</option><option value="Pending Surrender">Pending Surrender</option></select>
 <select id="custPlanFilter" onchange="loadCustomers(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All Plans</option></select>
@@ -336,8 +338,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="custSortBy" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="name">Sort: Name</option><option value="customer_id">Sort: ID</option><option value="area">Sort: Area</option></select>
 <select id="custSortOrder" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="asc">ASC</option><option value="desc">DESC</option></select>
 <select id="custPerPage" onchange="loadCustomers(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none"><option value="10" selected>10/page</option><option value="20">20/page</option><option value="50">50/page</option></select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
+<span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#custTableWrap table','Customers')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button></span>
 </div>
 <div class="tabs" id="custTabs">
 <div class="tab active" data-filter="all" onclick="filterCustomers('all')">All</div>
@@ -395,7 +397,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <!-- Step 1: Search Customer -->
 <div id="payStep1" class="pay-step">
   <div class="pay-step-label">① Find Customer</div>
-  <input id="paySearchInput" class="form-control" placeholder="Type name, ID, phone or STB..." autocomplete="off" oninput="searchPayCustomer(this.value)">
+  <div class="search-clear-wrap"><input id="paySearchInput" class="form-control" placeholder="Type name, ID, phone or STB..." autocomplete="off" oninput="searchPayCustomer(this.value)"><button type="button" class="search-clear-btn" onclick="clearSearch('paySearchInput','searchPayCustomer',true)" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
   <div id="paySearchResults" class="pay-search-table-wrap" style="display:none"></div>
   <div id="payCustCard" class="pay-cust-card" style="display:none"></div>
   <div id="payLastPayment" class="pay-last-payment" style="display:none"></div>
@@ -499,7 +501,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   <div>
     <label style="font-size:13px;font-weight:600;margin-bottom:4px;display:block">Customer *</label>
     <div style="display:flex;gap:6px">
-      <input type="text" id="svcCustSearch" class="form-control" placeholder="Search customer by name or ID..." style="flex:1" oninput="searchSvcCustomers()">
+      <div class="search-clear-wrap" style="flex:1"><input type="text" id="svcCustSearch" class="form-control" placeholder="Search customer by name or ID..." oninput="searchSvcCustomers()"><button type="button" class="search-clear-btn" onclick="clearSearch('svcCustSearch','searchSvcCustomers')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
       <input type="hidden" id="svcCustId">
     </div>
     <div id="svcCustResults" style="display:none;max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:4px"></div>
@@ -641,16 +643,17 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <input type="date" id="agPaidTo" class="form-control" style="width:auto;padding:5px 8px;font-size:13px" onchange="agLoadPaid(1)">
   </div>
   <div class="filter-row" style="margin-bottom:16px">
-    <input type="text" id="agPaidSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgPaid()">
+    <div class="search-clear-wrap"><input type="text" id="agPaidSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgPaid()"><button type="button" class="search-clear-btn" onclick="clearSearch('agPaidSearch','debounceAgPaid')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
     <select id="agPaidMso" class="form-control" onchange="agLoadPaid(1)"><option value="">All MSO</option><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option><option value="JAISD">JAISD</option></select>
     <select id="agPaidArea" class="form-control" onchange="agLoadPaid(1)"><option value="">All Areas</option></select>
+    <select id="agPaidCollector" class="form-control" onchange="agLoadPaid(1)"><option value="">All Collectors</option></select>
     <select id="agPaidPerPage" class="form-control" style="max-width:80px" onchange="agLoadPaid(1)">
-      <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
+      <option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="500" selected>500</option><option value="1000">1000</option>
     </select>
-    <button class="btn btn-outline btn-sm" onclick="agExportPaid('csv')">📥 CSV</button>
-    <button class="btn btn-outline btn-sm" onclick="agExportPaid('xlsx')">📥 Excel</button>
+    <span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="agExportPaid('csv')">📥 CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="agExportPaid('xlsx')">📥 Excel</button></span>
   </div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>MSO</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th>GTPL</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
+  <div class="table-wrap" id="agPaidWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>MSO</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th>GTPL</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
   <div id="mobAgPaid" class="mob-rpt-cards"></div>
   <div class="pagination" id="agPaidPagination"></div>
 </div>
@@ -662,7 +665,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <div class="stat-card"><h3>Pending Amount</h3><div class="value" id="agUnpAmt">₹0</div></div>
   </div>
   <div class="filter-row" style="margin-bottom:16px">
-    <input type="text" id="agUnpSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgUnp()">
+    <div class="search-clear-wrap"><input type="text" id="agUnpSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgUnp()"><button type="button" class="search-clear-btn" onclick="clearSearch('agUnpSearch','debounceAgUnp')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
     <select id="agUnpArea" class="form-control" onchange="agLoadUnpaid(1)"><option value="">All Areas</option></select>
     <select id="agUnpMso" class="form-control" onchange="agLoadUnpaid(1)"><option value="">All MSO</option></select>
     <select id="agUnpPerPage" class="form-control" style="max-width:80px" onchange="agLoadUnpaid(1)">
@@ -686,7 +689,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <input type="month" id="agNrMonthPicker" class="form-control" style="max-width:170px;padding:6px 8px;font-size:13px" onchange="agSetNrMonthCustom(this.value)">
   </div>
   <div class="filter-row" style="margin-bottom:16px">
-    <input type="text" id="agNrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgNr()">
+    <div class="search-clear-wrap"><input type="text" id="agNrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceAgNr()"><button type="button" class="search-clear-btn" onclick="clearSearch('agNrSearch','debounceAgNr')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
     <select id="agNrArea" class="form-control" onchange="agLoadNR(1)"><option value="">All Areas</option></select>
     <select id="agNrMso" class="form-control" onchange="agLoadNR(1)"><option value="">All MSO</option></select>
     <select id="agNrPerPage" class="form-control" style="max-width:80px" onchange="agLoadNR(1)">
@@ -720,8 +723,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div><label style="font-size:12px">From</label><input type="date" id="myCollFrom" class="form-control"></div>
 <div><label style="font-size:12px">To</label><input type="date" id="myCollTo" class="form-control"></div>
 <button class="btn btn-primary btn-sm" onclick="loadMyCollections(1)">Apply</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#myCollTableWrap table','My_Collections')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#myCollTableWrap table','My_Collections')">📥 Excel</button>
+<span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#myCollTableWrap table','My_Collections')">📥 CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#myCollTableWrap table','My_Collections')">📥 Excel</button></span>
 </div>
 </div>
 <div class="table-wrap" id="myCollTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>Area</th><th>Amount</th><th>Mode</th><th>Date</th></tr></thead><tbody id="myCollBody"></tbody></table></div>
@@ -743,13 +746,13 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <input type="date" id="unpDate" class="form-control" style="max-width:150px;padding:6px 8px;font-size:13px" onchange="setUnpPeriodCustom(this.value)">
 </div>
 <div class="filter-row" style="margin-bottom:16px">
-<input type="text" id="unpSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceUnpaid()">
+<div class="search-clear-wrap"><input type="text" id="unpSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceUnpaid()"><button type="button" class="search-clear-btn" onclick="clearSearch('unpSearch','debounceUnpaid')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
 <select id="unpArea" class="form-control" onchange="loadUnpaid(1)"><option value="">All Areas</option></select>
 <select id="unpPerPage" class="form-control" style="max-width:80px" onchange="loadUnpaid(1)">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#unpTableWrap table','Unpaid')">📥 CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#unpTableWrap table','Unpaid')">📥 Excel</button>
+<span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#unpTableWrap table','Unpaid')">📥 CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#unpTableWrap table','Unpaid')">📥 Excel</button></span>
 </div>
 <div class="table-wrap" id="unpTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Expired</th><th>Gap</th><th>Pending</th><th>📞</th></tr></thead><tbody id="unpBody"></tbody></table></div>
 <div class="pagination" id="unpPagination"></div>
@@ -776,12 +779,12 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <select id="nrMso" onchange="loadNotRenewed(1)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.88rem;background:var(--bg-card);color:var(--text);-webkit-appearance:none;appearance:none"><option value="">All MSO</option></select>
 </div>
 <div class="filter-row" style="gap:8px;margin-bottom:16px">
-<input type="text" id="nrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceNotRenewed()" style="flex:1">
+<div class="search-clear-wrap" style="flex:1"><input type="text" id="nrSearch" class="form-control" placeholder="🔍 Search name, phone, STB..." oninput="debounceNotRenewed()"><button type="button" class="search-clear-btn" onclick="clearSearch('nrSearch','debounceNotRenewed')" aria-label="Clear search"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg></button></div>
 <select id="nrPerPage" onchange="loadNotRenewed(1)" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:0.82rem;background:var(--bg-card);color:var(--text-light);-webkit-appearance:none;appearance:none;max-width:80px">
 <option value="25">25</option><option value="50" selected>50</option><option value="100">100</option>
 </select>
-<button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button>
+<span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">CSV</button>
+<button class="btn btn-outline btn-sm" onclick="exportTableExcel('#nrTableWrap table','Not_Renewed')" style="font-size:0.75rem;padding:4px 10px;border-radius:var(--radius-xs)">Excel</button></span>
 </div>
 <div class="table-wrap" id="nrTableWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>Area</th><th>Plan</th><th>Last Paid</th><th>Expired</th><th>📞</th></tr></thead><tbody id="nrBody"></tbody></table></div>
 <div class="pagination" id="nrPagination"></div>
@@ -814,8 +817,8 @@ body.role-agent #page-customers > .pagination { display: none !important; }
   <button class="btn btn-outline btn-sm" onclick="remSelectAll()">Select All</button>
   <button class="btn btn-outline btn-sm" onclick="remSelectNone()">Select None</button>
   <button class="btn btn-primary btn-sm" onclick="sendReminders()">📨 Send Reminders (<span id="remSelectedCount">0</span>)</button>
-  <button class="btn btn-outline btn-sm" onclick="exportTableCSV('#remTableWrap table','Reminders')">📥 CSV</button>
-  <button class="btn btn-outline btn-sm" onclick="exportTableExcel('#remTableWrap table','Reminders')">📥 Excel</button>
+  <span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="exportTableCSV('#remTableWrap table','Reminders')">📥 CSV</button>
+  <button class="btn btn-outline btn-sm" onclick="exportTableExcel('#remTableWrap table','Reminders')">📥 Excel</button></span>
 </div>
 
 <!-- Table -->
@@ -1050,9 +1053,6 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeReconnectModal()">Cancel</button><button class="btn btn-primary" onclick="doReconnect()">⚡ Reconnect</button></div></div>
 </div>
 
-<!-- Edit Expiry Date Modal -->
-<div id="editExpiryOverlay" class="modal-overlay" onclick="if(event.target===this)closeEditExpiryModal()">
-
 <!-- GTPL Renew Modal -->
 <div id="gtplRenewOverlay" class="modal-overlay" onclick="if(event.target===this)closeGtplRenewModal()">
 <div class="modal"><div class="modal-header"><h2>🔁 Renew on GTPL</h2><button class="btn btn-outline btn-sm" onclick="closeGtplRenewModal()">✕</button></div>
@@ -1148,6 +1148,44 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <button class="mob-nav-item" onclick="mobNav('more',this)"><span class="mob-icon">☰</span><span class="mob-label">More</span></button>
   </div>
 </nav>
-<script src="app.js?v=3"></script>
+<script>
+function clearSearch(inputId,callbackName,hideResults){
+  const inp=document.getElementById(inputId);
+  if(!inp)return;
+  inp.value='';
+  inp.parentElement.classList.remove('has-value');
+  inp.focus();
+  if(callbackName){
+    const fn=window[callbackName];
+    if(typeof fn==='function') fn();
+  }
+  if(hideResults){
+    const r=document.getElementById(inputId.replace('Search','SearchResults').replace('Input','SearchResults'));
+    if(r){r.style.display='none';r.innerHTML='';}
+    const payR=document.getElementById('paySearchResults');
+    if(payR&&inputId==='paySearchInput'){payR.style.display='none';payR.innerHTML='';}
+    const payC=document.getElementById('payCustCard');
+    if(payC&&inputId==='paySearchInput'){payC.style.display='none';}
+    const svcR=document.getElementById('svcCustResults');
+    if(svcR&&inputId==='svcCustSearch'){svcR.style.display='none';svcR.innerHTML='';document.getElementById('svcCustId').value='';}
+  }
+}
+document.addEventListener('input',function(e){
+  const wrap=e.target.closest('.search-clear-wrap');
+  if(!wrap)return;
+  if(e.target.tagName==='INPUT') wrap.classList.toggle('has-value',e.target.value.length>0);
+});
+</script>
+<script src="js/core-utils.js?v=13"></script>
+<script src="js/navigation.js?v=13"></script>
+<script src="js/dashboard.js?v=13"></script>
+<script src="js/customers.js?v=13"></script>
+<script src="js/customer-crud.js?v=13"></script>
+<script src="js/employees.js?v=13"></script>
+<script src="js/payments.js?v=13"></script>
+<script src="js/reports.js?v=13"></script>
+<script src="js/settings.js?v=13"></script>
+<script src="js/auth-operators.js?v=13"></script>
+<script src="js/init.js?v=13"></script>
 </body>
 </html>

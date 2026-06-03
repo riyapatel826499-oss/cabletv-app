@@ -61,20 +61,9 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
         )
         db.commit()
 
-    # Check for existing active session
-    existing = db.execute(
-        select(ActiveSession).where(ActiveSession.user_id == user["id"])
-    ).scalar_one_or_none()
-
-    if existing and not body.force:
-        # Session conflict — ask user to confirm
-        raise HTTPException(
-            status_code=409,
-            detail="This account is already logged in on another device. Do you want to continue?",
-            headers={"X-Session-Conflict": "true"}
-        )
-
-    # If force=True or no existing session: create new session
+    # Single-session enforcement: silently replace any existing session.
+    # Old token stops working immediately — no multiple simultaneous logins.
+    # No popup needed since stale sessions (browser close, network drop) are common.
     session_id = str(uuid.uuid4())
 
     # Remove any existing sessions for this user

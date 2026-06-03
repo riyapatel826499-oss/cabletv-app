@@ -11,6 +11,7 @@ from conn import get_conn as _get_conn
 from audit import log_action
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params, get_merged_payments, get_total_paid_amount
 from utils import get_current_month
+from db import table_has_column
 import re
 
 router = APIRouter(prefix="/api", tags=["Customers"])
@@ -322,7 +323,11 @@ def list_customers(
 
         # Sorting - customer_id sort uses numeric part for proper ordering
         if sort_by == "customer_id":
-            query += f" ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) {sort_order.upper()}"
+            from config import DB_ENGINE
+            if DB_ENGINE == "postgresql":
+                query += f" ORDER BY CAST(SUBSTRING(c.customer_id FROM STRPOS(c.customer_id, '-') + 1) AS INTEGER) {sort_order.upper()}"
+            else:
+                query += f" ORDER BY CAST(SUBSTR(c.customer_id, INSTR(c.customer_id, '-') + 1) AS INTEGER) {sort_order.upper()}"
         else:
             query += f" ORDER BY LOWER(c.{sort_by}) {sort_order.upper()}"
         query += " LIMIT ? OFFSET ?"
@@ -1079,14 +1084,14 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
                 has_ptype = table_has_column(conn, 'payments', 'payment_type')
                 if has_ptype:
                     conn.execute(
-                        """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, operator_id)
-                           VALUES (?, ?, ?, ?, 'Cash', 'new_connection', ?, ?, 1, 'New connection fee', ?)""",
+                        """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, operator_id, collected_at)
+                           VALUES (?, ?, ?, ?, 'Cash', 'new_connection', ?, ?, 1, 'New connection fee', ?, NOW())""",
                         [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid]
                     )
                 else:
                     conn.execute(
-                        """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, operator_id)
-                           VALUES (?, ?, ?, ?, 'Cash', ?, ?, 1, 'New connection fee', ?)""",
+                        """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, operator_id, collected_at)
+                           VALUES (?, ?, ?, ?, 'Cash', ?, ?, 1, 'New connection fee', ?, NOW())""",
                         [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid]
                     )
 
