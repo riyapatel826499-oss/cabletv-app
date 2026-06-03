@@ -23,7 +23,10 @@ async function api(path, opts = {}) {
     const text = await r.text();
     let d;
     try { d = JSON.parse(text); } catch(e) { throw new Error(r.status + ': ' + text.substring(0, 200)); }
-    if (!r.ok) throw new Error(d.detail || d.error || d.message || 'API Error');
+    if (!r.ok) {
+      const msg = Array.isArray(d.detail) ? d.detail.map(e => e.msg || e.message || JSON.stringify(e)).join('; ') : (d.detail || d.error || d.message || 'API Error');
+      throw new Error(typeof msg === 'object' ? JSON.stringify(msg) : String(msg));
+    }
     return d;
   } catch (e) { if (e.message === 'Failed to fetch') toast('Server not reachable', 'error'); throw e; }
 }
