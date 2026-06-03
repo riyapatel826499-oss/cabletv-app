@@ -310,7 +310,7 @@ async function agExportPaid(format) {
   if (!dateFrom || !dateTo) { toast('Select date range first', 'error'); return; }
 
   toast('Exporting...', 'info');
-  let url = `/api/payments/all?per_page=100000&export=true&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
+  let url = `/api/payments/all?per_page=10000&export=true&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
   if (q) url += '&q=' + encodeURIComponent(q);
   if (mso) url += '&mso=' + encodeURIComponent(mso);
 
