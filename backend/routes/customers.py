@@ -501,7 +501,7 @@ def get_unpaid_customers(
         params: list = [ref_str, month_start, month_end_str, month_start, month_end_str]
 
         if q:
-            where += " AND (c.name LIKE ? OR c.customer_id LIKE ? OR c.phone LIKE ? OR conn.stb_no LIKE ?)"
+            where += " AND (c.name ILIKE ? OR c.customer_id ILIKE ? OR c.phone ILIKE ? OR conn.stb_no ILIKE ?)"
             params += [f"%{q}%"] * 4
         if area:
             where += " AND c.area = ?"
@@ -629,7 +629,7 @@ def get_not_renewed_customers(
         params: list = []
 
         if q:
-            extra_where += " AND (c.name LIKE ? OR c.customer_id LIKE ? OR c.phone LIKE ? OR conn.stb_no LIKE ?)"
+            extra_where += " AND (c.name ILIKE ? OR c.customer_id ILIKE ? OR c.phone ILIKE ? OR conn.stb_no ILIKE ?)"
             params += [f"%{q}%"] * 4
         if area:
             extra_where += " AND c.area = ?"
@@ -775,7 +775,7 @@ def get_collection_list(
 
         # Search filter
         if q:
-            where += " AND (c.name LIKE ? OR c.phone LIKE ? OR c.customer_id LIKE ? OR conn.stb_no LIKE ? OR c.area LIKE ?)"
+            where += " AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.customer_id ILIKE ? OR conn.stb_no ILIKE ? OR c.area ILIKE ?)"
             params += [f"%{q}%"] * 5
 
         # Area filter
@@ -929,7 +929,7 @@ def search_customers(
             LEFT JOIN (
                 {paid_subq}
             ) p ON c.customer_id = p.customer_id
-            WHERE (c.name LIKE ? OR c.phone LIKE ? OR c.customer_id LIKE ? OR conn.stb_no LIKE ? OR c.area LIKE ?)
+            WHERE (c.name ILIKE ? OR c.phone ILIKE ? OR c.customer_id ILIKE ? OR conn.stb_no ILIKE ? OR c.area ILIKE ?)
             AND {_of_c}
             ORDER BY c.area, c.name
             LIMIT 50
