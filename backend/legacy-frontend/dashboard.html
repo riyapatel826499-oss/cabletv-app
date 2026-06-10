@@ -1053,6 +1053,23 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div class="modal-footer"><button class="btn btn-outline" onclick="closeReconnectModal()">Cancel</button><button class="btn btn-primary" onclick="doReconnect()">⚡ Reconnect</button></div></div>
 </div>
 
+<!-- Restore STB Modal -->
+<div id="restoreOverlay" class="modal-overlay" onclick="if(event.target===this)closeRestoreModal()">
+<div class="modal"><div class="modal-header"><h2>📦 Restore STB from Inventory</h2><button class="btn btn-outline btn-sm" onclick="closeRestoreModal()">✕</button></div>
+<div class="modal-body">
+<input type="hidden" id="restoreConnId">
+<input type="hidden" id="restoreCustId">
+<div class="form-group"><label>Customer</label><div id="restoreCustName" style="font-weight:600;font-size:1.1em"></div></div>
+<div class="form-group"><label>Select STB from Inventory</label>
+<div id="restoreAvailStbs" style="margin-bottom:12px"><p style="color:var(--muted);font-size:0.9em">Loading available STBs...</p></div>
+</div>
+<div id="restoreSelectedStb" style="background:var(--card-bg);border-radius:8px;padding:12px;margin-top:8px;display:none;border-left:3px solid var(--success)">
+<p style="margin:0;font-size:0.9em">Selected: <strong id="restoreSelectedStbNo">--</strong></p>
+</div>
+</div>
+<div class="modal-footer"><button class="btn btn-outline" onclick="closeRestoreModal()">Cancel</button><button class="btn btn-primary" onclick="doRestore()">📦 Restore &amp; Activate</button></div></div>
+</div>
+
 <!-- GTPL Renew Modal -->
 <div id="gtplRenewOverlay" class="modal-overlay" onclick="if(event.target===this)closeGtplRenewModal()">
 <div class="modal"><div class="modal-header"><h2>🔁 Renew on GTPL</h2><button class="btn btn-outline btn-sm" onclick="closeGtplRenewModal()">✕</button></div>
