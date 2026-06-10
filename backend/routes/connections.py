@@ -344,6 +344,114 @@ class ReconnectRequest(BaseModel):
     month_year: Optional[str] = None
 
 
+class RestoreRequest(BaseModel):
+    connection_id: int
+    customer_id: str
+    stb_no: str
+
+
+@router.post("/connections/restore")
+def restore_connection(
+    data: RestoreRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Restore a Surrendered connection by assigning an STB from inventory.
+    Sets connection back to Active, removes STB from inventory, reactivates customer."""
+    if current_user.get("role") == "master":
+        raise HTTPException(status_code=403, detail="Master admin cannot restore connections. Use an operator admin account.")
+    if current_user["role"] not in ("admin", "support", "collection_agent"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    _opid = op_id(current_user)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Validate the connection exists and is Surrendered
+    conn_query = (
+        select(Connection, Customer.name.label("customer_name"))
+        .join(Customer, Connection.customer_id == Customer.customer_id)
+        .where(Connection.id == data.connection_id)
+    )
+    conn_query = apply_op_filter(conn_query, Customer, current_user)
+    conn_result = db.execute(conn_query).first()
+
+    if not conn_result:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    conn_obj, customer_name = conn_result
+    if conn_obj.status != "Surrendered":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connection status is '{conn_obj.status}', not 'Surrendered'. Only surrendered connections can be restored.",
+        )
+
+    # 2. Validate the STB exists in inventory as 'available'
+    inv_stb = db.execute(
+        select(StbInventory).where(StbInventory.stb_no == data.stb_no)
+    ).scalar_one_or_none()
+
+    if not inv_stb:
+        raise HTTPException(status_code=404, detail=f"STB {data.stb_no} not found in inventory")
+    if inv_stb.status not in ("available", "spare"):
+        raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is '{inv_stb.status}' in inventory, not available for assignment")
+
+    # 3. Validate STB is not already in active use
+    stb_in_use = db.execute(
+        select(Customer.name)
+        .join(Connection, Connection.customer_id == Customer.customer_id)
+        .where(Connection.stb_no == data.stb_no, Connection.status == "Active")
+    ).scalar_one_or_none()
+    if stb_in_use:
+        raise HTTPException(status_code=400, detail=f"STB {data.stb_no} is already assigned to {stb_in_use}")
+
+    # 4. Update connection: set status Active, assign new STB
+    network = _detect_network(data.stb_no)
+    db.execute(
+        update(Connection)
+        .where(Connection.id == data.connection_id)
+        .values(status="Active", stb_no=data.stb_no, network=network)
+    )
+    try:
+        db.execute(
+            update(Connection)
+            .where(Connection.id == data.connection_id)
+            .values(
+                notes=(conn_obj.notes or "") + f"\n[Restored: {now} with STB {data.stb_no}]",
+                updated_at=now,
+            )
+        )
+    except Exception:
+        pass
+
+    # 5. Remove STB from inventory (mark as assigned)
+    db.execute(
+        update(StbInventory)
+        .where(StbInventory.id == inv_stb.id)
+        .values(status="assigned")
+    )
+
+    # 6. Reactivate customer if currently Surrendered
+    cust = db.execute(
+        select(Customer).where(Customer.customer_id == data.customer_id)
+    ).scalar_one_or_none()
+    if cust and cust.status == "Surrendered":
+        cust_update = (
+            update(Customer)
+            .where(Customer.customer_id == data.customer_id)
+            .values(status="Active", surrendered_date=None, surrender_reason=None)
+        )
+        cust_update = apply_op_filter(cust_update, Customer, current_user)
+        db.execute(cust_update)
+
+    db.commit()
+    return {
+        "ok": True,
+        "message": f"STB {data.stb_no} restored to {customer_name}. Connection activated successfully!",
+        "customer_id": data.customer_id,
+        "stb_no": data.stb_no,
+    }
+
+
 @router.post("/connections/reconnect")
 def reconnect_customer(
     data: ReconnectRequest,

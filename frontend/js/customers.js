@@ -269,6 +269,8 @@ function renderCustConnections() {
       }
     } else if (cn.status === 'Temp Disconnected') {
       html += '<span style="color:var(--warning);font-size:0.85em">STB reclaimed — use Reconnect button below</span>';
+    } else if (cn.status === 'Surrendered') {
+      html += '<button class="btn btn-outline btn-sm" style="color:var(--success)" onclick="openRestoreModal(\'' + escAttr(cn.id) + '\',\'' + escAttr(_custData.customer_id) + '\',\'' + escAttr(_custData.name || '') + '\')">📦 Restore STB</button>';
     }
     html += '</td></tr>';
   });
@@ -338,6 +340,71 @@ async function doReconnect() {
 }
 
 let _allPlansCache = null;
+
+// ── Restore STB from Inventory (for Surrendered connections) ────
+let _restoreSelectedStb = '';
+
+function openRestoreModal(connId, custId, custName) {
+  _restoreSelectedStb = '';
+  document.getElementById('restoreConnId').value = connId;
+  document.getElementById('restoreCustId').value = custId;
+  document.getElementById('restoreCustName').textContent = custName;
+  document.getElementById('restoreAvailStbs').innerHTML = '<p style="color:var(--muted);font-size:0.9em">Loading available STBs...</p>';
+  document.getElementById('restoreSelectedStb').style.display = 'none';
+  document.getElementById('restoreSelectedStbNo').textContent = '--';
+  document.getElementById('restoreOverlay').classList.add('show');
+  loadRestoreAvailStbs();
+}
+function closeRestoreModal() { document.getElementById('restoreOverlay').classList.remove('show'); }
+
+async function loadRestoreAvailStbs() {
+  try {
+    const d = await api('/api/stb-inventory?status=available');
+    const stbs = (d.items || d.inventory || []);
+    const el = document.getElementById('restoreAvailStbs');
+    if (!stbs.length) {
+      el.innerHTML = '<p style="color:var(--danger);font-size:0.9em">No STBs available in inventory. Add STBs to inventory first.</p>';
+      return;
+    }
+    let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+    stbs.forEach(s => {
+      html += '<button type="button" class="btn btn-outline btn-sm" data-stb="' + escAttr(s.stb_no) + '" onclick="selectRestoreStb(this,\'' + escAttr(s.stb_no) + '\')">' + esc(s.stb_no) + (s.notes ? ' <span style="color:var(--muted);font-size:0.8em">(' + esc(s.notes.substring(0, 30)) + ')</span>' : '') + '</button>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    document.getElementById('restoreAvailStbs').innerHTML = '<p style="color:var(--danger);font-size:0.9em">Could not load inventory.</p>';
+  }
+}
+
+function selectRestoreStb(btn, stbNo) {
+  _restoreSelectedStb = stbNo;
+  // Highlight selected
+  document.querySelectorAll('#restoreAvailStbs button').forEach(b => b.classList.remove('btn-primary'));
+  btn.classList.add('btn-primary');
+  // Show selected info
+  document.getElementById('restoreSelectedStb').style.display = 'block';
+  document.getElementById('restoreSelectedStbNo').textContent = stbNo;
+}
+
+async function doRestore() {
+  const connId = parseInt(document.getElementById('restoreConnId').value);
+  const custId = document.getElementById('restoreCustId').value;
+  if (!_restoreSelectedStb) { toast('Please select an STB from inventory', 'error'); return; }
+  try {
+    const r = await api('/api/connections/restore', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ connection_id: connId, customer_id: custId, stb_no: _restoreSelectedStb })
+    });
+    toast(r.message || 'STB restored and connection activated!', 'success');
+    closeRestoreModal();
+    await viewCustomer(custId);
+  } catch (e) {
+    toast(e.detail || e.message || 'Restore failed', 'error');
+  }
+}
+
 
 async function loadAllPlans() {
   if (_allPlansCache) return _allPlansCache;
