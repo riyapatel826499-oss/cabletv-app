@@ -1,20 +1,62 @@
 {
-  "name": "Wasool",
-  "short_name": "CableTV",
-  "description": "Cable TV Customer & Payment Management",
+  "name": "Wasool - Cable TV Management",
+  "short_name": "Wasool",
+  "description": "Cable TV Customer & Payment Management — collect payments, track customers, manage connections",
   "start_url": "/dashboard.html",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f3f4f6",
-  "theme_color": "#4f46e5",
+  "background_color": "#f5f5f7",
+  "theme_color": "#0071e3",
   "orientation": "portrait-primary",
+  "categories": ["business", "finance", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%234f46e5'/><text x='50' y='68' font-size='55' text-anchor='middle' fill='white'>📺</text></svg>",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "finance"],
-  "prefer_related_applications": false
+  "shortcuts": [
+    {
+      "name": "Collect Payment",
+      "short_name": "Payment",
+      "url": "/dashboard.html#payments",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Customers",
+      "short_name": "Customers",
+      "url": "/dashboard.html#customers",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "url": "/dashboard.html#reports",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    }
+  ]
 }

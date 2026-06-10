@@ -3,10 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#0071e3">
+<meta name="description" content="Cable TV Customer & Payment Management">
+<!-- PWA -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wasool">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-128.png">
 <title>Wasool</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -254,6 +261,15 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 </style>
 </head>
 <body>
+<!-- Splash Screen -->
+<div id="splashScreen" style="position:fixed;inset:0;background:linear-gradient(135deg,#0071e3,#005bb5);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .5s ease">
+  <div style="width:80px;height:80px;background:rgba(255,255,255,0.15);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:700;color:#fff;animation:splashPulse 1.5s ease infinite">W</div>
+  <div style="margin-top:16px;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.02em">Wasool</div>
+  <div style="margin-top:6px;color:rgba(255,255,255,0.7);font-size:12px">Cable TV Management</div>
+  <div style="margin-top:32px;width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}@keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}</style>
+<script>function hideSplash(){const s=document.getElementById('splashScreen');if(s){s.style.opacity='0';setTimeout(()=>s.remove(),500)}}window.addEventListener('load',()=>setTimeout(hideSplash,800))</script>
 <button id="hamburgerBtn">&#9776;</button>
 <aside id="sidebar">
 <div class="brand">📺 Wasool</div>
@@ -1143,17 +1159,20 @@ body.role-agent #page-customers > .pagination { display: none !important; }
 <div id="toastContainer" class="toast-container"></div>
 
 <!-- PWA Install Banner -->
-<div id="pwaBanner" style="display:none;position:fixed;bottom:70px;left:10px;right:10px;background:var(--white);border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:14px 16px;z-index:1100;border:1px solid var(--border)">
-  <div style="display:flex;align-items:center;gap:12px">
-    <div style="font-size:36px">📺</div>
-    <div style="flex:1">
-      <div style="font-weight:600;font-size:14px">Install Wasool App</div>
-      <div style="font-size:12px;color:var(--text-light)">Add to home screen for quick access</div>
+<div id="pwaBanner" style="display:none;position:fixed;bottom:78px;left:12px;right:12px;z-index:1100;animation:slideUp .4s cubic-bezier(.175,.885,.32,1.275)">
+  <div style="background:var(--bg-card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18),0 0 0 0.5px rgba(0,0,0,0.08);padding:16px 18px;border:0.5px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:14px">
+      <img src="icon-192.png" width="48" height="48" style="border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" alt="Wasool">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:15px;letter-spacing:-0.01em">Install Wasool</div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:2px">Add to home screen — works like a real app</div>
+      </div>
+      <button onclick="installPWA()" style="background:var(--primary);color:#fff;border:none;padding:10px 20px;border-radius:980px;font-weight:600;font-size:13px;cursor:pointer;box-shadow:0 2px 8px rgba(0,113,227,0.3)">Install</button>
+      <button onclick="dismissPWA()" style="border:none;background:rgba(120,120,128,0.12);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;color:var(--text-light);display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="installPWA()" style="padding:8px 16px">Install</button>
-    <button style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-light);padding:4px" onclick="dismissPWA()">✕</button>
   </div>
 </div>
+<style>@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}</style>
 
 <!-- Mobile Bottom Navigation -->
 <nav class="mob-nav" id="mobNav">

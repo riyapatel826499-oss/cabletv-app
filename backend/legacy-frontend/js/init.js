@@ -345,7 +345,20 @@ if (hamburgerBtn) {
 
 // PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // Check for push notification support
+    if ('PushManager' in window && 'Notification' in window) {
+      const bellBtn = document.getElementById('pushBellBtn');
+      if (bellBtn) {
+        bellBtn.style.display = '';
+        // Update bell icon based on permission
+        function updateBellIcon() {
+          bellBtn.textContent = Notification.permission === 'granted' ? '🔔' : '🔕';
+        }
+        updateBellIcon();
+      }
+    }
+  }).catch(() => {});
 }
 
 // PWA Install Prompt
@@ -353,12 +366,21 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  // Show banner only on mobile and if not dismissed
-  if (window.innerWidth <= 768 && !localStorage.getItem('pwaDismissed')) {
+  // Show banner if not dismissed (both mobile and desktop)
+  if (!localStorage.getItem('pwaDismissed')) {
     setTimeout(() => {
-      document.getElementById('pwaBanner').style.display = 'block';
+      const banner = document.getElementById('pwaBanner');
+      if (banner) banner.style.display = 'block';
     }, 3000);
   }
+});
+
+// Hide banner after install
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  const banner = document.getElementById('pwaBanner');
+  if (banner) banner.style.display = 'none';
+  toast('App installed successfully!', 'success');
 });
 
 function installPWA() {
@@ -379,7 +401,7 @@ function toggleDarkMode() {
   const isDark = document.body.classList.toggle('dark-mode');
   localStorage.setItem('darkMode', isDark ? '1' : '0');
   document.getElementById('darkModeBtn').textContent = isDark ? '☀️' : '🌙';
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', isDark ? '#0d0d0f' : '#4f46e5');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', isDark ? '#0d0d0f' : '#0071e3');
 }
 
 // Apply saved dark mode on load
