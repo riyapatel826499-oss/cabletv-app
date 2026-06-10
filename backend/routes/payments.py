@@ -133,12 +133,22 @@ def create_payment(
                 .values(status="Expired")
             )
             months = data.months_paid or 1
-            start_date = datetime.now().strftime("%Y-%m-%d")
 
-            # Calculate expiry: last day of the Nth month from now
-            now = datetime.now()
-            expiry_month = now.month + months
-            expiry_year = now.year
+            # Derive start month from month_year (MM-YYYY), fall back to now
+            if data.month_year and "-" in data.month_year:
+                parts = data.month_year.split("-")
+                start_month = int(parts[0])
+                start_year = int(parts[1])
+            else:
+                now = datetime.now()
+                start_month = now.month
+                start_year = now.year
+
+            start_date = f"{start_year}-{start_month:02d}-01"
+
+            # Calculate expiry: last day of the Nth month from start month
+            expiry_month = start_month + (months - 1)
+            expiry_year = start_year
             while expiry_month > 12:
                 expiry_month -= 12
                 expiry_year += 1
