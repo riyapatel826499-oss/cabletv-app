@@ -110,9 +110,14 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
        conn.execute(f"UPDATE connections SET stb_no = ? WHERE id = ? AND {flt}", [data.new_stb_no, connection_id])
        # 5. Add old STB to inventory
        notes = data.old_stb_notes or f"Exchanged from {customer_id}"
-       conn.execute("""INSERT INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)
-                       ON CONFLICT (stb_no) DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, added_at = EXCLUDED.added_at, added_by = EXCLUDED.added_by, operator_id = EXCLUDED.operator_id""",
-                    [old_stb, data.old_stb_status, notes, now, current_user["name"], _oid])
+       # Check if old STB already exists in inventory (upsert)
+       existing = conn.execute(f"SELECT id FROM stb_inventory WHERE stb_no = ? AND {flt}", [old_stb]).fetchone()
+       if existing:
+           conn.execute(f"UPDATE stb_inventory SET status = ?, notes = ?, added_at = ?, added_by = ?, operator_id = ? WHERE stb_no = ? AND {flt}",
+                        [data.old_stb_status, notes, now, current_user["name"], _oid, old_stb])
+       else:
+           conn.execute("INSERT INTO stb_inventory (stb_no, status, notes, added_at, added_by, operator_id) VALUES (?, ?, ?, ?, ?, ?)",
+                        [old_stb, data.old_stb_status, notes, now, current_user["name"], _oid])
        conn.commit()
    return {
        "message": "STB exchanged successfully",
