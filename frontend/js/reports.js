@@ -171,7 +171,7 @@ function agLoadPaid(page = 1) {
     const delTh = document.getElementById('agPaidDelTh');
     if (delTh) delTh.textContent = canDelete ? '🗑' : '';
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="' + (canDelete ? 13 : 12) + '" class="empty-state">No payments found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="' + (canDelete ? 14 : 13) + '" class="empty-state">No payments found</td></tr>';
     } else {
       tbody.innerHTML = filtered.map((p, i) => {
         const phone = p.customer_phone || '';
@@ -196,7 +196,8 @@ function agLoadPaid(page = 1) {
 
         return '<tr>' +
           '<td>' + ((data.page - 1) * parseInt(perPage) + i + 1) + '</td>' +
-          '<td><strong>' + esc(p.customer_name || '--') + '</strong><br><span style="font-size:11px;color:var(--text-light)">' + esc(p.customer_id || '') + '</span></td>' +
+          '<td><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(p.customer_id || '') + '\')">' + esc(p.customer_name || '--') + '</a><br><span style="font-size:11px;color:var(--text-light)">' + esc(p.customer_id || '') + '</span></td>' +
+          '<td>' + (phone ? '<a href="tel:' + esc(phone) + '" style="color:var(--primary);text-decoration:none">' + esc(phone) + '</a>' : '-') + '</td>' +
           '<td>' + stbCell + '</td>' +
           '<td>' + esc(p.mso || '-') + '</td>' +
           '<td>' + esc(p.area || '-') + '</td>' +
@@ -245,8 +246,8 @@ function agLoadPaid(page = 1) {
           return '<div class="rcard">'
             + '<div class="rcard-header">'
             + '<div class="rcard-cust">'
-            + '<div class="rcard-name">' + esc(p.customer_name || '--') + '</div>'
-            + '<div class="rcard-id">' + esc(p.customer_id || '') + '</div>'
+            + '<div class="rcard-name"><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(p.customer_id || '') + '\')">' + esc(p.customer_name || '--') + '</a></div>'
+            + '<div class="rcard-id">' + esc(p.customer_id || '') + (p.customer_phone ? ' · <a href="tel:' + esc(p.customer_phone) + '" style="color:var(--primary);text-decoration:none">' + esc(p.customer_phone) + '</a>' : '') + '</div>'
             + '</div>'
             + '<div class="rcard-amt">₹' + (p.amount || 0) + '</div>'
             + '</div>'

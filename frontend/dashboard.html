@@ -653,7 +653,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <span style="display:inline-flex;gap:6px"><button class="btn btn-outline btn-sm" onclick="agExportPaid('csv')">📥 CSV</button>
     <button class="btn btn-outline btn-sm" onclick="agExportPaid('xlsx')">📥 Excel</button></span>
   </div>
-  <div class="table-wrap" id="agPaidWrap"><table><thead><tr><th>#</th><th>Customer</th><th>STB</th><th>MSO</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th>GTPL</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
+  <div class="table-wrap" id="agPaidWrap"><table><thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>STB</th><th>MSO</th><th>Area</th><th>Plan</th><th>Amount</th><th>Mode</th><th>Date & Time</th><th>Collected By</th><th>📍</th><th>GTPL</th><th id="agPaidDelTh"></th></tr></thead><tbody id="agPaidBody"></tbody></table></div>
   <div id="mobAgPaid" class="mob-rpt-cards"></div>
   <div class="pagination" id="agPaidPagination"></div>
 </div>
@@ -1200,7 +1200,7 @@ document.addEventListener('input',function(e){
 <script src="js/customer-crud.js?v=14"></script>
 <script src="js/employees.js?v=14"></script>
 <script src="js/payments.js?v=15"></script>
-<script src="js/reports.js?v=14"></script>
+<script src="js/reports.js?v=15"></script>
 <script src="js/settings.js?v=14"></script>
 <script src="js/auth-operators.js?v=14"></script>
 <script src="js/init.js?v=14"></script>
