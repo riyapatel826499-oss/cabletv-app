@@ -413,7 +413,18 @@ function calcPayAmount() {
 
 async function recordPayment(e) {
   e.preventDefault();
+  const btn = document.querySelector('.pay-now-btn');
+  if (btn && btn.disabled) return; // already submitting
   if (document.getElementById('payCustomerId').value === '') return toast('Select a customer first', 'warning');
+
+  // Disable button immediately to prevent double-click
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.origHtml = btn.innerHTML;
+    btn.innerHTML = '⏳ Processing...';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
+  }
 
   const custId = document.getElementById('payCustomerId').value;
   const monthVal = document.getElementById('payMonth').value;
@@ -434,6 +445,8 @@ async function recordPayment(e) {
         const lastDate = fmtDate(last.date);
         const lastAmt = fmtRs(last.amount);
         showDuplicateWarning(custId, monthYear, lastDate, lastAmt, existing.length);
+        // Re-enable button — user will re-submit via duplicate warning dialog
+        if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.origHtml || '💳 Pay Now'; btn.style.opacity = ''; btn.style.pointerEvents = ''; }
         return;
       }
     } catch(ex) {}
@@ -501,8 +514,14 @@ async function recordPayment(e) {
     };
     showPayReceiptPrompt(result_data);
     resetPayForm();
+    // Re-enable button (resetPayForm recreates form state)
+    if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.origHtml || '💳 Pay Now'; btn.style.opacity = ''; btn.style.pointerEvents = ''; }
     loadAllPaymentHistory(1);
-  } catch (e) { toast('Payment failed: ' + e.message, 'error'); }
+  } catch (e) {
+    toast('Payment failed: ' + e.message, 'error');
+    // Re-enable button on failure so they can retry
+    if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset.origHtml || '💳 Pay Now'; btn.style.opacity = ''; btn.style.pointerEvents = ''; }
+  }
 }
 
 function showPayReceiptPrompt(data) {
@@ -603,7 +622,8 @@ function phDateQuick(preset) {
 
 async function loadAllPaymentHistory(page) {
   page = page || 1;
-  const perPage = parseInt(document.getElementById('payPerPage').value) || 10;
+  const selectEl = document.getElementById('payPerPage');
+  const perPage = parseInt(selectEl ? selectEl.value : '100');
   const dateFrom = document.getElementById('payDateFrom').value || '';
   const dateTo = document.getElementById('payDateTo').value || '';
 
