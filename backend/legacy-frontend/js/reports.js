@@ -80,9 +80,9 @@ function agRptTab(tab, btn) {
   document.getElementById('agRptUnpaid').style.display = tab === 'unpaid' ? '' : 'none';
   document.getElementById('agRptNR').style.display = tab === 'notrenewed' ? '' : 'none';
   if (tab === 'paid') {
-    // Set default to Today if no date selected yet
+    // Set default to This Month if no date selected yet
     const fromEl = document.getElementById('agPaidFrom');
-    if (!fromEl.value) agPaidDateQuick('today');
+    if (!fromEl.value) agPaidDateQuick('month');
     else agLoadPaid(1);
   }
   else if (tab === 'unpaid') agLoadUnpaid(1);
@@ -106,9 +106,9 @@ function agPaidDateQuick(preset) {
   document.getElementById('agPaidFrom').value = from;
   document.getElementById('agPaidTo').value = to;
   // Highlight active button
+  const activeMap = {today:'agPaidToday',yesterday:'agPaidYesterday',month:'agPaidMonth'};
   ['agPaidToday','agPaidYesterday','agPaidMonth'].forEach(id => {
-    const b = document.getElementById(id);
-    b.className = 'btn btn-sm ' + (id === 'agPaid' + preset.charAt(0).toUpperCase() + preset.slice(1) ? 'btn-primary' : 'btn-outline');
+    document.getElementById(id).classList.toggle('active', id === activeMap[preset]);
   });
   agLoadPaid(1);
 }

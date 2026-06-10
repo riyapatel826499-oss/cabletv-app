@@ -30,7 +30,7 @@ table{width:100%;border-collapse:collapse;background:var(--bg-card);backdrop-fil
 .stb-badge{background:rgba(0,113,227,0.08);color:var(--primary);font-family:'SF Mono','Courier New',monospace;font-size:0.82rem;padding:3px 10px;border-radius:var(--radius-xs);cursor:pointer;display:inline-block;transition:var(--transition);border:0.5px solid rgba(0,113,227,0.15)}.stb-badge:hover{background:rgba(0,113,227,0.15)}
 .net-badge{display:inline-block;padding:3px 10px;border-radius:980px;font-size:0.72rem;font-weight:600;letter-spacing:0.3px}
 .net-gtpl{background:rgba(34,197,94,0.1);color:#16a34a}.net-tactv{background:rgba(249,115,22,0.1);color:#ea580c}.net-scv{background:rgba(139,92,246,0.1);color:#7c3aed}
-.date-quick-btns{display:flex;gap:6px;flex-wrap:wrap}.date-quick-btns button{padding:5px 12px;font-size:0.78rem;border:0.5px solid var(--border);border-radius:var(--radius-xs);background:var(--bg-card);cursor:pointer;transition:var(--transition)}.date-quick-btns button:hover{background:rgba(0,113,227,0.06);border-color:var(--primary);color:var(--primary)}
+.date-quick-btns{display:flex;gap:6px;flex-wrap:wrap}.date-quick-btns button{padding:5px 12px;font-size:0.78rem;border:0.5px solid var(--border);border-radius:var(--radius-xs);background:var(--bg-card);cursor:pointer;transition:var(--transition)}.date-quick-btns button:hover{background:rgba(0,113,227,0.06);border-color:var(--primary);color:var(--primary)}.dq-btn{padding:6px 16px;font-size:0.78rem;font-weight:500;border:1px solid var(--border);border-radius:980px;background:transparent;color:var(--text);cursor:pointer;transition:all 0.2s ease;letter-spacing:-0.01em}.dq-btn:hover{background:rgba(0,113,227,0.08);border-color:var(--primary);color:var(--primary)}.dq-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 2px 8px rgba(0,113,227,0.25)}
 .toggle-switch{position:relative;display:inline-block;width:44px;height:24px;margin-right:8px}.toggle-switch input{opacity:0;width:0;height:0}.toggle-switch .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#c7c7cc;border-radius:24px;transition:var(--transition)}.toggle-switch .slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:white;border-radius:50%;transition:var(--transition);box-shadow:0 1px 3px rgba(0,0,0,0.15)}.toggle-switch input:checked+.slider{background:var(--success)}.toggle-switch input:disabled+.slider{opacity:0.35;cursor:not-allowed}.perm-group{margin-bottom:16px}.perm-group h4{font-size:0.82rem;color:var(--text-light);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em}.perm-item{display:flex;align-items:center;gap:8px;padding:6px 0}.perm-item label{font-size:0.88rem;cursor:pointer;flex:1}
 .cust-tabs{display:flex;gap:4px;margin-bottom:16px;background:rgba(245,245,247,0.6);border-radius:var(--radius-sm);padding:4px;overflow-x:auto}.cust-tab{padding:6px 14px;border:none;background:transparent;cursor:pointer;font-weight:500;color:var(--text-light);border-radius:var(--radius-xs);font-size:0.82rem;white-space:nowrap;transition:var(--transition)}.cust-tab.active{background:var(--white);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,0.08)}.cust-tab:hover:not(.active){color:var(--text)}
 /* Payment step design */
@@ -635,9 +635,9 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <div class="stat-card"><h3>Total Amount</h3><div class="value" id="agPaidAmt">₹0</div></div>
   </div>
   <div class="date-quick-btns" style="margin-bottom:10px">
-    <button class="btn btn-sm btn-primary" id="agPaidToday" onclick="agPaidDateQuick('today')">Today</button>
-    <button class="btn btn-sm btn-outline" id="agPaidYesterday" onclick="agPaidDateQuick('yesterday')">Yesterday</button>
-    <button class="btn btn-sm btn-outline" id="agPaidMonth" onclick="agPaidDateQuick('month')">This Month</button>
+    <button class="dq-btn" id="agPaidToday" onclick="agPaidDateQuick('today')">Today</button>
+    <button class="dq-btn" id="agPaidYesterday" onclick="agPaidDateQuick('yesterday')">Yesterday</button>
+    <button class="dq-btn" id="agPaidMonth" onclick="agPaidDateQuick('month')">This Month</button>
     <input type="date" id="agPaidFrom" class="form-control" style="width:auto;padding:5px 8px;font-size:13px" onchange="agLoadPaid(1)">
     <span style="color:var(--text-light);font-size:13px">to</span>
     <input type="date" id="agPaidTo" class="form-control" style="width:auto;padding:5px 8px;font-size:13px" onchange="agLoadPaid(1)">
@@ -1200,7 +1200,7 @@ document.addEventListener('input',function(e){
 <script src="js/customer-crud.js?v=14"></script>
 <script src="js/employees.js?v=14"></script>
 <script src="js/payments.js?v=15"></script>
-<script src="js/reports.js?v=15"></script>
+<script src="js/reports.js?v=16"></script>
 <script src="js/settings.js?v=14"></script>
 <script src="js/auth-operators.js?v=14"></script>
 <script src="js/init.js?v=14"></script>
