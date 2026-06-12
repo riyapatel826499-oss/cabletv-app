@@ -9,6 +9,7 @@ export const customersApi = {
   update: (id: string, data: Partial<Customer>) => api.put(`/customers/${id}`, data),
   search: (query: string) => api.get('/customers/search', { params: { q: query } }),
   unpaid: (params: Record<string, string>) => api.get('/customers/unpaid', { params }),
+  tempDisconnected: () => api.get('/customers/temp-disconnected'),
 };
 
 // ── Connections ───────────────────────────────────────────────────────────
@@ -17,7 +18,12 @@ export const connectionsApi = {
   create: (data: Partial<Connection>) => api.post('/connections', data),
   update: (id: number, data: Partial<Connection>) => api.put(`/connections/${id}`, data),
   disconnect: (id: number) => api.post(`/connections/${id}/disconnect`),
-  reconnect: (id: number) => api.post(`/connections/${id}/reconnect`),
+  reconnect: (data: { customer_id: string; stb_no: string; connection_id?: number }) =>
+    api.post('/connections/reconnect', data),
+  restore: (data: { connection_id: number; customer_id: string; stb_no: string }) =>
+    api.post('/connections/restore', data),
+  tempDisconnect: (data: { connection_id: number; reason?: string }) =>
+    api.post('/connections/temp-disconnect', data),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────

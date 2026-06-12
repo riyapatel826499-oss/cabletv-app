@@ -11,6 +11,7 @@ import RecordPayment from './pages/RecordPayment';
 import Reports from './pages/Reports';
 import Unpaid from './pages/Unpaid';
 import Plans from './pages/Plans';
+import Connections from './pages/Connections';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -61,7 +62,7 @@ function AppRoutes() {
         <Route path="payments/new" element={<RecordPayment />} />
         <Route path="plans" element={<Plans />} />
         <Route path="reports" element={<Reports />} />
-        <Route path="connections" element={<div className="text-center py-20 text-gray-400">Connections page — coming soon</div>} />
+        <Route path="connections" element={<Connections />} />
         <Route path="service-requests" element={<div className="text-center py-20 text-gray-400">Service Requests — coming soon</div>} />
         <Route path="settings" element={<div className="text-center py-20 text-gray-400">Settings — coming soon</div>} />
         <Route path="operators" element={<div className="text-center py-20 text-gray-400">Operators — coming soon</div>} />
