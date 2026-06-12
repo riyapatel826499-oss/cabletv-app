@@ -25,13 +25,14 @@ export const paymentsApi = {
   create: (data: Partial<Payment>) => api.post('/payments', data),
   byMonth: (monthYear: string, page?: number) =>
     api.get('/payments/all', { params: { month_year: monthYear, page: page || 1 } }),
-  today: () => api.get('/payments/today'),
+  history: (customerId: string) =>
+    api.get('/payments/history', { params: { customer_id: customerId, per_page: '50' } }),
 };
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
 export const dashboardApi = {
-  stats: () => api.get('/dashboard'),
-  operatorStats: () => api.get('/dashboard/operators'),
+  stats: () => api.get('/dashboard/stats'),
+  master: () => api.get('/dashboard/master'),
 };
 
 // ── Plans ─────────────────────────────────────────────────────────────────

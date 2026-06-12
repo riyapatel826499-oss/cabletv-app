@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Customers from './pages/Customers';
+import CustomerDetail from './pages/CustomerDetail';
+import Payments from './pages/Payments';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -47,9 +50,10 @@ function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        {/* TODO: Add more pages as we build them */}
-        <Route path="customers" element={<div className="text-center py-20 text-gray-400">Customers page — coming soon</div>} />
-        <Route path="payments" element={<div className="text-center py-20 text-gray-400">Payments page — coming soon</div>} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="customers/:id" element={<CustomerDetail />} />
+        <Route path="payments" element={<Payments />} />
+        {/* TODO: remaining pages */}
         <Route path="connections" element={<div className="text-center py-20 text-gray-400">Connections page — coming soon</div>} />
         <Route path="reports" element={<div className="text-center py-20 text-gray-400">Reports page — coming soon</div>} />
         <Route path="service-requests" element={<div className="text-center py-20 text-gray-400">Service Requests — coming soon</div>} />
