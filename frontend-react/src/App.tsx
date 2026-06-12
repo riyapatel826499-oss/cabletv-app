@@ -8,6 +8,9 @@ import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import Payments from './pages/Payments';
 import RecordPayment from './pages/RecordPayment';
+import Reports from './pages/Reports';
+import Unpaid from './pages/Unpaid';
+import Plans from './pages/Plans';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -53,11 +56,12 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/:id" element={<CustomerDetail />} />
+        <Route path="unpaid" element={<Unpaid />} />
         <Route path="payments" element={<Payments />} />
         <Route path="payments/new" element={<RecordPayment />} />
-        {/* TODO: remaining pages */}
+        <Route path="plans" element={<Plans />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="connections" element={<div className="text-center py-20 text-gray-400">Connections page — coming soon</div>} />
-        <Route path="reports" element={<div className="text-center py-20 text-gray-400">Reports page — coming soon</div>} />
         <Route path="service-requests" element={<div className="text-center py-20 text-gray-400">Service Requests — coming soon</div>} />
         <Route path="settings" element={<div className="text-center py-20 text-gray-400">Settings — coming soon</div>} />
         <Route path="operators" element={<div className="text-center py-20 text-gray-400">Operators — coming soon</div>} />

@@ -8,6 +8,7 @@ export const customersApi = {
   create: (data: Partial<Customer>) => api.post('/customers', data),
   update: (id: string, data: Partial<Customer>) => api.put(`/customers/${id}`, data),
   search: (query: string) => api.get('/customers/search', { params: { q: query } }),
+  unpaid: (params: Record<string, string>) => api.get('/customers/unpaid', { params }),
 };
 
 // ── Connections ───────────────────────────────────────────────────────────
@@ -37,9 +38,10 @@ export const dashboardApi = {
 
 // ── Plans ─────────────────────────────────────────────────────────────────
 export const plansApi = {
-  list: () => api.get('/plans'),
+  list: (params?: Record<string, string>) => api.get('/plans', { params }),
   create: (data: Partial<Plan>) => api.post('/plans', data),
   update: (id: number, data: Partial<Plan>) => api.put(`/plans/${id}`, data),
+  delete: (id: number) => api.delete(`/plans/${id}`),
 };
 
 // ── Operators (master admin) ──────────────────────────────────────────────
@@ -60,6 +62,12 @@ export const serviceRequestsApi = {
 
 // ── Reports ───────────────────────────────────────────────────────────────
 export const reportsApi = {
+  areaCollection: (params: { from_date: string; to_date: string }) =>
+    api.get('/reports/area-collection', { params }),
+  collectorPerformance: (params: { from_date: string; to_date: string }) =>
+    api.get('/reports/collector-performance', { params }),
+  msoSummary: (params: { from_date: string; to_date: string }) =>
+    api.get('/reports/mso-summary', { params }),
   monthly: (monthYear: string) => api.get('/reports/monthly', { params: { month_year: monthYear } }),
   msoReconciliation: (monthYear: string) =>
     api.get('/reports/mso-reconciliation', { params: { month_year: monthYear } }),

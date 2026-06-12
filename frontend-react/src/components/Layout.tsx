@@ -14,16 +14,19 @@ import {
   Moon,
   Sun,
   Tv,
+  AlertCircle,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/unpaid', label: 'Unpaid', icon: AlertCircle },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/payments/new', label: 'Record Payment', icon: CreditCard },
-  { to: '/connections', label: 'Connections', icon: Wifi },
+  { to: '/plans', label: 'Plans', icon: Tv },
   { to: '/reports', label: 'Reports', icon: FileBarChart },
+  { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];

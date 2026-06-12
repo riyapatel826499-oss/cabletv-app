@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(///wsl.localhost/Ubuntu/home/administrator/cabletv-app/**)",
+      "Bash(python -m py_compile main.py models/tables.py models/database.py)",
+      "Bash(wsl -e bash -lc 'cd /home/administrator/cabletv-app/backend && python3 -c \"import fastapi; print\\(\\\\\"wsl fastapi\\\\\", fastapi.__version__\\)\"')",
+      "Bash(wsl -e bash -lc 'ls -d /home/administrator/cabletv-app/backend/venv /home/administrator/cabletv-app/backend/.venv /home/administrator/cabletv-app/venv /home/administrator/cabletv-app/.venv 2>/dev/null; echo \"--- pip fastapi global? ---\"; python3 -m pip show fastapi 2>/dev/null | head -2 || echo none')",
+      "Bash(wsl *)",
+      "Read(///wsl.localhost/Ubuntu/home/administrator/**)",
+      "Bash(grep -rn \"function printPaymentReceipt\" frontend/js/ frontend/app.js)",
+      "Bash(sed -n '230,330p' backend/routes/customers.py)",
+      "Bash(sed -n '410,470p' backend/routes/customers.py)",
+      "Bash(sed -n '310,345p' backend/routes/payments.py)",
+      "Bash(ls -la .dockerignore)"
+    ]
+  }
+}
