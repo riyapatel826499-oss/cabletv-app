@@ -60,10 +60,15 @@ export const operatorsApi = {
 
 // ── Service Requests ──────────────────────────────────────────────────────
 export const serviceRequestsApi = {
-  list: (params?: Record<string, string>) => api.get('/service-requests', { params }),
-  get: (id: number) => api.get(`/service-requests/${id}`),
-  updateStatus: (id: number, status: string, note?: string) =>
-    api.put(`/service-requests/${id}/status`, { status, note }),
+  list: (params?: Record<string, string>) => api.get('/service-requests/', { params }),
+  get: (ticketNo: string) => api.get(`/service-requests/${ticketNo}`),
+  create: (data: { ticket_no: string; customer_id: string; type: string; category: string; priority: string; description: string }) =>
+    api.post('/service-requests/', data),
+  updateStatus: (ticketNo: string, status: string) =>
+    api.put(`/service-requests/${ticketNo}/status`, { status }),
+  assign: (ticketNo: string, assignedTo: number) =>
+    api.put(`/service-requests/${ticketNo}/assign`, { assigned_to: assignedTo }),
+  stats: () => api.get('/service-requests/stats/summary'),
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────
