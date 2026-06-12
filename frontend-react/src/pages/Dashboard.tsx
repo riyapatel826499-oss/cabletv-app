@@ -1,36 +1,76 @@
 import { useAuth } from '../hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../api';
-import { Wifi, Users, IndianRupee, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Users, IndianRupee, TrendingUp, Clock, AlertCircle, Wifi } from 'lucide-react';
 import type { DashboardStats } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
 
 function StatCard({
-  title, value, subtitle, icon: Icon, color,
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  color,
 }: {
   title: string;
   value: string | number;
   subtitle?: string;
   icon: React.ElementType;
-  color: string;
+  color: 'primary' | 'success' | 'warning' | 'danger';
 }) {
   const colorMap: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    red: 'bg-red-50 text-red-600',
-    purple: 'bg-purple-50 text-purple-600',
+    primary: '#0071e3',
+    success: '#34c759',
+    warning: '#ff9f0a',
+    danger: '#ff3b30',
   };
+  const bgMap: Record<string, string> = {
+    primary: 'rgba(0,113,227,0.1)',
+    success: 'rgba(52,199,89,0.1)',
+    warning: 'rgba(255,159,10,0.1)',
+    danger: 'rgba(255,59,48,0.1)',
+  };
+
   return (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between">
+    <div className="glass-card" style={{ padding: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-2xl font-bold mt-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+          <p
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              color: 'var(--text-light)',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.04em',
+              marginBottom: 8,
+            }}
+          >
+            {title}
+          </p>
+          <p
+            style={{
+              fontSize: '1.8rem',
+              fontWeight: 700,
+              color: colorMap[color],
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {value}
+          </p>
+          {subtitle && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 4 }}>
+              {subtitle}
+            </p>
+          )}
         </div>
-        <div className={`p-3 rounded-xl ${colorMap[color]}`}>
-          <Icon className="w-6 h-6" />
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 'var(--radius-sm)',
+            background: bgMap[color],
+          }}
+        >
+          <Icon style={{ width: 24, height: 24, color: colorMap[color] }} />
         </div>
       </div>
     </div>
@@ -48,109 +88,241 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            border: '4px solid rgba(0,113,227,0.2)',
+            borderTopColor: '#0071e3',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
       </div>
     );
   }
 
   if (isError || !stats) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-        <AlertCircle className="w-8 h-8 mb-2" />
-        <p>Couldn't load dashboard. Try again.</p>
+      <div
+        className="glass-card animate-fade-in"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 64,
+          color: 'var(--text-light)',
+        }}
+      >
+        <AlertCircle style={{ width: 32, height: 32, marginBottom: 8 }} />
+        <p>Unable to load dashboard data</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">
-          Welcome back, {user?.name || 'Admin'} · {stats.month}
+        <h1
+          style={{
+            fontSize: '1.4rem',
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+            color: 'var(--text)',
+          }}
+        >
+          Welcome back, {user?.name?.split(' ')[0] || 'Admin'} 👋
+        </h1>
+        <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
+          Here's your collection overview for this month
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stat Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+        }}
+      >
         <StatCard
-          title="Active Connections"
-          value={stats.total_connections.toLocaleString('en-IN')}
-          subtitle={`${stats.total_customers.toLocaleString('en-IN')} customers`}
+          title="Total Connections"
+          value={stats.total_connections ?? 0}
           icon={Wifi}
-          color="green"
-        />
-        <StatCard
-          title="Paid This Month"
-          value={stats.paid_this_month.toLocaleString('en-IN')}
-          subtitle={`${stats.unpaid_this_month.toLocaleString('en-IN')} unpaid`}
-          icon={Users}
-          color="blue"
+          color="primary"
         />
         <StatCard
           title="Collected This Month"
-          value={fmtRs(stats.total_collected)}
+          value={fmtRs(stats.total_collected ?? 0)}
           icon={IndianRupee}
-          color="purple"
+          color="success"
+          subtitle={`${stats.paid_this_month ?? 0} customers paid`}
         />
         <StatCard
-          title="Collection Rate"
-          value={`${(stats.collection_efficiency || 0).toFixed(1)}%`}
-          subtitle={stats.open_sr_count ? `${stats.open_sr_count} open requests` : undefined}
+          title="Pending Collection"
+          value={fmtRs(stats.unpaid_this_month ? Math.round((stats.total_collected / Math.max(1, stats.paid_this_month)) * stats.unpaid_this_month) : 0)}
+          icon={Clock}
+          color="warning"
+          subtitle={`${stats.unpaid_this_month ?? 0} customers pending`}
+        />
+        <StatCard
+          title="Collection Efficiency"
+          value={`${stats.collection_efficiency ?? 0}%`}
           icon={TrendingUp}
-          color="yellow"
+          color={stats.collection_efficiency >= 80 ? 'success' : 'warning'}
         />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Recent payments */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-5 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4" /> Recent Payments
-            </h2>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {stats.recent_payments?.length ? (
-              stats.recent_payments.slice(0, 10).map((p, i) => (
-                <div key={i} className="px-5 py-3 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{p.customer_name || p.customer_id}</p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {[p.stb_no, p.mode, p.collector_name].filter(Boolean).join(' · ')}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0 pl-3">
-                    <p className="text-sm font-semibold text-green-600">{fmtRs(p.amount)}</p>
-                    <p className="text-xs text-gray-400">{fmtDate(p.date)}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-5 text-center text-gray-400 text-sm">No payments yet</div>
-            )}
-          </div>
+      {/* Recent Payments */}
+      <div className="glass-card animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>
+        <div
+          style={{
+            padding: '20px 24px',
+            borderBottom: '0.5px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '1rem',
+              fontWeight: 600,
+              color: 'var(--text)',
+            }}
+          >
+            Recent Payments
+          </h2>
+          <Users style={{ width: 18, height: 18, color: 'var(--text-light)' }} />
         </div>
 
-        {/* Collection by area */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-5 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">Collection by Area</h2>
+        {stats.recent_payments && stats.recent_payments.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recent_payments.slice(0, 8).map((p, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 500 }}>{p.customer_name || '--'}</td>
+                    <td style={{ fontWeight: 600, color: '#34c759' }}>
+                      {fmtRs(Number(p.amount) || 0)}
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: 20,
+                          fontSize: '0.72rem',
+                          fontWeight: 500,
+                          background: 'rgba(0,113,227,0.08)',
+                          color: '#0071e3',
+                        }}
+                      >
+                        {p.mode || '--'}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>
+                      {fmtDate(p.date || '')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="divide-y divide-gray-50">
-            {stats.by_area?.length ? (
-              stats.by_area.slice(0, 8).map((a, i) => (
-                <div key={i} className="px-5 py-3 flex items-center justify-between">
-                  <span className="text-sm text-gray-700 truncate">{a.area}</span>
-                  <span className="text-sm font-medium text-gray-900 shrink-0 pl-3">{fmtRs(a.total_amount)}</span>
+        ) : (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
+            No payments yet this month
+          </div>
+        )}
+      </div>
+
+      {/* By Area */}
+      {stats.by_area && stats.by_area.length > 0 && (
+        <div className="glass-card animate-fade-in" style={{ padding: '20px 24px' }}>
+          <h2
+            style={{
+              fontSize: '1rem',
+              fontWeight: 600,
+              color: 'var(--text)',
+              marginBottom: 16,
+            }}
+          >
+            Collection by Area
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {stats.by_area.map((area, i) => {
+              const pct = area.total_amount
+                ? Math.round((Number(area.paid_count) / Math.max(1, Number(area.total_amount))) * 100)
+                : 0;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    padding: 14,
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-secondary)',
+                  }}
+                >
+                  <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>
+                    {area.area || '--'}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '0.7rem',
+                      color: 'var(--text-light)',
+                      marginTop: 4,
+                    }}
+                  >
+                    {fmtRs(area.total_amount)}
+                  </p>
+                  {/* Progress bar */}
+                  <div
+                    style={{
+                      marginTop: 8,
+                      height: 4,
+                      borderRadius: 2,
+                      background: 'rgba(0,0,0,0.06)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '100%',
+                        borderRadius: 2,
+                        width: `${pct}%`,
+                        background:
+                          pct >= 80
+                            ? '#34c759'
+                            : pct >= 50
+                              ? '#ff9f0a'
+                              : '#ff3b30',
+                        transition: 'width 0.5s ease',
+                      }}
+                    />
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="p-5 text-center text-gray-400 text-sm">No data</div>
-            )}
+              );
+            })}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

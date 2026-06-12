@@ -4,23 +4,25 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { paymentsApi } from '../api';
 import type { Payment } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
-import { Search, Loader2, Plus } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, CreditCard, Plus } from 'lucide-react';
 
 const PER_PAGE = 25;
+
+function monthRange() {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
 
 interface PaymentsResponse {
   payments: Payment[];
   total: number;
   page: number;
   per_page: number;
-  total_pages?: number;
-}
-
-function monthRange() {
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { from: iso(first), to: iso(now) };
 }
 
 export default function Payments() {
@@ -36,11 +38,14 @@ export default function Payments() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isFetching, isError } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ['payments', { from, to, debounced, page }],
     queryFn: async () => {
       const params: Record<string, string> = {
-        page: String(page), per_page: String(PER_PAGE), date_from: from, date_to: to,
+        start_date: from,
+        end_date: to,
+        page: String(page),
+        per_page: String(PER_PAGE),
       };
       if (debounced) params.search = debounced;
       return (await paymentsApi.list(params)).data as PaymentsResponse;
@@ -50,88 +55,190 @@ export default function Payments() {
 
   const payments = data?.payments ?? [];
   const total = data?.total ?? 0;
-  const totalPages = data?.total_pages ?? Math.max(1, Math.ceil(total / PER_PAGE));
-  const pageTotal = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-            <p className="text-gray-500 mt-1">{total.toLocaleString('en-IN')} payments in range</p>
-          </div>
-          <Link to="/payments/new" className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
-            <Plus className="w-4 h-4" /> Record
-          </Link>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+            Payments
+          </h1>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {total} payments this period &middot; {fmtRs(totalAmount)} collected
+          </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="py-2 px-3 border border-gray-300 rounded-lg text-sm" />
-          <span className="text-gray-400">→</span>
-          <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="py-2 px-3 border border-gray-300 rounded-lg text-sm" />
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search…"
-              className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm w-44 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-          </div>
+        <Link
+          to="/payments/new"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '10px 18px',
+            borderRadius: 'var(--radius-sm)',
+            background: '#0071e3',
+            color: '#fff',
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+            boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
+            transition: 'var(--transition)',
+          }}
+        >
+          <Plus style={{ width: 16, height: 16 }} /> Record Payment
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>From</label>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
+            className="glass-input"
+            style={{ padding: '8px 12px', borderRadius: 'var(--radius-xs)', fontSize: '0.85rem' }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>To</label>
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => { setTo(e.target.value); setPage(1); }}
+            className="glass-input"
+            style={{ padding: '8px 12px', borderRadius: 'var(--radius-xs)', fontSize: '0.85rem' }}
+          />
+        </div>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search
+            style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 18,
+              height: 18,
+              color: 'var(--text-light)',
+            }}
+          />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="glass-input"
+            style={{ paddingLeft: 40, width: '100%', padding: '8px 16px 8px 40px', borderRadius: 'var(--radius-xs)', fontSize: '0.85rem' }}
+            placeholder="Search customer or reference..."
+          />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-100 bg-gray-50/50">
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Customer</th>
-                <th className="px-4 py-3 font-medium">STB</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium text-right">Amount</th>
-                <th className="px-4 py-3 font-medium">Mode</th>
-                <th className="px-4 py-3 font-medium">Collected By</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {payments.map((p, i) => (
-                <tr key={p.id ?? i} className="hover:bg-gray-50/60">
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{fmtDate(p.collected_at)}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-gray-900">{p.customer_name || p.customer_id}</div>
-                    <div className="text-xs text-gray-400">{p.customer_id}</div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">{p.stb_no || '--'}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.plan_name || '--'}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-600">{fmtRs(p.amount)}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.payment_mode || p.payment_type || '--'}</td>
-                  <td className="px-4 py-3 text-gray-500">{p.collected_by_name || '--'}</td>
-                </tr>
-              ))}
-              {!payments.length && !isFetching && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">
-                  {isError ? "Couldn't load payments." : 'No payments in this range.'}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
-          <span className="flex items-center gap-2">
-            {isFetching && <Loader2 className="w-4 h-4 animate-spin" />}
-            Page total: <span className="font-medium text-gray-700">{fmtRs(pageTotal)}</span>
-          </span>
-          <div className="flex items-center gap-3">
-            <span>Page {page} of {totalPages}</span>
-            <div className="flex gap-2">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50">Previous</button>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50">Next</button>
-            </div>
+      {/* Table */}
+      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+        {payments.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
+            <CreditCard style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
+            {isFetching ? 'Loading...' : 'No payments in this period'}
           </div>
-        </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Month</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 500 }}>{p.customer_name || '--'}</td>
+                    <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(Number(p.amount) || 0)}</td>
+                    <td>
+                      <span
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: 20,
+                          fontSize: '0.72rem',
+                          fontWeight: 500,
+                          background: 'rgba(0,113,227,0.08)',
+                          color: '#0071e3',
+                        }}
+                      >
+                        {p.payment_mode || '--'}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-light)' }}>{p.month_year || '--'}</td>
+                    <td style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>
+                      {fmtDate(p.collected_at || '')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '0.5px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <button
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                color: 'var(--text)',
+                opacity: page <= 1 ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '0.82rem',
+              }}
+            >
+              <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+            </button>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', padding: '0 12px' }}>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                color: 'var(--text)',
+                opacity: page >= totalPages ? 0.4 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '0.82rem',
+              }}
+            >
+              Next <ChevronRight style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

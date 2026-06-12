@@ -1,196 +1,387 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { customersApi, paymentsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
-import { ArrowLeft, Loader2, CheckCircle2, Search } from 'lucide-react';
+import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee } from 'lucide-react';
 
-const MODES = ['Cash', 'UPI', 'Card', 'Bank Transfer', 'Cheque'];
+interface CustomerSearchResult extends CustomerListItem {}
 
-function currentMonthYear() {
-  const d = new Date();
-  return `${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-}
+const PAYMENT_MODES = ['Cash', 'GPay', 'PhonePe', 'UPI', 'Bank Transfer', 'Cheque'];
 
 export default function RecordPayment() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
+  const location = useLocation();
+  const queryClient = useQueryClient();
 
-  const [query, setQuery] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [selected, setSelected] = useState<CustomerListItem | null>(null);
+  // Pre-fill from navigation state (coming from Customer Detail)
+  const prefill = (location.state as { customerId?: number; customerName?: string }) || {};
 
+  const [searchTerm, setSearchTerm] = useState(prefill.customerName || '');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(
+    null
+  );
   const [amount, setAmount] = useState('');
   const [mode, setMode] = useState('Cash');
-  const [monthYear, setMonthYear] = useState(currentMonthYear());
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(query.trim()), 300);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  const { data: results = [], isFetching: searching } = useQuery({
-    queryKey: ['cust-search', debounced],
-    queryFn: async () => (await customersApi.search(debounced)).data as CustomerListItem[],
-    enabled: !!debounced && !selected,
-  });
-
-  const mutation = useMutation({
-    mutationFn: () => paymentsApi.create({
-      customer_id: selected!.customer_id,
-      amount: Number(amount),
-      payment_mode: mode,
-      month_year: monthYear,
-      notes: notes || undefined,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['payments'] });
-      qc.invalidateQueries({ queryKey: ['dashboard'] });
-      qc.invalidateQueries({ queryKey: ['customer', selected?.customer_id] });
+  // Search customers
+  const { data: searchResults, isFetching } = useQuery({
+    queryKey: ['customer-search', searchTerm],
+    queryFn: async () => {
+      if (!searchTerm || searchTerm.length < 2) return [];
+      return (await customersApi.search(searchTerm)).data as CustomerSearchResult[];
     },
+    enabled: searchTerm.length >= 2 && !selectedCustomer,
   });
 
-  function pick(c: CustomerListItem) {
-    setSelected(c);
-    setQuery(c.name);
+  // Auto-select if prefill
+  useEffect(() => {
+    if (prefill.customerId && !selectedCustomer) {
+      customersApi.get(String(prefill.customerId)).then((res) => {
+        setSelectedCustomer(res.data as unknown as CustomerSearchResult);
+      });
+    }
+  }, [prefill.customerId]);
+
+  const handleCustomerSelect = (c: CustomerSearchResult) => {
+    setSelectedCustomer(c);
+    setSearchTerm(c.name);
     if (c.plan_amount) setAmount(String(c.plan_amount));
-  }
+  };
 
-  function reset() {
-    setSelected(null); setQuery(''); setAmount(''); setMode('Cash');
-    setMonthYear(currentMonthYear()); setNotes(''); setError('');
-    mutation.reset();
-  }
-
-  function submit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedCustomer) {
+      setError('Please select a customer');
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
     setError('');
-    if (!selected) { setError('Select a customer first'); return; }
-    if (!amount || Number(amount) <= 0) { setError('Enter a valid amount'); return; }
-    mutation.mutate(undefined, {
-      onError: (err) => {
-        const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
-        setError(typeof detail === 'string' ? detail : 'Payment failed');
-      },
-    });
-  }
+    setSubmitting(true);
+    try {
+      await paymentsApi.create({
+        customer_id: selectedCustomer.customer_id,
+        amount: Number(amount),
+        payment_mode: mode,
+        month_year: month,
+        notes: notes || undefined,
+      });
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
+      setSuccess(true);
+      setTimeout(() => navigate('/payments'), 2000);
+    } catch {
+      setError('Failed to record payment. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  if (mutation.isSuccess) {
+  if (success) {
     return (
-      <div className="max-w-md mx-auto text-center py-16">
-        <CheckCircle2 className="w-14 h-14 text-green-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-gray-900">Payment Recorded</h2>
-        <p className="text-gray-500 mt-1">{fmtRs(amount)} for {selected?.name}</p>
-        <div className="flex gap-3 justify-center mt-6">
-          <button onClick={reset} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
-            Record Another
-          </button>
-          <button onClick={() => navigate('/payments')} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            View Payments
-          </button>
+      <div
+        className="animate-fade-in"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}
+      >
+        <div className="glass-card" style={{ padding: 48, textAlign: 'center', maxWidth: 360 }}>
+          <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>
+            Payment Recorded!
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
+            {fmtRs(Number(amount))} from {selectedCustomer?.name} via {mode}
+          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>
+            Redirecting to payments...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-5">
-      <Link to="/payments" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
-        <ArrowLeft className="w-4 h-4" /> Back to payments
-      </Link>
-      <h1 className="text-2xl font-bold text-gray-900">Record Payment</h1>
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 640 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            border: '0.5px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            cursor: 'pointer',
+            color: 'var(--text)',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+          }}
+        >
+          <ArrowLeft style={{ width: 16, height: 16 }} /> Back
+        </button>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+          Record Payment
+        </h1>
+      </div>
 
-      <form onSubmit={submit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-        {error && <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
-
-        {/* Customer search/select */}
-        <div className="relative">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-          {selected ? (
-            <div className="flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2.5">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{selected.name}</p>
-                <p className="text-xs text-gray-400">{selected.customer_id} · {selected.stb_no || 'no STB'}</p>
-              </div>
-              <button type="button" onClick={reset} className="text-sm text-blue-600">Change</button>
-            </div>
-          ) : (
-            <>
-              <div className="relative">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name, phone, STB…"
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  autoFocus
-                />
-                {searching && <Loader2 className="w-4 h-4 animate-spin text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />}
-              </div>
-              {results.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {results.map((c) => (
-                    <button
-                      key={c.customer_id}
-                      type="button"
-                      onClick={() => pick(c)}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-50 last:border-0"
-                    >
-                      <p className="text-sm text-gray-900">{c.name}</p>
-                      <p className="text-xs text-gray-400">{c.customer_id} · {c.area || '--'} · {c.stb_no || 'no STB'}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+      {error && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(255,59,48,0.08)',
+            border: '0.5px solid rgba(255,59,48,0.2)',
+            color: '#ff3b30',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+          {error}
         </div>
+      )}
 
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit}>
+        <div className="glass-card" style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Customer Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹)</label>
-            <input
-              type="number" min="1" step="1" value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder="0"
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+              Customer
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Search
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 18,
+                  height: 18,
+                  color: 'var(--text-light)',
+                }}
+              />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setSelectedCustomer(null);
+                }}
+                className="glass-input"
+                style={{ paddingLeft: 40, width: '100%', padding: '12px 16px 12px 40px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                placeholder="Search customer by name or phone..."
+                disabled={!!selectedCustomer}
+              />
+              {selectedCustomer && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedCustomer(null); setSearchTerm(''); }}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'var(--bg-secondary)',
+                    border: 'none',
+                    borderRadius: 'var(--radius-xs)',
+                    padding: '4px 10px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    color: 'var(--text-light)',
+                  }}
+                >
+                  Change
+                </button>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {!selectedCustomer && searchResults && searchResults.length > 0 && (
+              <div
+                className="glass-card animate-fade-in"
+                style={{
+                  marginTop: 4,
+                  padding: 0,
+                  overflow: 'hidden',
+                  maxHeight: 280,
+                  overflowY: 'auto',
+                }}
+              >
+                {searchResults.map((c) => (
+                  <div
+                    key={c.customer_id}
+                    onClick={() => handleCustomerSelect(c)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      borderBottom: '0.5px solid var(--border)',
+                      transition: 'background 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(0,113,227,0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <div>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>{c.name}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                        {c.phone || 'No phone'} {c.stb_no ? `| STB: ${c.stb_no}` : ''}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      {c.plan_amount && (
+                        <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>
+                          {fmtRs(c.plan_amount)}
+                        </p>
+                      )}
+                      <p style={{ fontSize: '0.7rem', color: c.status === 'active' ? '#34c759' : '#ff3b30' }}>
+                        {c.status}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!selectedCustomer && searchTerm.length >= 2 && !isFetching && searchResults && searchResults.length === 0 && (
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 8, padding: '0 4px' }}>
+                No customers found matching "{searchTerm}"
+              </p>
+            )}
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+              Amount
+            </label>
+            <div style={{ position: 'relative' }}>
+              <IndianRupee
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 18,
+                  height: 18,
+                  color: 'var(--text-light)',
+                }}
+              />
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="glass-input"
+                style={{ paddingLeft: 40, width: '100%', padding: '12px 16px 12px 40px', borderRadius: 'var(--radius-sm)', fontSize: '1rem', fontWeight: 600 }}
+                placeholder="0"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Mode + Month */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                Payment Mode
+              </label>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+                className="glass-input"
+                style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}
+              >
+                {PAYMENT_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                Billing Month
+              </label>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="glass-input"
+                style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+              Notes <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="glass-input"
+              style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', minHeight: 70, resize: 'vertical' }}
+              placeholder="Any additional notes..."
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mode</label>
-            <select value={mode} onChange={(e) => setMode(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white">
-              {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Month (MM-YYYY)</label>
-            <input value={monthYear} onChange={(e) => setMonthYear(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-            <input value={notes} onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-          </div>
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting || !selectedCustomer}
+            style={{
+              width: '100%',
+              padding: '13px',
+              borderRadius: 'var(--radius-sm)',
+              background: submitting ? '#005bb5' : '#0071e3',
+              color: '#fff',
+              fontSize: '0.92rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: submitting || !selectedCustomer ? 'not-allowed' : 'pointer',
+              transition: 'var(--transition)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              opacity: !selectedCustomer ? 0.5 : 1,
+              boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
+            }}
+          >
+            {submitting ? (
+              <>
+                <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
+                Recording...
+              </>
+            ) : (
+              'Record Payment'
+            )}
+          </button>
         </div>
-
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-2"
-        >
-          {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-          {mutation.isPending ? 'Recording…' : `Record ${amount ? fmtRs(amount) : 'Payment'}`}
-        </button>
       </form>
     </div>
   );
 }
+
+

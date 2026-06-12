@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { customersApi } from '../api';
 import type { CustomerListItem } from '../types';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 
 const PER_PAGE = 20;
 
@@ -17,7 +17,16 @@ interface ListResponse {
 function StatusBadge({ status }: { status?: string }) {
   const active = (status || '').toLowerCase() === 'active';
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+    <span
+      style={{
+        padding: '3px 10px',
+        borderRadius: 20,
+        fontSize: '0.72rem',
+        fontWeight: 500,
+        background: active ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)',
+        color: active ? '#34c759' : '#ff3b30',
+      }}
+    >
       {status || '--'}
     </span>
   );
@@ -30,13 +39,12 @@ export default function Customers() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
 
-  // Debounce the search box. Page resets are done in the change handlers below.
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  const { data, isFetching, isError } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ['customers', { debounced, status, page }],
     queryFn: async () => {
       if (debounced) {
@@ -55,99 +63,158 @@ export default function Customers() {
   const totalPages = debounced ? 1 : Math.max(1, Math.ceil(total / PER_PAGE));
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
-          <p className="text-gray-500 mt-1">{total.toLocaleString('en-IN')} {debounced ? 'matches' : 'total'}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search name, phone, STB…"
-              className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-56"
-            />
-          </div>
-          <select
-            value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-            disabled={!!debounced}
-            className="py-2 px-3 border border-gray-300 rounded-lg text-sm bg-white disabled:opacity-50"
-          >
-            <option value="">All statuses</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Surrendered">Surrendered</option>
-          </select>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+            Customers
+          </h1>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {total} {total === 1 ? 'customer' : 'customers'} total
+          </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-100 bg-gray-50/50">
-                <th className="px-4 py-3 font-medium">ID</th>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">STB</th>
-                <th className="px-4 py-3 font-medium">Phone</th>
-                <th className="px-4 py-3 font-medium">Area</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Paid</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {customers.map((c) => (
-                <tr
-                  key={c.customer_id}
-                  onClick={() => navigate(`/customers/${encodeURIComponent(c.customer_id)}`)}
-                  className="hover:bg-blue-50/40 cursor-pointer"
-                >
-                  <td className="px-4 py-3 font-medium text-gray-700">{c.customer_id}</td>
-                  <td className="px-4 py-3 text-gray-900">{c.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.stb_no || '--'}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.phone || '--'}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.area || '--'}</td>
-                  <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.is_paid ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {c.is_paid ? 'Paid' : 'Unpaid'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {!customers.length && !isFetching && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">
-                  {isError ? "Couldn't load customers." : 'No customers found.'}
-                </td></tr>
-              )}
-            </tbody>
-          </table>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+          <Search
+            style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 18,
+              height: 18,
+              color: 'var(--text-light)',
+            }}
+          />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="glass-input"
+            style={{ paddingLeft: 40, width: '100%', padding: '10px 16px 10px 40px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+            placeholder="Search by name, phone, or STB number..."
+          />
         </div>
+        <select
+          value={status}
+          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          className="glass-input"
+          style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}
+        >
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="disconnected">Disconnected</option>
+        </select>
+      </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm text-gray-500">
-          <span className="flex items-center gap-2">
-            {isFetching && <Loader2 className="w-4 h-4 animate-spin" />}
-            {debounced ? 'Search results' : `Page ${page} of ${totalPages}`}
-          </span>
-          {!debounced && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50"
-              >Previous</button>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50"
-              >Next</button>
-            </div>
-          )}
-        </div>
+      {/* Table */}
+      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+        {customers.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
+            <Users style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
+            {isFetching ? 'Loading...' : 'No customers found'}
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  <th>Area</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customers.map((c) => (
+                  <tr
+                    key={c.customer_id}
+                    onClick={() => navigate(`/customers/${c.customer_id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td style={{ fontWeight: 500 }}>
+                      {c.name}
+                      {c.stb_no && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'block', marginTop: 2 }}>
+                          STB: {c.stb_no}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ color: 'var(--text-light)' }}>{c.phone || '--'}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--text)' }}>
+                      {c.plan_amount ? `\u20B9${c.plan_amount}` : '--'}
+                    </td>
+                    <td><StatusBadge status={c.status} /></td>
+                    <td style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{c.area || '--'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!debounced && totalPages > 1 && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderTop: '0.5px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <button
+              onClick={() => setPage(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                color: 'var(--text)',
+                opacity: page <= 1 ? 0.4 : 1,
+                transition: 'var(--transition)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '0.82rem',
+              }}
+            >
+              <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+            </button>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', padding: '0 12px' }}>
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+                color: 'var(--text)',
+                opacity: page >= totalPages ? 0.4 : 1,
+                transition: 'var(--transition)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: '0.82rem',
+              }}
+            >
+              Next <ChevronRight style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
