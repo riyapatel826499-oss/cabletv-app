@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, createContext, type ReactNode } from 'react';
+import { useState, useContext, createContext, type ReactNode } from 'react';
 import { getStoredUser, login as apiLogin, logout as apiLogout } from '../api/auth';
 import type { User } from '../types';
 
@@ -14,11 +14,8 @@ const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getStoredUser());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(false);
-  }, []);
+  // Session is read synchronously from storage, so there's no async load gap.
+  const [loading] = useState(false);
 
   const login = async (username: string, password: string) => {
     const res = await apiLogin({ username, password });
@@ -47,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- context hook colocated with its provider
 export function useAuth() {
   return useContext(AuthContext);
 }

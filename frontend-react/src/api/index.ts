@@ -67,5 +67,5 @@ export const reportsApi = {
 // ── Settings ──────────────────────────────────────────────────────────────
 export const settingsApi = {
   get: () => api.get('/settings'),
-  update: (data: Record<string, any>) => api.put('/settings', data),
+  update: (data: Record<string, unknown>) => api.put('/settings', data),
 };

@@ -1,0 +1,10 @@
+# Phase A baseline lint config.
+# Start with the high-signal "real bug" rules so CI is green on the existing
+# codebase but still catches genuine breakage (syntax errors, undefined names,
+# bad % formatting). Style rules can be ratcheted up in later phases.
+target-version = "py311"
+line-length = 120
+extend-exclude = ["alembic/versions", "legacy-frontend", "venv", ".venv"]
+
+[lint]
+select = ["E9", "F63", "F7", "F82"]

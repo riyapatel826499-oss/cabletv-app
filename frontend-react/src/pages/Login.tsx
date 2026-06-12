@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { Loader2, Tv } from 'lucide-react';
 
@@ -18,8 +19,9 @@ export default function Login() {
     try {
       await login(username, password);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed');
+    } catch (err) {
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : undefined;
+      setError(detail || 'Login failed');
     } finally {
       setLoading(false);
     }

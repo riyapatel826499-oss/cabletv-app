@@ -7,7 +7,7 @@ export interface User {
   role: 'master' | 'admin' | 'agent';
   phone?: string;
   operator_id?: number | null;
-  permissions?: Record<string, any>;
+  permissions?: Record<string, unknown>;
 }
 
 export interface Operator {

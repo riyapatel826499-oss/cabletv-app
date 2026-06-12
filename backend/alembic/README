@@ -1,1 +1,34 @@
-Generic single-database configuration.
+Alembic migrations for the Wasool backend
+==========================================
+
+The DB URL is resolved at runtime from the DATABASE_URL env var (see env.py);
+credentials are never stored in alembic.ini. With DATABASE_URL unset it falls
+back to the local SQLite dev DB.
+
+Commands (run from the backend/ directory):
+
+  # Apply all migrations (fresh database — e.g. a new environment or CI):
+  alembic upgrade head
+
+  # Create a new migration after changing models in models/tables.py:
+  alembic revision --autogenerate -m "describe change"
+
+  # Inspect status:
+  alembic current
+  alembic history
+
+ONE-TIME ADOPTION ON AN EXISTING DATABASE
+-----------------------------------------
+Production and the dev DB were created by the legacy init_db()/run_migrations()
+startup code and already contain the full schema, but have no alembic_version
+row. Do NOT run `alembic upgrade head` against them (it would try to recreate
+existing tables). Instead, mark the baseline as already applied:
+
+  alembic stamp head
+
+After stamping, all future schema changes go through Alembic migrations.
+
+NOTE: startup DDL in models/database.py (init_db/run_migrations) is still active
+and idempotent for now; retiring it in favor of an `alembic upgrade head`
+release step is a Phase B task. Until then, treat models/tables.py as the source
+of truth and keep new migrations in sync with it.

@@ -21,6 +21,7 @@ except ImportError:
 
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -167,6 +168,9 @@ if limiter_available and limiter:
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     except Exception:
         pass
+
+# Gzip responses larger than 1 KB (JSON API payloads, JS/CSS assets)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # CORS
 app.add_middleware(
