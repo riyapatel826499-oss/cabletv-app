@@ -76,17 +76,24 @@ def dashboard_stats(
     # NOTE: paypakka data is historical (Dec 2023 → Apr 2026). For months where
     # local payments exist, we skip paypakka to avoid double-counting.
     # Check if local payments exist for this month first.
-    has_local = db.execute(
-        text(f"SELECT COUNT(*) FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
+    # Single grouped scan of this month's local payments — existence (has_local),
+    # distinct payers (paid_this_month), and total collected — replacing three
+    # separate queries that shared the exact same predicate.
+    _local = dict(db.execute(
+        text(f"""SELECT COUNT(*) AS rows_cnt,
+                        COUNT(DISTINCT customer_id) AS paid_distinct,
+                        COALESCE(SUM(amount), 0) AS collected
+                 FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"""),
         {"ms": month_start_str, "ne": now_end},
-    ).scalar() > 0
+    ).fetchone()._mapping)
+    has_local = (_local["rows_cnt"] or 0) > 0
+    local_collected = _local["collected"] or 0
 
     if has_local:
         # Local payments exist → use local data only (paypakka is historical)
-        paid_this_month = db.execute(
-            text(f"SELECT COUNT(DISTINCT customer_id) FROM payments WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"),
-            {"ms": month_start_str, "ne": now_end},
-        ).scalar()
+        paid_this_month = _local["paid_distinct"]
     else:
         # No local data (historical month) → fall back to paypakka
         paid_this_month = db.execute(
@@ -98,20 +105,6 @@ def dashboard_stats(
                )"""),
             {"ms": month_start_str, "ne": now_end, "ms2": month_start_str, "ne2": now_end},
         ).scalar()
-
-    # Total collected: sum of local + paypakka for current month
-    q_local = apply_op_filter(
-        select(func.coalesce(func.sum(Payment.amount), 0)).where(
-            and_(
-                or_(Payment.deleted.is_(None), Payment.deleted == 0),
-                Payment.collected_at >= month_start_str,
-                Payment.collected_at <= now_end,
-            )
-        ),
-        Payment,
-        current_user,
-    )
-    local_collected = db.execute(q_local).scalar() or 0
 
     # Paypakka data is historical (Dec 2023 → Apr 2026). Only query paypakka
     # if no local payments exist for this month (purely historical period).

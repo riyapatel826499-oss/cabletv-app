@@ -138,16 +138,20 @@ async def lifespan(app: FastAPI):
     """Startup: init DB + import customers, then start notification task."""
     global _startup_error
     try:
-        print("Starting init_db()...")
-        if init_db:
-            init_db()
-            print("init_db() done. Running migrations...")
-        if run_migrations:
-            run_migrations()
-            print("Migrations done. Importing customers...")
+        if os.getenv("DATABASE_URL"):
+            # Production (Postgres): schema is managed by the Alembic release step
+            # (migrate.py via railway preDeployCommand), NOT by startup DDL.
+            _log.info("Startup: DATABASE_URL set — skipping startup DDL (Alembic release step manages schema)")
+        else:
+            # Local/dev/CI (SQLite): build & migrate the schema in-process so a
+            # fresh checkout (no separate migration step) just works.
+            if init_db:
+                init_db()
+            if run_migrations:
+                run_migrations()
         if import_customers:
             import_customers()
-        print("Backend ready - Wasool")
+        _log.info("Backend ready - Wasool")
     except Exception as e:
         _startup_error = traceback.format_exc()
         print(f"STARTUP ERROR: {_startup_error}")
