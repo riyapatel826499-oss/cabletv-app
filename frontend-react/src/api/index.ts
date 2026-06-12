@@ -1,5 +1,5 @@
 import api from './client';
-import type { Customer, Connection, Payment, Plan, Operator } from '../types';
+import type { Customer, Connection, Payment, Plan } from '../types';
 
 // ── Customers ────────────────────────────────────────────────────────────
 export const customersApi = {
@@ -52,10 +52,13 @@ export const plansApi = {
 
 // ── Operators (master admin) ──────────────────────────────────────────────
 export const operatorsApi = {
-  list: () => api.get('/operators'),
+  list: () => api.get('/operators/'),
   get: (id: number) => api.get(`/operators/${id}`),
-  create: (data: Partial<Operator>) => api.post('/operators', data),
-  update: (id: number, data: Partial<Operator>) => api.put(`/operators/${id}`, data),
+  create: (data: Record<string, unknown>) => api.post('/operators/', data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/operators/${id}`, data),
+  suspend: (id: number) => api.delete(`/operators/${id}`),
+  resetPassword: (id: number, newPassword: string) =>
+    api.post(`/operators/${id}/reset-admin-password`, null, { params: { new_password: newPassword } }),
 };
 
 // ── Service Requests ──────────────────────────────────────────────────────

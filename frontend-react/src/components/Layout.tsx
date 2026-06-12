@@ -15,6 +15,7 @@ import {
   Sun,
   Tv,
   AlertCircle,
+  Building2,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/operators', label: 'Operators', icon: Building2 },
 ];
 
 export default function Layout() {
