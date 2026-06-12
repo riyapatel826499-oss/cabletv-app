@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 import httpx
 import logging
+import threading
 
 from models.base import get_db
 from deps_orm import get_current_user, apply_op_filter, op_id
@@ -20,22 +21,38 @@ DEFAULTS = {
 }
 
 
+# Track open context managers externally, keyed by id(conn). A raw
+# sqlite3.Connection rejects arbitrary attributes (can't do conn._ctx = ...),
+# so we can't stash the context manager on the connection. The conn stays
+# referenced by the ctx held here, so its id() won't be reused while open.
+_open_ctxs = {}
+_open_ctxs_lock = threading.Lock()
+
+
 def _get_conn():
-    """Get a raw DB connection (use with conn.close() pattern)."""
+    """Get a raw DB connection (release it with _close_conn(conn)).
+
+    Works for both SQLite (raw sqlite3.Connection) and PostgreSQL (the conn.py
+    wrapper)."""
     ctx = get_conn()
     conn = ctx.__enter__()
-    # Store context to cleanup later
-    conn._ctx = ctx
+    with _open_ctxs_lock:
+        _open_ctxs[id(conn)] = ctx
     return conn
 
 
 def _close_conn(conn):
     """Close a connection opened with _get_conn()."""
-    ctx = getattr(conn, '_ctx', None)
-    if ctx:
+    with _open_ctxs_lock:
+        ctx = _open_ctxs.pop(id(conn), None)
+    if ctx is not None:
         ctx.__exit__(None, None, None)
     else:
-        _close_conn(conn)
+        # Fallback: close directly if we don't have the tracked context.
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def get_settings(operator_id: int = None) -> dict:
