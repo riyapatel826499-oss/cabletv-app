@@ -2,6 +2,7 @@
 
 ORM version — uses SQLAlchemy sessions instead of raw SQL.
 """
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Generator
 
@@ -14,6 +15,7 @@ from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_HOURS, CUSTOMER_TO
 from models.base import get_db, SessionLocal
 from models.tables import User, ActiveSession, Customer, Operator
 
+logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
@@ -32,7 +34,7 @@ def create_token(subject: str, token_type: str = "staff",
     if extra_claims:
         payload.update(extra_claims)
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-    print(f"Created token: sub={subject}, type={token_type}, SECRET_KEY={SECRET_KEY[:10]}..., ALGORITHM={ALGORITHM}, token_len={len(token)}")
+    logger.debug("issued token: sub=%s type=%s", subject, token_type)
     return token
 
 
@@ -42,7 +44,7 @@ def _decode_token(credentials: HTTPAuthorizationCredentials) -> dict:
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError as e:
-        print(f"JWT decode failed: {e}, SECRET_KEY={SECRET_KEY[:10]}..., ALGORITHM={ALGORITHM}, token_len={len(token)}")
+        logger.info("JWT decode failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",

@@ -19,6 +19,27 @@ except ImportError:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
 
+# Structured logging + optional Sentry — configure before anything logs.
+from logging_config import configure_logging, request_id_var
+configure_logging()
+
+import logging as _logging
+_log = _logging.getLogger("wasool.main")
+
+_sentry_dsn = os.getenv("SENTRY_DSN", "")
+if _sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+            environment=os.getenv("ENVIRONMENT", "production"),
+        )
+        _log.info("Sentry error tracking enabled")
+    except Exception as e:  # noqa: BLE001 — never let monitoring break startup
+        _log.warning("Sentry init failed: %s", e)
+
+from uuid import uuid4
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -168,6 +189,20 @@ if limiter_available and limiter:
         app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     except Exception:
         pass
+
+# Correlate logs per request: accept an inbound X-Request-ID or generate one,
+# expose it on the context var (for JSON logs) and echo it back on the response.
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    rid = request.headers.get("x-request-id") or uuid4().hex[:12]
+    token = request_id_var.set(rid)
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+    response.headers["X-Request-ID"] = rid
+    return response
+
 
 # Gzip responses larger than 1 KB (JSON API payloads, JS/CSS assets)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -354,6 +389,24 @@ def health():
         }
     except Exception as e:
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
+
+
+@app.get("/api/ready")
+def ready():
+    """Readiness probe — returns 200 only when the DB is reachable, else 503.
+
+    Distinct from /api/health (liveness): orchestrators should route traffic
+    based on this so a process with a broken DB connection is taken out of
+    rotation instead of serving errors.
+    """
+    try:
+        from deps_orm import get_db as get_db_orm
+        from sqlalchemy import text
+        db = next(get_db_orm())
+        db.execute(text("SELECT 1"))
+        return {"status": "ready"}
+    except Exception as e:
+        return JSONResponse({"status": "not_ready", "error": str(e)[:200]}, status_code=503)
 
 
 @app.post("/api/backup")

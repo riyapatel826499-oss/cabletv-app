@@ -15,6 +15,7 @@ from models.tables import (
     CustomerPlan, Plan, User, PaypakkaEmployee,
 )
 from utils import get_current_month
+from cache import invalidate_dashboard
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
 from routes.wa_notify import send_payment_receipt
@@ -174,6 +175,7 @@ def create_payment(
             )
 
     db.commit()
+    invalidate_dashboard(op_id(current_user))  # dashboard/collection totals changed
 
     # Audit log
     log_action("payment_create", "payments", str(payment_id),
@@ -674,6 +676,7 @@ def delete_payment(
         )
 
     db.commit()
+    invalidate_dashboard(op_id(current_user))  # dashboard/collection totals changed
 
     return {
         "message": "Payment deleted successfully",
