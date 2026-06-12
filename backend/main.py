@@ -19,7 +19,7 @@ except ImportError:
                 k, v = line.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip())
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -177,35 +177,31 @@ for name, router in _router_map.items():
     app.include_router(router)
     print(f"Registered route: {name}")
 
-# ── Debug endpoints (always available) ───────────────────────────────────
+# ── Auth gate for destructive/maintenance admin endpoints ─────────────────
 
-@app.get("/api/debug-startup")
-def debug_startup():
-    """Return startup + import error details for debugging."""
-    # Read first 20 lines of key files for deploy verification
-    def _head(path, n=25):
-        try:
-            with open(path) as f:
-                return f.read().splitlines()[:n]
-        except:
-            return ["FILE NOT FOUND"]
+def require_master(request: Request):
+    """FastAPI dependency: require a valid master-role staff JWT.
 
-    return {
-        "startup_error": _startup_error,
-        "import_errors": _import_errors,
-        "loaded_routes": list(_router_map.keys()),
-        "database_url_set": bool(os.getenv("DATABASE_URL")),
-        "port": os.getenv("PORT", "not set"),
-        "python_version": sys.version,
-        "cwd": os.getcwd(),
-        "files_in_cwd": os.listdir(".")[:20],
-        "conn_py_head": _head("conn.py"),
-        "stb_inventory_tail": _head("routes/stb_inventory.py", 50),
-    }
+    Gates the destructive/maintenance admin endpoints below (nuke, raw SQL,
+    bulk import, backup). Mirrors the manual master check already used by
+    /api/migrate so behaviour for legitimate master callers is unchanged.
+    """
+    from jose import jwt as _jwt, JWTError
+    from config import SECRET_KEY, ALGORITHM
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = _jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if payload.get("role") != "master":
+        raise HTTPException(status_code=403, detail="Master admin only")
+    return payload
 
 
 @app.post("/api/nuke-data")
-def nuke_data():
+def nuke_data(_auth: dict = Depends(require_master)):
     """Nuclear wipe: delete all business data (keep operators, users, settings).
     Only callable by master. USE WITH CAUTION."""
     from deps_orm import get_db as get_db_orm
@@ -259,7 +255,7 @@ def nuke_data():
 
 
 @app.post("/api/cleanup-hard-delete-payments")
-def cleanup_hard_delete():
+def cleanup_hard_delete(_auth: dict = Depends(require_master)):
     """Hard-delete all soft-deleted payments (deleted=1). One-time cleanup."""
     from deps_orm import get_db as get_db_orm
     from sqlalchemy import text
@@ -277,7 +273,7 @@ def cleanup_hard_delete():
 
 
 @app.post("/api/admin/sql")
-def admin_sql(body: dict):
+def admin_sql(body: dict, _auth: dict = Depends(require_master)):
     """Execute raw SQL on the DB. Master only. USE WITH EXTREME CAUTION."""
     from deps_orm import get_db as get_db_orm
     from sqlalchemy import text
@@ -298,7 +294,7 @@ def admin_sql(body: dict):
 
 
 @app.post("/api/admin/bulk-payments")
-def admin_bulk_payments(body: dict):
+def admin_bulk_payments(body: dict, _auth: dict = Depends(require_master)):
     """Bulk import payments. Master only."""
     from deps_orm import get_db as get_db_orm
     from sqlalchemy import text
@@ -351,18 +347,8 @@ def health():
         return {"status": "error", "db": str(e), "startup_error": _startup_error, "import_errors": _import_errors}
 
 
-@app.get("/api/debug/db-url")
-def debug_db_url():
-    """Temporary: expose masked DATABASE_URL for migration."""
-    import re
-    url = os.getenv("DATABASE_URL", "")
-    # Mask password
-    masked = re.sub(r'://([^:]+):([^@]+)@', r'://\1:****@', url)
-    return {"database_url_masked": masked, "has_url": bool(url), "engine": os.getenv("DB_ENGINE", "unknown")}
-
-
 @app.post("/api/backup")
-def backup_db():
+def backup_db(_auth: dict = Depends(require_master)):
     """Daily DB backup — copies cabletv.db to backups/ folder, keeps last 7 days."""
     import shutil
     from datetime import datetime
@@ -767,21 +753,27 @@ if FRONTEND_DIR:
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
     # Catch-all: serve static files from FRONTEND_DIR (JS, CSS, images, etc.)
+    _FRONTEND_ROOT = os.path.realpath(FRONTEND_DIR)
+
     @app.get("/{filename:path}")
     async def serve_static_file(filename: str):
         if filename.startswith("api/") or filename in ("dashboard", "login", "start"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
-        filepath = os.path.join(FRONTEND_DIR, filename)
-        if os.path.isfile(filepath):
-            return FileResponse(filepath)
+        # Resolve the requested path and ensure it stays within FRONTEND_DIR
+        # (prevents path traversal via ../ or absolute paths).
+        real = os.path.realpath(os.path.join(FRONTEND_DIR, filename))
+        if real != _FRONTEND_ROOT and not real.startswith(_FRONTEND_ROOT + os.sep):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        if os.path.isfile(real):
+            return FileResponse(real)
         return JSONResponse({"detail": "Not Found"}, status_code=404)
 else:
     @app.get("/login")
     async def serve_login():
-        return JSONResponse({"error": "No frontend built", "debug": "/api/debug-startup"})
+        return JSONResponse({"error": "No frontend built", "debug": "/api/health"})
 
     @app.get("/dashboard")
     async def serve_dashboard():
-        return JSONResponse({"error": "No frontend built", "debug": "/api/debug-startup"})
+        return JSONResponse({"error": "No frontend built", "debug": "/api/health"})
 
     print("No frontend directory — serving API-only mode")

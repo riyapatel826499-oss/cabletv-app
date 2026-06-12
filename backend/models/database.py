@@ -623,6 +623,14 @@ def run_migrations(db_path: str = None):
         "CREATE INDEX IF NOT EXISTS idx_connections_mso ON connections(mso)",
         "CREATE INDEX IF NOT EXISTS idx_payments_collected_at ON payments(collected_at)",
         "CREATE INDEX IF NOT EXISTS idx_payments_deleted ON payments(deleted)",
+        # security-fixes-phase1 (M1): operator_id + composite indexes for
+        # multi-tenant filtering. Mirror the ORM Index() defs in tables.py;
+        # create_all() does not add indexes to pre-existing tables, so these
+        # idempotent statements are what apply them to the live DB.
+        "CREATE INDEX IF NOT EXISTS idx_customers_operator_id ON customers(operator_id)",
+        "CREATE INDEX IF NOT EXISTS idx_connections_operator_id ON connections(operator_id)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_op_collected ON payments(operator_id, collected_at)",
+        "CREATE INDEX IF NOT EXISTS idx_payments_cust_month ON payments(customer_id, month_year)",
     ]
     for idx_sql in extra_indexes:
         try:

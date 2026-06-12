@@ -57,6 +57,10 @@ class User(Base):
 # ---------------------------------------------------------------------------
 class ActiveSession(Base):
     __tablename__ = "active_sessions"
+    __table_args__ = (
+        Index("idx_sessions_user_id", "user_id"),
+        Index("idx_sessions_session_id", "session_id"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"))
     session_id: Mapped[Optional[str]] = mapped_column(String(200))
@@ -71,6 +75,12 @@ class ActiveSession(Base):
 # ---------------------------------------------------------------------------
 class Customer(Base):
     __tablename__ = "customers"
+    __table_args__ = (
+        Index("idx_customers_operator_id", "operator_id"),
+        Index("idx_customers_phone", "phone"),
+        Index("idx_customers_area", "area"),
+        Index("idx_customers_status", "status"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     customer_id: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -98,6 +108,11 @@ class Customer(Base):
 # ---------------------------------------------------------------------------
 class Connection(Base):
     __tablename__ = "connections"
+    __table_args__ = (
+        Index("idx_connections_customer_id", "customer_id"),
+        Index("idx_connections_operator_id", "operator_id"),
+        Index("idx_connections_status", "status"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     customer_id: Mapped[str] = mapped_column(String(20), ForeignKey("customers.customer_id"), nullable=False)
     stb_no: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -161,6 +176,10 @@ class CustomerPlan(Base):
 # ---------------------------------------------------------------------------
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (
+        Index("idx_payments_op_collected", "operator_id", "collected_at"),
+        Index("idx_payments_cust_month", "customer_id", "month_year"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     customer_id: Mapped[str] = mapped_column(String(20), ForeignKey("customers.customer_id"), nullable=False)
     connection_id: Mapped[int] = mapped_column(Integer, ForeignKey("connections.id"), nullable=False)
@@ -287,6 +306,9 @@ class NotificationSetting(Base):
 # ---------------------------------------------------------------------------
 class AuditLog(Base):
     __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("idx_audit_created", "created_at"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     action: Mapped[Optional[str]] = mapped_column(String(100))
     entity: Mapped[Optional[str]] = mapped_column(String(100))
