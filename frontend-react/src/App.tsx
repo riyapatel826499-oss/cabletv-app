@@ -15,6 +15,7 @@ import Connections from './pages/Connections';
 import ServiceRequests from './pages/ServiceRequests';
 import Settings from './pages/Settings';
 import Operators from './pages/Operators';
+import Employees from './pages/Employees';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="service-requests" element={<ServiceRequests />} />
         <Route path="settings" element={<Settings />} />
         <Route path="operators" element={<Operators />} />
+        <Route path="employees" element={<Employees />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

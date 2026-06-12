@@ -50,6 +50,19 @@ export const plansApi = {
   delete: (id: number) => api.delete(`/plans/${id}`),
 };
 
+// ── Employees ─────────────────────────────────────────────────────────────
+export const employeesApi = {
+  list: () => api.get('/employees'),
+  create: (data: { username: string; password: string; name: string; phone?: string; role: string }) =>
+    api.post('/employees', data),
+  update: (id: number, data: { name?: string; phone?: string; role?: string; status?: string }) =>
+    api.put(`/employees/${id}`, data),
+  resetPassword: (id: number, password: string) =>
+    api.put(`/employees/${id}/password`, { password }),
+  deactivate: (id: number) => api.delete(`/employees/${id}`),
+  roles: () => api.get('/employees/roles'),
+};
+
 // ── Operators (master admin) ──────────────────────────────────────────────
 export const operatorsApi = {
   list: () => api.get('/operators/'),
