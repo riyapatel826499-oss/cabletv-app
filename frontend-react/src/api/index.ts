@@ -86,6 +86,10 @@ export const reportsApi = {
 
 // ── Settings ──────────────────────────────────────────────────────────────
 export const settingsApi = {
-  get: () => api.get('/settings'),
-  update: (data: Record<string, unknown>) => api.put('/settings', data),
+  getNotifications: () => api.get('/settings/notifications'),
+  updateNotifications: (data: Record<string, unknown>) => api.put('/settings/notifications', data),
+  verifyTelegram: (data: { bot_token: string; chat_ids?: string }) =>
+    api.post('/settings/telegram/verify', data),
+  detectChats: () => api.post('/settings/telegram/detect-chats'),
+  unlinkTelegram: () => api.delete('/settings/telegram'),
 };

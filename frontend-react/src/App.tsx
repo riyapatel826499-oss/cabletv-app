@@ -13,6 +13,7 @@ import Unpaid from './pages/Unpaid';
 import Plans from './pages/Plans';
 import Connections from './pages/Connections';
 import ServiceRequests from './pages/ServiceRequests';
+import Settings from './pages/Settings';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -65,7 +66,7 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="connections" element={<Connections />} />
         <Route path="service-requests" element={<ServiceRequests />} />
-        <Route path="settings" element={<div className="text-center py-20 text-gray-400">Settings — coming soon</div>} />
+        <Route path="settings" element={<Settings />} />
         <Route path="operators" element={<div className="text-center py-20 text-gray-400">Operators — coming soon</div>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
