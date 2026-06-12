@@ -101,7 +101,12 @@ except Exception:
 try:
     from config import CORS_ORIGINS
 except Exception:
-    CORS_ORIGINS = ["*"]
+    # Never fall back to "*" with allow_credentials=True (invalid + insecure).
+    # Use the known production/dev origins instead.
+    CORS_ORIGINS = [
+        "http://localhost:8000", "http://127.0.0.1:8000",
+        "http://0.0.0.0:8000", "https://rscloud.live",
+    ]
 
 # ── Startup ──────────────────────────────────────────────────────────────
 _startup_error = None

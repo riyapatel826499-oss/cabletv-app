@@ -1,5 +1,5 @@
 // Service Worker for Wasool PWA
-const CACHE_NAME = 'wasool-v2';
+const CACHE_NAME = 'wasool-v3';
 const NOTIFICATION_SOUND = '/notification.wav';
 
 // Precache: shell files only (not API data)
@@ -33,20 +33,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // API calls: network first, fallback to cache
+  // API calls: network only — never cache (may contain PII / auth-scoped data).
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Cache successful GET API responses briefly
-          if (event.request.method === 'GET' && response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    event.respondWith(fetch(event.request));
     return;
   }
 

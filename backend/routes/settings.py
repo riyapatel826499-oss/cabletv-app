@@ -102,6 +102,12 @@ def _resolve_oid(user, target_operator_id: int = None) -> int:
     return op_id(user)
 
 
+def _require_admin(user):
+    """Only admin/master may change notification/Telegram settings."""
+    if user.get("role") not in ("admin", "master"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
 # ===== API ENDPOINTS =====
 
 @router.get("/notifications")
@@ -129,6 +135,7 @@ class NotifySettingUpdate(BaseModel):
 
 @router.put("/notifications")
 def update_notification_settings(data: NotifySettingUpdate, user=Depends(get_current_user)):
+    _require_admin(user)
     _oid = _resolve_oid(user, data.operator_id)
     conn = _get_conn()
     try:
@@ -155,6 +162,7 @@ class TelegramTokenInput(BaseModel):
 @router.post("/telegram/verify")
 def verify_telegram_token(data: TelegramTokenInput, user=Depends(get_current_user)):
     """Verify bot token, auto-detect chat IDs from pending messages."""
+    _require_admin(user)
     _oid = _resolve_oid(user, data.operator_id)
     token = data.bot_token.strip()
     if not token:
@@ -225,6 +233,7 @@ def verify_telegram_token(data: TelegramTokenInput, user=Depends(get_current_use
 @router.post("/telegram/detect-chats")
 def detect_telegram_chats(operator_id: int = None, user=Depends(get_current_user)):
     """Re-detect chat IDs from pending messages (after users send /start)."""
+    _require_admin(user)
     _oid = _resolve_oid(user, operator_id)
     tg = get_telegram_config(_oid)
     if not tg["token"]:
@@ -268,6 +277,7 @@ def detect_telegram_chats(operator_id: int = None, user=Depends(get_current_user
 @router.delete("/telegram")
 def unlink_telegram(operator_id: int = None, user=Depends(get_current_user)):
     """Remove Telegram bot configuration."""
+    _require_admin(user)
     _oid = _resolve_oid(user, operator_id)
     conn = _get_conn()
     try:

@@ -49,6 +49,17 @@ function escAttr(s) {
   return encodeURIComponent(String(s));
 }
 
+// Safe for a value placed inside a single-quoted JS string within a
+// double-quoted HTML attribute, e.g. onclick="fn('<value>')".
+// Hex-escapes every non-alphanumeric char so it can contain no quotes,
+// backslashes, angle brackets, etc. — yet decodes back to the original at runtime.
+function escJs(s) {
+  return String(s).replace(/[^a-zA-Z0-9_]/g, c => {
+    const h = c.charCodeAt(0).toString(16);
+    return '\\u' + '0000'.slice(h.length) + h;
+  });
+}
+
 function fmtRs(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 function fmtDate(d) { if (!d) return '--'; return new Date(d).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric'}); }
 

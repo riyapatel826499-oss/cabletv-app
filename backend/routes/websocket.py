@@ -11,26 +11,42 @@ router = APIRouter(tags=["WebSocket"])
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        # Each entry: {"ws": WebSocket, "operator_id": int|None, "role": str|None}
+        self.active_connections: List[dict] = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, operator_id=None, role=None):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self.active_connections.append(
+            {"ws": websocket, "operator_id": operator_id, "role": role}
+        )
 
     def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        self.active_connections = [
+            c for c in self.active_connections if c["ws"] is not websocket
+        ]
 
     async def broadcast(self, message: dict):
         data = json.dumps(message)
+        # Determine which operator this event belongs to (if any).
+        event_oid = None
+        if isinstance(message, dict):
+            payload = message.get("data")
+            if isinstance(payload, dict):
+                event_oid = payload.get("operator_id")
         disconnected = []
-        for connection in self.active_connections:
+        for conn in self.active_connections:
+            ws = conn["ws"]
+            # Master (role 'master' or no operator scope) receives everything.
+            # Other sockets only receive events for their own operator.
+            is_master = conn.get("role") == "master" or conn.get("operator_id") is None
+            if (not is_master) and event_oid is not None and conn.get("operator_id") != event_oid:
+                continue
             try:
-                await connection.send_text(data)
+                await ws.send_text(data)
             except Exception:
-                disconnected.append(connection)
-        for conn in disconnected:
-            self.disconnect(conn)
+                disconnected.append(ws)
+        for ws in disconnected:
+            self.disconnect(ws)
 
 
 manager = ConnectionManager()
@@ -38,16 +54,22 @@ manager = ConnectionManager()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
-    """WebSocket with optional JWT auth. If token provided, validates it."""
-    if token:
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            # Token is valid — connection is authenticated
-        except JWTError:
-            await websocket.close(code=4001, reason="Invalid token")
-            return
+    """WebSocket endpoint. Requires a valid JWT; sockets are scoped by operator."""
+    # Reject connections without a valid token.
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
 
-    await manager.connect(websocket)
+    # Tag the socket with its operator scope (oid claim) and role.
+    operator_id = payload.get("oid")
+    role = payload.get("role")
+
+    await manager.connect(websocket, operator_id=operator_id, role=role)
     try:
         while True:
             data = await websocket.receive_text()

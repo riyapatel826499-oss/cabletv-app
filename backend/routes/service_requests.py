@@ -11,6 +11,10 @@ except ImportError:
    SR_BOT_TOKEN = None
    SR_GROUP_ID = None
 try:
+   from config import SR_WEBHOOK_SECRET
+except ImportError:
+   SR_WEBHOOK_SECRET = ""
+try:
    from routes.tg_service_bot import (
        update_ticket_message, process_webhook_update, answer_callback,
        post_new_ticket, send_daily_summary
@@ -342,6 +346,11 @@ async def get_service_requests_for_agent(
 @router.post("/service-requests/webhook")
 async def service_request_webhook(request: Request):
    try:
+       # Verify Telegram's secret token when configured (fail-open if unset so
+       # deployments whose webhook was registered without a secret keep working).
+       if SR_WEBHOOK_SECRET:
+           if request.headers.get("x-telegram-bot-api-secret-token") != SR_WEBHOOK_SECRET:
+               return {"ok": True, "error": "unauthorized"}
        try:
            body = await request.json()
        except Exception:

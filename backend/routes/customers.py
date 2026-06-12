@@ -1175,7 +1175,7 @@ def delete_customer(customer_id: str, current_user=Depends(get_current_user)):
         # Delete in order: plans -> payments -> connections -> customer
         snap = dict(existing)
         conn.execute(f"DELETE FROM customer_plans WHERE customer_id = ? {_of_c}", [customer_id])
-        conn.execute("DELETE FROM payments WHERE customer_id = ?", [customer_id])
+        conn.execute(f"DELETE FROM payments WHERE customer_id = ? {_of_c}", [customer_id])
         conn.execute(f"DELETE FROM connections WHERE customer_id = ? {_of_c}", [customer_id])
         conn.execute(f"DELETE FROM customers WHERE customer_id = ? {_of_c}", [customer_id])
         conn.commit()

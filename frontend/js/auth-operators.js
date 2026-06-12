@@ -11,6 +11,13 @@ async function doLogout(msg) {
     }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // Purge all caches so no authenticated data is readable after logout
+    try {
+        if (window.caches && caches.keys) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+    } catch (e) { /* non-fatal */ }
     if (msg) { sessionStorage.setItem('logoutMsg', msg); }
     window.location.href = 'index.html';
 }
@@ -194,14 +201,14 @@ async function loadOperators() {
       <div class="card" style="border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--white)">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
           <div>
-            <h3 style="margin:0;font-size:16px">${o.business_name}</h3>
-            <small style="color:var(--text-muted)">${o.area || 'No area'} · ${o.mso || 'GTPL'}</small>
+            <h3 style="margin:0;font-size:16px">${esc(o.business_name)}</h3>
+            <small style="color:var(--text-muted)">${esc(o.area || 'No area')} · ${esc(o.mso || 'GTPL')}</small>
           </div>
           <span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${o.status==='active'?'#dcfce7':'#fee2e2'};color:${o.status==='active'?'#166534':'#991b1b'}">${o.status==='active'?'✓ Active':'⏸ Suspended'}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:12px">
-          <div><b>Owner:</b> ${o.owner_name}</div>
-          <div><b>Phone:</b> ${o.phone}</div>
+          <div><b>Owner:</b> ${esc(o.owner_name)}</div>
+          <div><b>Phone:</b> ${esc(o.phone)}</div>
           <div><b>Customers:</b> ${o.customer_count} (${o.active_count} active)</div>
           <div><b>Connections:</b> ${o.connection_count}</div>
           <div><b>Staff:</b> ${o.staff_count}</div>
@@ -210,16 +217,16 @@ async function loadOperators() {
         ${o.admin_username ? `<div style="background:var(--bg-card);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">
           <div style="font-weight:600;margin-bottom:6px;color:var(--primary)">👤 Admin Login</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-            <div><b>Username:</b> <code style="background:var(--bg);padding:2px 6px;border-radius:4px;cursor:pointer" onclick="navigator.clipboard.writeText('${o.admin_username}');toast('Copied!','success')">${o.admin_username}</code></div>
-            <div><b>Name:</b> ${o.admin_name || '-'}</div>
-            ${o.admin_phone ? `<div><b>Phone:</b> ${o.admin_phone}</div>` : ''}
+            <div><b>Username:</b> <code style="background:var(--bg);padding:2px 6px;border-radius:4px;cursor:pointer" onclick="navigator.clipboard.writeText('${escJs(o.admin_username)}');toast('Copied!','success')">${esc(o.admin_username)}</code></div>
+            <div><b>Name:</b> ${esc(o.admin_name || '-')}</div>
+            ${o.admin_phone ? `<div><b>Phone:</b> ${esc(o.admin_phone)}</div>` : ''}
           </div>
         </div>` : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           ${o.status==='active'
-            ?`<button class="btn btn-outline btn-sm" onclick="suspendOperator(${o.id},'${o.business_name}')">⏸ Suspend</button>`
-            :`<button class="btn btn-primary btn-sm" onclick="reactivateOperator(${o.id},'${o.business_name}')">✓ Reactivate</button>`}
-          <button class="btn btn-outline btn-sm" onclick="resetOpPwd(${o.id},'${o.business_name}')">🔑 Reset Password</button>
+            ?`<button class="btn btn-outline btn-sm" onclick="suspendOperator(${o.id},'${escJs(o.business_name)}')">⏸ Suspend</button>`
+            :`<button class="btn btn-primary btn-sm" onclick="reactivateOperator(${o.id},'${escJs(o.business_name)}')">✓ Reactivate</button>`}
+          <button class="btn btn-outline btn-sm" onclick="resetOpPwd(${o.id},'${escJs(o.business_name)}')">🔑 Reset Password</button>
         </div>
       </div>
     `).join('');
@@ -282,7 +289,7 @@ async function loadImportOperators() {
     const ops = await api('/api/operators/');
     const sel = document.getElementById('importOpSelect');
     sel.innerHTML = '<option value="">-- Choose Operator --</option>' +
-      ops.map(o => `<option value="${o.id}">${o.business_name} (${o.customer_prefix || 'no prefix'}) — ${o.active_count || 0} customers</option>`).join('');
+      ops.map(o => `<option value="${o.id}">${esc(o.business_name)} (${esc(o.customer_prefix || 'no prefix')}) — ${o.active_count || 0} customers</option>`).join('');
     // Also update CSV template link with auth
     const link = document.getElementById('csvTemplateLink');
     link.href = API + '/api/operators/import/template?token=' + encodeURIComponent(token);
@@ -396,7 +403,7 @@ async function runImportPreview() {
     if (r.errors && r.errors.length > 0) {
       errDiv.innerHTML = `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px">
         <div style="font-weight:600;color:#dc2626;margin-bottom:4px">⚠️ Errors (${r.errors.length})</div>
-        <div style="font-size:12px;color:#7f1d1d;max-height:120px;overflow-y:auto">${r.errors.map(e => `<div>• ${e}</div>`).join('')}</div>
+        <div style="font-size:12px;color:#7f1d1d;max-height:120px;overflow-y:auto">${r.errors.map(e => `<div>• ${esc(e)}</div>`).join('')}</div>
       </div>`;
     } else {
       errDiv.innerHTML = '';
@@ -408,7 +415,7 @@ async function runImportPreview() {
         <div style="font-weight:600;margin-bottom:4px">Sample (first ${r.sample_rows.length})</div>
         <div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
           <tr style="background:#f9fafb"><th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e5e7eb">Name</th><th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e5e7eb">Phone</th><th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e5e7eb">Area</th><th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e5e7eb">Plan</th><th style="padding:4px 8px;text-align:left;border-bottom:1px solid #e5e7eb">STB</th></tr>
-          ${r.sample_rows.map(s => `<tr><td style="padding:4px 8px">${s.name}</td><td style="padding:4px 8px">${s.phone}</td><td style="padding:4px 8px">${s.area || '-'}</td><td style="padding:4px 8px">${s.plan_name || '-'} ₹${s.plan_amount || '-'}</td><td style="padding:4px 8px">${s.stb_no || '-'}</td></tr>`).join('')}
+          ${r.sample_rows.map(s => `<tr><td style="padding:4px 8px">${esc(s.name)}</td><td style="padding:4px 8px">${esc(s.phone)}</td><td style="padding:4px 8px">${esc(s.area || '-')}</td><td style="padding:4px 8px">${esc(s.plan_name || '-')} ₹${esc(s.plan_amount || '-')}</td><td style="padding:4px 8px">${esc(s.stb_no || '-')}</td></tr>`).join('')}
         </table></div>`;
     }
 
@@ -417,7 +424,7 @@ async function runImportPreview() {
       document.getElementById('importPreviewPlans').innerHTML = `
         <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px">
           <div style="font-weight:600;margin-bottom:4px">📋 New Plans to Create</div>
-          <div style="font-size:13px">${r.plans_to_create.map(p => `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;margin:2px;display:inline-block">${p.name} ₹${p.amount}</span>`).join('')}</div>
+          <div style="font-size:13px">${r.plans_to_create.map(p => `<span style="background:#fef3c7;padding:2px 8px;border-radius:4px;margin:2px;display:inline-block">${esc(p.name)} ₹${esc(p.amount)}</span>`).join('')}</div>
         </div>`;
     }
 
@@ -427,7 +434,7 @@ async function runImportPreview() {
       document.getElementById('importPreviewExisting').innerHTML = `
         <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px">
           <div style="font-weight:600;margin-bottom:4px">👥 Existing Customers (${existingKeys.length} will be skipped)</div>
-          <div style="font-size:12px;max-height:80px;overflow-y:auto">${existingKeys.slice(0,10).map(k => `<div>• ${r.existing_customers[k]}</div>`).join('')}${existingKeys.length > 10 ? `<div>... and ${existingKeys.length - 10} more</div>` : ''}</div>
+          <div style="font-size:12px;max-height:80px;overflow-y:auto">${existingKeys.slice(0,10).map(k => `<div>• ${esc(r.existing_customers[k])}</div>`).join('')}${existingKeys.length > 10 ? `<div>... and ${existingKeys.length - 10} more</div>` : ''}</div>
         </div>`;
     }
 

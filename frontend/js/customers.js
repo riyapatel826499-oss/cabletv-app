@@ -84,22 +84,25 @@ function filterCustomers(filter) {
   if (filter === 'paid') loadPaidFilters();
 }
 
+let _custSearchSeq = 0;
 function debounceSearch() {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
+    const seq = ++_custSearchSeq;
     const q = document.getElementById('customerSearch').value.trim();
     if (!q) { loadCustomers(1); return; }
     try {
       const d = await api('/api/customers/search?q=' + encodeURIComponent(q));
+      if (seq !== _custSearchSeq) return;  // a newer search started — ignore stale response
       const items = Array.isArray(d) ? d : (d.items || []);
       const tbody = document.getElementById('customersBody');
       if (items.length) {
         tbody.innerHTML = items.map(c => {
           const stbBadge = c.stb_no ? '<span class="stb-badge" onclick="copyText(\'' + escAttr(c.stb_no) + '\')">' + esc(c.stb_no) + '</span>' : '<span style="color:var(--text-light)">--</span>';
-          return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">' + esc(c.name || '--') + '</a></td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td><span class="badge ' + (c.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + escAttr(c.status || '--') + '</span></td><td><span class="badge ' + (c.is_paid ? 'badge-success' : 'badge-danger') + '">' + (c.is_paid ? 'Paid' : 'Unpaid') + '</span></td><td><button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')\">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button></td></tr>';
+          return '<tr><td><strong>' + esc(c.customer_id || '--') + '</strong></td><td><a href="#" class="cust-name-link" onclick="event.preventDefault();viewCustomer(\'' + escAttr(c.customer_id || c.id) + '\')">' + esc(c.name || '--') + '</a></td><td>' + stbBadge + '</td><td>' + esc(c.phone || '--') + '</td><td>' + esc(c.area || '--') + '</td><td><span class="badge ' + (c.status === 'Active' ? 'badge-success' : 'badge-danger') + '">' + esc(c.status || '--') + '</span></td><td><span class="badge ' + (c.is_paid ? 'badge-success' : 'badge-danger') + '">' + (c.is_paid ? 'Paid' : 'Unpaid') + '</span></td><td><button class="btn btn-outline btn-sm" title="Edit Customer" onclick="editCustomer(\'' + escAttr(c.customer_id || c.id) + '\')\">✏️</button><button class="btn btn-outline btn-sm" style="color:var(--danger)" title="Delete Customer" onclick="deleteCustomer(\'' + escAttr(c.customer_id || c.id) + '\',\'' + escAttr(c.name || '') + '\')">🗑</button></td></tr>';
         }).join('');
       } else { tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No results found</p></td></tr>'; }
-    } catch (e) { toast('Search failed', 'error'); }
+    } catch (e) { if (seq === _custSearchSeq) toast('Search failed', 'error'); }
   }, 400);
 }
 

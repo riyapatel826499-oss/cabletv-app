@@ -421,7 +421,8 @@ def audit_log(
        from fastapi import HTTPException
        raise HTTPException(status_code=403, detail="Admin access required")
    with get_conn() as conn:
-       where = ["1=1"]
+       # Scope to the caller's operator (master/_op_flt returns "1=1" → sees all)
+       where = ["1=1", _op_flt(current_user)]
        params = []
        if entity:
            where.append("entity = ?")

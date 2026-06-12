@@ -29,12 +29,13 @@ def dashboard_stats(
     # 30-second TTL cache — dashboard is expensive (12 queries)
     # But NOT for agents — they need fresh personal data
     is_agent = current_user.get("role") in ("service_agent", "collection_agent", "agent")
+    _oid = op_id(current_user)
+    _cache_key = f"dashboard_stats:{_oid}"  # per-operator to prevent cross-tenant bleed
     if not is_agent:
-        cached = get_cached("dashboard_stats", ttl=30)
+        cached = get_cached(_cache_key, ttl=30)
         if cached:
             return cached
 
-    _oid = op_id(current_user)
     uid = current_user.get("id")  # logged-in user's ID
 
     now = datetime.now()
@@ -342,7 +343,7 @@ def dashboard_stats(
     except Exception:
         result["open_sr_count"] = 0
 
-    set_cached("dashboard_stats", result)
+    set_cached(_cache_key, result)
     return result
 
 
@@ -352,11 +353,12 @@ def payment_mode_stats(
     db=Depends(get_db),
 ):
     """Get payment mode breakdown for current month from both tables."""
-    cached = get_cached("payment_modes", ttl=60)
+    _oid = op_id(current_user)
+    _cache_key = f"payment_modes:{_oid}"  # per-operator to prevent cross-tenant bleed
+    cached = get_cached(_cache_key, ttl=60)
     if cached:
         return cached
 
-    _oid = op_id(current_user)
     op_flt = "1=1"
     if _oid is not None:
         op_flt = f"operator_id = {_oid}"
@@ -406,7 +408,7 @@ def payment_mode_stats(
         "total_count": total_count,
         "total_amount": total_amount,
     }
-    set_cached("payment_modes", result)
+    set_cached(_cache_key, result)
     return result
 
 

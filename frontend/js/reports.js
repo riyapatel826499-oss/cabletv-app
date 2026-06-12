@@ -701,15 +701,15 @@ async function loadReminders() {
     const netClass = (c.mso || 'GTPL').toLowerCase();
     const expDate = new Date(c.expiry_date);
     const isExpired = expDate < new Date();
-    const esc = s => (s||'').replace(/</g,'&lt;');
+    const esc = s => window.esc(s || '');
     return `<tr>
       <td><input type="checkbox" class="rem-check" data-cid="${esc(c.customer_id)}" onchange="updateRemCount()"></td>
       <td>${esc(c.name)}</td>
       <td>${esc(c.phone)}</td>
       <td><span class="net-badge net-${esc(netClass)}">${esc(c.mso || 'GTPL')}</span></td>
       <td>${esc(c.plan_name || '-')}</td>
-      <td>₹${c.plan_amount || 0}</td>
-      <td style="color:${isExpired ? 'var(--danger)' : 'var(--text)'}">${c.expiry_date}</td>
+      <td>₹${esc(c.plan_amount || 0)}</td>
+      <td style="color:${isExpired ? 'var(--danger)' : 'var(--text)'}">${esc(c.expiry_date)}</td>
       <td>${c.sent_today ? '<span class="badge badge-success">Sent Today</span>' : '<span class="badge badge-warning">Pending</span>'}</td>
     </tr>`;
   }).join('');
@@ -723,7 +723,7 @@ async function loadReminderHistory() {
   const tbody = document.getElementById('remHistoryBody');
   const hist = data.history || [];
   if (!hist.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No reminders sent yet</td></tr>'; return; }
-  const esc = s => (s||'').replace(/</g,'&lt;');
+  const esc = s => window.esc(s || '');
   tbody.innerHTML = hist.map(h => `<tr>
     <td>${esc(h.sent_at)}</td>
     <td>${esc(h.customer_name || 'Unknown')}</td>
@@ -763,7 +763,7 @@ async function sendReminders() {
     const resDiv = document.getElementById('remResults');
     const resBody = document.getElementById('remResultsBody');
     resDiv.style.display = 'block';
-    const esc = s => (s||'').replace(/</g,'&lt;');
+    const esc = s => window.esc(s || '');
     resBody.innerHTML = `<table><thead><tr><th>Customer</th><th>Phone</th><th>Status</th></tr></thead><tbody>` +
       (r.results || []).map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.phone)}</td><td><span class="badge badge-${x.status==='sent'?'success':'danger'}">${esc(x.status)}</span></td></tr>`).join('') +
       `</tbody></table>`;

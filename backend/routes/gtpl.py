@@ -16,9 +16,31 @@ from pydantic import BaseModel
 from typing import Optional
 
 from deps_orm import get_current_user, require_role
+from conn import get_conn
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/gtpl", tags=["gtpl"])
+
+
+def _assert_stb_ownership(stb_no: str, current_user: dict):
+    """Defense-in-depth: prevent an operator from managing another operator's STB.
+
+    Fails open (allows) for master, for STBs not found in our DB, and for legacy
+    connections with a NULL operator_id — so existing operations are never broken.
+    Only blocks the clear cross-tenant case (STB owned by a different operator).
+    """
+    oid = current_user.get("operator_id")
+    if current_user.get("role") == "master" or oid is None:
+        return
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT operator_id FROM connections WHERE stb_no = ? LIMIT 1", [stb_no]
+            ).fetchone()
+    except Exception:
+        return  # lookup failure must not block operations
+    if row and row["operator_id"] is not None and row["operator_id"] != oid:
+        raise HTTPException(403, "This STB belongs to a different operator")
 
 # WSL Playwright service URL (via Cloudflare tunnel)
 GTPL_SERVICE_URL = os.environ.get("GTPL_SERVICE_URL", "")
@@ -97,6 +119,7 @@ async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('admi
     """Suspend STB on GTPL Saathi (cuts signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
+    _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL suspend: {data.stb_no} by {current_user['username']}")
     return await _proxy("POST", "/suspend", {"stb_no": data.stb_no})
 
@@ -106,6 +129,7 @@ async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('adm
     """Activate/reconnect STB on GTPL Saathi (restores signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
+    _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL activate: {data.stb_no} by {current_user['username']}")
     return await _proxy("POST", "/activate", {"stb_no": data.stb_no})
 
@@ -117,6 +141,7 @@ async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admi
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
     if data.months not in [1, 2, 3, 6, 12]:
         raise HTTPException(400, "months must be 1, 2, 3, 6, or 12")
+    _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL renew: {data.stb_no} x{data.months}mo by {current_user['username']}")
     return await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": data.months})
 
@@ -126,6 +151,7 @@ async def gtpl_change_plan(data: ChangePlanRequest, current_user=Depends(require
     """Change STB package on GTPL Saathi."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
+    _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL change-plan: {data.stb_no} → {data.plan_code} by {current_user['username']}")
     return await _proxy("POST", "/change-package", {"stb_no": data.stb_no, "plan_code": data.plan_code})
 
@@ -135,6 +161,7 @@ async def gtpl_status(stb_no: str, current_user=Depends(require_role('admin', 's
     """Get current GTPL portal status for an STB."""
     if not stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
+    _assert_stb_ownership(stb_no, current_user)
     return await _proxy("GET", f"/status/{stb_no}")
 
 

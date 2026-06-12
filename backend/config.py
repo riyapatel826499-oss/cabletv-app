@@ -52,6 +52,10 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1632880933")
 SR_BOT_TOKEN = os.getenv("SR_BOT_TOKEN", "8738324317:AAE-8zaNhMixSs7cKZHoTtxObm9WiQSrhLk")
 SR_GROUP_ID = os.getenv("SR_GROUP_ID", "-5136685396")
 SR_ADMIN_IDS = os.getenv("SR_ADMIN_IDS", "1632880933").split(",")  # Prabhu's TG ID
+# Telegram webhook secret token. When set, the SR webhook verifies the
+# X-Telegram-Bot-Api-Secret-Token header. Leave empty to disable the check
+# (e.g. if the webhook was registered without a secret_token).
+SR_WEBHOOK_SECRET = os.getenv("SR_WEBHOOK_SECRET", "")
 
 # Web Push Notifications (VAPID)
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "BD1ZpMaOEZfw50sY69dHcXY8rNUIL16KSzIFHVlU3to_sQGjHpAA7EADOfSPE4AHPrKmOUXmCwpHYcsJb1E0hAU")
