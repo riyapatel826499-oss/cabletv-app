@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
+  // Served under /app so the React app coexists with the legacy vanilla-JS app
+  // (which keeps the root, /login, /dashboard). Assets emit under /app/.
+  base: '/app/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

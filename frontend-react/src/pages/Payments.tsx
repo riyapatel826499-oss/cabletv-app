@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { paymentsApi } from '../api';
 import type { Payment } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Plus } from 'lucide-react';
 
 const PER_PAGE = 25;
 
@@ -55,9 +56,14 @@ export default function Payments() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-          <p className="text-gray-500 mt-1">{total.toLocaleString('en-IN')} payments in range</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
+            <p className="text-gray-500 mt-1">{total.toLocaleString('en-IN')} payments in range</p>
+          </div>
+          <Link to="/payments/new" className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
+            <Plus className="w-4 h-4" /> Record
+          </Link>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }}

@@ -67,6 +67,7 @@ export interface Payment {
   connection_id?: number;
   area?: string;
   source?: string;
+  notes?: string;
   operator_id?: number;
 }
 

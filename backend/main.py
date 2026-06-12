@@ -798,6 +798,26 @@ else:
     FRONTEND_DIR = None
     print("WARNING: No frontend directory found!")
 
+# ── React app (Vite build) served under /app — coexists with the legacy app ──
+# Registered BEFORE the legacy catch-all so /app/* is matched here first.
+_REACT_INDEX = os.path.join(STATIC_DIR, "index.html")
+if os.path.exists(_REACT_INDEX):
+    _REACT_ROOT = os.path.realpath(STATIC_DIR)
+    print(f"Serving React app under /app from: {STATIC_DIR}")
+
+    @app.get("/app")
+    async def serve_react_root():
+        return FileResponse(_REACT_INDEX)
+
+    @app.get("/app/{path:path}")
+    async def serve_react(path: str):
+        # Serve a real build asset if it exists within the build dir; otherwise
+        # fall back to index.html for client-side (SPA) routes.
+        real = os.path.realpath(os.path.join(STATIC_DIR, path))
+        if (real == _REACT_ROOT or real.startswith(_REACT_ROOT + os.sep)) and os.path.isfile(real):
+            return FileResponse(real)
+        return FileResponse(_REACT_INDEX)
+
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
 

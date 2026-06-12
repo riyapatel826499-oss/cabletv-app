@@ -1,0 +1,17 @@
+# Keep the Docker build context small and reproducible.
+**/node_modules
+**/__pycache__
+**/*.pyc
+backend/venv
+backend/.venv
+backend/static
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+.git
+.github
+frontend-react/dist
+customer_app
+agent_app
+backups
+*.log

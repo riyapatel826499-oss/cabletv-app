@@ -24,7 +24,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      // React app is mounted under /app — redirect to its login, not the legacy one.
+      window.location.href = '/app/login';
     }
     return Promise.reject(error);
   }
