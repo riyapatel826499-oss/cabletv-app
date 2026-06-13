@@ -192,7 +192,7 @@ export default function Layout() {
 
       {/* ── Sidebar ────────────────────────────────────────────── */}
       <aside
-        className={`glass-sidebar fixed lg:static inset-y-0 left-0 z-30 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        className={`glass-sidebar fixed lg:static inset-y-0 left-0 z-[110] flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         style={{
           width: 'var(--sidebar-width)',
           transition: 'var(--transition)',
