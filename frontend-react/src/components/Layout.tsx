@@ -123,9 +123,19 @@ export default function Layout() {
   const allowedRoutes = getAllowedRoutes(user?.role);
   const visibleNavItems = navItems.filter((item) => allowedRoutes.has(item.to));
 
+  // ── Dark mode: auto by time (7PM–6AM), manual override persists ──
+  function isDarkHour() {
+    const h = new Date().getHours();
+    return h >= 19 || h < 6;
+  }
+
   useEffect(() => {
-    const saved = localStorage.getItem('dark-mode') === 'true';
-    setDarkMode(saved);
+    const isManual = localStorage.getItem('dark-mode-manual') === 'true';
+    if (isManual) {
+      setDarkMode(localStorage.getItem('dark-mode') === 'true');
+    } else {
+      setDarkMode(isDarkHour());
+    }
     const savedScale = parseInt(localStorage.getItem('font-scale') || '100', 10);
     if (!isNaN(savedScale)) setFontScale(savedScale);
   }, []);
@@ -134,6 +144,15 @@ export default function Layout() {
     document.body.classList.toggle('dark-mode', darkMode);
     localStorage.setItem('dark-mode', String(darkMode));
   }, [darkMode]);
+
+  // Auto-switch every 5 min (only if user hasn't manually overridden)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const isManual = localStorage.getItem('dark-mode-manual') === 'true';
+      if (!isManual) setDarkMode(isDarkHour());
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Apply font zoom (font-size on html, NOT zoom which breaks layout)
   useEffect(() => {
@@ -514,7 +533,10 @@ export default function Layout() {
 
             {/* Dark mode */}
             <button
-              onClick={() => setDarkMode(!darkMode)}
+              onClick={() => {
+                localStorage.setItem('dark-mode-manual', 'true');
+                setDarkMode(!darkMode);
+              }}
               style={{
                 background: 'var(--bg-secondary)',
                 border: '0.5px solid var(--border)',
