@@ -1,24 +1,203 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi, settingsApi } from '../api';
+import { customersApi, paymentsApi, plansApi, settingsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
-import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee } from 'lucide-react';
+import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee, Info } from 'lucide-react';
 
 interface CustomerSearchResult extends CustomerListItem {}
 
+interface PlanOption {
+  id: number;
+  name: string;
+  amount: number;
+  network?: string;
+}
+
+interface ConnectionInfo {
+  id: number;
+  stb_no?: string;
+  mso?: string;
+  network?: string;
+  status?: string;
+  expiry_date?: string;
+  plan_name?: string;
+  plan_amount?: number;
+}
+
 const PAYMENT_MODES = ['Cash', 'GPay', 'PhonePe', 'UPI', 'Bank Transfer', 'Cheque'];
 
-// Compute the payment status badge for a customer
+// ── Status badge for search results ──────────────────────────────────────
 function getPaymentStatus(c: CustomerSearchResult): { label: string; color: string } {
   const isPaid = c.is_paid === true || c.is_paid === 1;
   const connStatus = (c.conn_status || c.status || '').toLowerCase();
   const isDisconnected = connStatus.includes('disconnected') || connStatus === 'inactive';
-
   if (isPaid) return { label: 'Active | Paid', color: '#34c759' };
   if (isDisconnected) return { label: 'Inactive | Unpaid', color: '#ff3b30' };
   return { label: 'Active | Unpaid', color: '#ffcc00' };
+}
+
+function detectMSO(stbNo?: string): string {
+  if (!stbNo) return 'GTPL';
+  const s = stbNo.toString();
+  if (s.startsWith('172') || s.startsWith('173')) return 'TACTV';
+  if (s.startsWith('5000')) return 'SCV';
+  return 'GTPL';
+}
+
+// ── Prorata calculation (ported from vanilla) ────────────────────────────
+interface PayCalc {
+  netAmount: number;
+  fullDisplay: number;
+  discount: number;
+  note: string;
+}
+
+function calcPayAmount(
+  planAmount: number,
+  months: number,
+  monthVal: string,       // YYYY-MM
+  isDisconnected: boolean,
+): PayCalc {
+  const fullAmt = planAmount || 0;
+  const today = new Date();
+  const payDay = today.getDate();
+  const payMonth = today.getMonth();   // 0-indexed
+  const payYear = today.getFullYear();
+
+  let netAmt = fullAmt * months;
+  let discount = 0;
+  let fullDisplay = fullAmt * months;
+  let note = '';
+
+  if (months === 12) {
+    // Yearly: 12 months, pay for 11
+    discount = fullAmt;
+    netAmt = fullAmt * 11;
+    note = `Yearly Pack: 12 months, pay for 11 — 1 month FREE! (${fmtRs(fullAmt)} saved)`;
+  } else if (isDisconnected && payDay <= 12) {
+    // Reconnecting between 1st-12th: prorata remaining days + 1 full month
+    const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
+    const prorataDays = 13 - payDay;
+    const prorataAmt = (prorataDays / daysInMonth) * fullAmt;
+    const roundedProrata = Math.round(prorataAmt / 10) * 10;
+    netAmt = roundedProrata + fullAmt;
+    fullDisplay = netAmt;
+    note = `Reconnect: ${prorataDays} days prorata (${fmtRs(roundedProrata)}) + 1 full month (${fmtRs(fullAmt)}) = ${fmtRs(netAmt)}`;
+  } else if (payDay > 20 && months >= 1) {
+    // After 20th: current month prorata
+    const selDate = new Date(monthVal + '-01');
+    const selMonth = selDate.getMonth();
+    const selYear = selDate.getFullYear();
+    const isCurrentMonth = payYear === selYear && payMonth === selMonth;
+
+    if (isCurrentMonth && months === 1) {
+      // Single current month after 20th: prorata for remaining days
+      const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
+      const nextYear = payMonth === 11 ? payYear + 1 : payYear;
+      const targetDate = new Date(nextYear, nextMonth, 16);
+      const remainingDays = Math.ceil((targetDate.getTime() - today.getTime()) / 86400000);
+      const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
+      const prorataAmt = (remainingDays / daysInMonth) * fullAmt;
+      const roundedAmt = Math.round(prorataAmt / 10) * 10;
+      discount = fullAmt - roundedAmt;
+      netAmt = roundedAmt;
+      fullDisplay = fullAmt;
+      const targetStr = targetDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      note = `Prorata: ${remainingDays} days (today → ${targetStr}) × ${fmtRs(fullAmt)} ÷ ${daysInMonth} = ${fmtRs(roundedAmt)}`;
+    } else if (isCurrentMonth && months > 1) {
+      // Gap payment: past months full + current month prorata
+      const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
+      const nextYear = payMonth === 11 ? payYear + 1 : payYear;
+      const targetDate = new Date(nextYear, nextMonth, 16);
+      const remainingDays = Math.ceil((targetDate.getTime() - today.getTime()) / 86400000);
+      const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
+      const prorataAmt = (remainingDays / daysInMonth) * fullAmt;
+      const roundedProrata = Math.round(prorataAmt / 10) * 10;
+      const fullMonths = months - 1;
+      netAmt = fullAmt * fullMonths + roundedProrata;
+      fullDisplay = fullAmt * months;
+      discount = fullDisplay - netAmt;
+      note = `${fullMonths} month(s) full (${fmtRs(fullAmt * fullMonths)}) + current month prorata ${remainingDays} days (${fmtRs(roundedProrata)}) = ${fmtRs(netAmt)}`;
+    }
+  } else if (months === 1) {
+    const selDate = new Date(monthVal + '-01');
+    const selMonth = selDate.getMonth();
+    const selYear = selDate.getFullYear();
+    const isFutureMonth = selYear > payYear || (selYear === payYear && selMonth > payMonth);
+
+    if (isDisconnected && payDay > 12 && payDay <= 20) {
+      note = `Reconnect: Full month (${fmtRs(fullAmt)}). Billing cycle 13th–12th.`;
+    } else if (isFutureMonth) {
+      const monthName = selDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      note = `Full month payment for ${monthName}`;
+    } else {
+      note = `Full month payment`;
+    }
+  }
+
+  return { netAmount: netAmt, fullDisplay, discount, note };
+}
+
+// ── Auto-detect gap and set defaults ─────────────────────────────────────
+function detectGap(conn: ConnectionInfo): { isDisconnected: boolean; defaultMonth: string; gapNote: string } {
+  const today = new Date();
+  const expiryStr = conn?.expiry_date;
+  const status = (conn?.status || '').toLowerCase();
+
+  if (!expiryStr) {
+    const now = new Date();
+    return {
+      isDisconnected: false,
+      defaultMonth: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      gapNote: '',
+    };
+  }
+
+  const expiry = new Date(expiryStr + 'T23:59:59');
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const expiryDate = new Date(expiry.getFullYear(), expiry.getMonth(), expiry.getDate());
+  const isExpired = expiryDate < todayDate || status === 'disconnected' || status === 'inactive' || status === 'temp disconnected';
+
+  if (isExpired) {
+    const curMonth = today.getMonth();
+    const curYear = today.getFullYear();
+    const expMonth = expiry.getMonth();
+    const expYear = expiry.getFullYear();
+    const gapMonths = (curYear - expYear) * 12 + (curMonth - expMonth) + 1;
+    const expStr = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return {
+      isDisconnected: true,
+      defaultMonth: `${curYear}-${String(curMonth + 1).padStart(2, '0')}`,
+      gapNote: `Last paid till ${expStr} (${gapMonths} month gap). Reconnecting — 1 month prorata.`,
+    };
+  }
+
+  // Not expired — check if already paid for current month
+  const curMonth = today.getMonth();
+  const curYear = today.getFullYear();
+  const expMonth = expiryDate.getMonth();
+  const expYear = expiryDate.getFullYear();
+
+  if (expYear > curYear || (expYear === curYear && expMonth >= curMonth)) {
+    let nextM = curMonth + 2;
+    let nextY = curYear;
+    if (nextM > 12) { nextM -= 12; nextY++; }
+    const nextMonthName = new Date(nextY, nextM - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const expStr = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return {
+      isDisconnected: false,
+      defaultMonth: `${nextY}-${String(nextM).padStart(2, '0')}`,
+      gapNote: `Already paid till ${expStr}. Month set to ${nextMonthName}.`,
+    };
+  }
+
+  return {
+    isDisconnected: false,
+    defaultMonth: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`,
+    gapNote: '',
+  };
 }
 
 export default function RecordPayment() {
@@ -26,25 +205,31 @@ export default function RecordPayment() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // Pre-fill from navigation state (coming from Customer Detail)
   const prefill = (location.state as { customerId?: number; customerName?: string }) || {};
 
   const [searchTerm, setSearchTerm] = useState(prefill.customerName || '');
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(
-    null
-  );
-  const [amount, setAmount] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerSearchResult | null>(null);
   const [mode, setMode] = useState('Cash');
-  const [month, setMonth] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Fetch cutoff date from settings (used to show due date hint for unpaid customers)
+  // Connection + plan state
+  const [connections, setConnections] = useState<ConnectionInfo[]>([]);
+  const [selectedConnId, setSelectedConnId] = useState<number | null>(null);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [months, setMonths] = useState(1);
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [isDisconnected, setIsDisconnected] = useState(false);
+  const [gapNote, setGapNote] = useState('');
+  const [connLoading, setConnLoading] = useState(false);
+
+  // Cutoff date from settings
   const { data: notifSettings } = useQuery({
     queryKey: ['settings-notifications'],
     queryFn: async () => (await settingsApi.getNotifications()).data,
@@ -70,33 +255,144 @@ export default function RecordPayment() {
     }
   }, [prefill.customerId]);
 
+  // When customer is selected, fetch full detail + connections + plans
+  const loadCustomerDetail = async (customer: CustomerSearchResult) => {
+    setConnLoading(true);
+    try {
+      const res = await customersApi.get(customer.customer_id);
+      const data = res.data as any;
+      const conns: ConnectionInfo[] = data.connections || [];
+      setConnections(conns);
+
+      // Auto-select active connection
+      let activeConn = conns.find(c => c.status === 'Active') || conns[0];
+      if (activeConn) {
+        setSelectedConnId(activeConn.id);
+        const net = (activeConn as any).network || detectMSO(activeConn.stb_no);
+
+        // Detect gap + set month
+        const gap = detectGap(activeConn);
+        setIsDisconnected(gap.isDisconnected);
+        setGapNote(gap.gapNote);
+        setMonth(gap.defaultMonth);
+        setMonths(1);
+
+        // Load plans filtered by MSO
+        try {
+          const planRes = await plansApi.list({ status: 'Active', network: net });
+          const planData = (planRes.data as any).plans || (planRes.data as any).items || planRes.data || [];
+          const planOpts: PlanOption[] = planData.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            amount: p.amount || p.price || 0,
+            network: p.network || net,
+          }));
+          setPlans(planOpts);
+
+          // Auto-select customer's current plan
+          const currentPlanName = activeConn.plan_name;
+          if (currentPlanName) {
+            const exact = planOpts.find(p => p.name?.toLowerCase() === currentPlanName.toLowerCase());
+            if (exact) { setSelectedPlanId(exact.id); return; }
+            const partial = planOpts.find(p =>
+              p.name?.toLowerCase().includes(currentPlanName.toLowerCase()) ||
+              currentPlanName.toLowerCase().includes(p.name.toLowerCase())
+            );
+            if (partial) { setSelectedPlanId(partial.id); return; }
+          }
+          // Fallback: no auto-select
+          setSelectedPlanId(null);
+        } catch { setPlans([]); }
+      }
+    } catch { /* ignore */ }
+    setConnLoading(false);
+  };
+
   const handleCustomerSelect = (c: CustomerSearchResult) => {
     setSelectedCustomer(c);
     setSearchTerm(c.name);
-    if (c.plan_amount) setAmount(String(c.plan_amount));
+    loadCustomerDetail(c);
+  };
+
+  // When connection changes
+  const handleConnChange = (connId: number) => {
+    setSelectedConnId(connId);
+    const conn = connections.find(c => c.id === connId);
+    if (conn) {
+      const gap = detectGap(conn);
+      setIsDisconnected(gap.isDisconnected);
+      setGapNote(gap.gapNote);
+      setMonth(gap.defaultMonth);
+      setMonths(1);
+    }
+  };
+
+  // Selected plan object
+  const selectedPlan = useMemo(
+    () => plans.find(p => p.id === selectedPlanId) || null,
+    [plans, selectedPlanId],
+  );
+
+  // Calculate amount via prorata
+  const payCalc = useMemo(() => {
+    if (!selectedPlan) return null;
+    return calcPayAmount(selectedPlan.amount, months, month, isDisconnected);
+  }, [selectedPlan, months, month, isDisconnected]);
+
+  // Also reload plans when connection changes
+  useEffect(() => {
+    if (selectedConnId && connections.length) {
+      const conn = connections.find(c => c.id === selectedConnId);
+      if (conn) {
+        const net = (conn as any).network || detectMSO(conn.stb_no);
+        plansApi.list({ status: 'Active', network: net }).then((res) => {
+          const planData = (res.data as any).plans || (res.data as any).items || res.data || [];
+          const planOpts: PlanOption[] = planData.map((p: any) => ({
+            id: p.id, name: p.name, amount: p.amount || p.price || 0, network: p.network || net,
+          }));
+          setPlans(planOpts);
+          // Try to keep current plan if same MSO
+          if (conn.plan_name) {
+            const m = planOpts.find(p => p.name?.toLowerCase() === conn.plan_name!.toLowerCase());
+            if (m) setSelectedPlanId(m.id);
+          }
+        }).catch(() => {});
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConnId]);
+
+  const handleReset = () => {
+    setSelectedCustomer(null);
+    setSearchTerm('');
+    setConnections([]);
+    setSelectedConnId(null);
+    setPlans([]);
+    setSelectedPlanId(null);
+    setMonths(1);
+    setGapNote('');
+    setIsDisconnected(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomer) {
-      setError('Please select a customer');
-      return;
-    }
-    if (!amount || Number(amount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
+    if (!selectedCustomer) { setError('Please select a customer'); return; }
+    if (!selectedPlanId) { setError('Please select a plan'); return; }
+    if (!payCalc || payCalc.netAmount <= 0) { setError('Invalid amount'); return; }
     setError('');
     setSubmitting(true);
     try {
+      const monthYear = month.split('-').reverse().join('-');
       await paymentsApi.create({
         customer_id: selectedCustomer.customer_id,
-        amount: Number(amount),
+        connection_id: selectedConnId || undefined,
+        plan_id: selectedPlanId || undefined,
+        amount: payCalc.netAmount,
         payment_mode: mode,
-        month_year: month,
+        month_year: monthYear,
+        months_paid: months,
         notes: notes || undefined,
-      });
-      // Invalidate relevant queries
+      } as any);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
@@ -111,21 +407,14 @@ export default function RecordPayment() {
 
   if (success) {
     return (
-      <div
-        className="animate-fade-in"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}
-      >
+      <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
         <div className="glass-card" style={{ padding: 48, textAlign: 'center', maxWidth: 360 }}>
           <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>
-            Payment Recorded!
-          </h2>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>Payment Recorded!</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
-            {fmtRs(Number(amount))} from {selectedCustomer?.name} via {mode}
+            {selectedPlan && payCalc ? `${fmtRs(payCalc.netAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
           </p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>
-            Redirecting to payments...
-          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to payments...</p>
         </div>
       </div>
     );
@@ -138,17 +427,10 @@ export default function RecordPayment() {
         <button
           onClick={() => navigate(-1)}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '8px 14px',
-            borderRadius: 'var(--radius-sm)',
-            border: '0.5px solid var(--border)',
-            background: 'var(--bg-secondary)',
-            cursor: 'pointer',
-            color: 'var(--text)',
-            fontSize: '0.85rem',
-            fontWeight: 500,
+            display: 'flex', alignItems: 'center', gap: 4, padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)', border: '0.5px solid var(--border)',
+            background: 'var(--bg-secondary)', cursor: 'pointer', color: 'var(--text)',
+            fontSize: '0.85rem', fontWeight: 500,
           }}
         >
           <ArrowLeft style={{ width: 16, height: 16 }} /> Back
@@ -159,21 +441,12 @@ export default function RecordPayment() {
       </div>
 
       {error && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'rgba(255,59,48,0.08)',
-            border: '0.5px solid rgba(255,59,48,0.2)',
-            color: '#ff3b30',
-            padding: '12px 16px',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '0.85rem',
-          }}
-        >
-          <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
-          {error}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(255,59,48,0.08)', border: '0.5px solid rgba(255,59,48,0.2)',
+          color: '#ff3b30', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem',
+        }}>
+          <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />{error}
         </div>
       )}
 
@@ -185,47 +458,18 @@ export default function RecordPayment() {
               Customer
             </label>
             <div style={{ position: 'relative' }}>
-              <Search
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 18,
-                  height: 18,
-                  color: 'var(--text-light)',
-                }}
-              />
+              <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: 'var(--text-light)' }} />
               <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setSelectedCustomer(null);
-                }}
+                type="text" value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setSelectedCustomer(null); }}
                 className="glass-input"
                 style={{ paddingLeft: 40, width: '100%', padding: '12px 16px 12px 40px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
                 placeholder="Search customer by name or phone..."
                 disabled={!!selectedCustomer}
               />
               {selectedCustomer && (
-                <button
-                  type="button"
-                  onClick={() => { setSelectedCustomer(null); setSearchTerm(''); }}
-                  style={{
-                    position: 'absolute',
-                    right: 8,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'var(--bg-secondary)',
-                    border: 'none',
-                    borderRadius: 'var(--radius-xs)',
-                    padding: '4px 10px',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    color: 'var(--text-light)',
-                  }}
-                >
+                <button type="button" onClick={handleReset}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'var(--bg-secondary)', border: 'none', borderRadius: 'var(--radius-xs)', padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-light)' }}>
                   Change
                 </button>
               )}
@@ -233,185 +477,204 @@ export default function RecordPayment() {
 
             {/* Search Results Dropdown */}
             {!selectedCustomer && searchResults && searchResults.length > 0 && (
-              <div
-                className="glass-card animate-fade-in"
-                style={{
-                  marginTop: 4,
-                  padding: 0,
-                  overflow: 'hidden',
-                  maxHeight: 280,
-                  overflowY: 'auto',
-                }}
-              >
-                {searchResults.map((c) => (
-                  <div
-                    key={c.customer_id}
-                    onClick={() => handleCustomerSelect(c)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      borderBottom: '0.5px solid var(--border)',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(0,113,227,0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <div>
-                      <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>{c.name}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                        {c.phone || 'No phone'} {c.stb_no ? `| STB: ${c.stb_no}` : ''}
-                      </p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      {c.plan_amount && (
-                        <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>
-                          {fmtRs(c.plan_amount)}
+              <div className="glass-card animate-fade-in" style={{ marginTop: 4, padding: 0, overflow: 'hidden', maxHeight: 280, overflowY: 'auto' }}>
+                {searchResults.map((c) => {
+                  const ps = getPaymentStatus(c);
+                  return (
+                    <div key={c.customer_id} onClick={() => handleCustomerSelect(c)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', borderBottom: '0.5px solid var(--border)', transition: 'background 0.15s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,113,227,0.05)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                      <div>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>{c.name}</p>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                          {c.phone || 'No phone'} {c.stb_no ? `| STB: ${c.stb_no}` : ''}
                         </p>
-                      )}
-                      {(() => {
-                        const ps = getPaymentStatus(c);
-                        return (
-                          <>
-                            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>
-                              {ps.label}
-                            </p>
-                            {ps.label === 'Active | Unpaid' && (
-                              <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>
-                                Due by {cutoffDate}th
-                              </p>
-                            )}
-                          </>
-                        );
-                      })()}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {c.plan_amount && <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>{fmtRs(c.plan_amount)}</p>}
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>{ps.label}</p>
+                        {ps.label === 'Active | Unpaid' && <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>Due by {cutoffDate}th</p>}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {!selectedCustomer && searchTerm.length >= 2 && !isFetching && searchResults && searchResults.length === 0 && (
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 8, padding: '0 4px' }}>
-                No customers found matching "{searchTerm}"
-              </p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 8, padding: '0 4px' }}>No customers found matching "{searchTerm}"</p>
             )}
           </div>
 
-          {/* Amount */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-              Amount
-            </label>
-            <div style={{ position: 'relative' }}>
-              <IndianRupee
-                style={{
-                  position: 'absolute',
-                  left: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 18,
-                  height: 18,
-                  color: 'var(--text-light)',
-                }}
-              />
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="glass-input"
-                style={{ paddingLeft: 40, width: '100%', padding: '12px 16px 12px 40px', borderRadius: 'var(--radius-sm)', fontSize: '1rem', fontWeight: 600 }}
-                placeholder="0"
-                required
-              />
+          {/* Loading spinner for connection/plan load */}
+          {connLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <Loader2 style={{ width: 24, height: 24, animation: 'spin 1s linear infinite', color: 'var(--text-light)' }} />
             </div>
-          </div>
+          )}
 
-          {/* Mode + Month */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          {/* Connection selector (if multiple) */}
+          {selectedCustomer && connections.length > 1 && !connLoading && (
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-                Payment Mode
-              </label>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                className="glass-input"
-                style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}
-              >
-                {PAYMENT_MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Connection (STB)</label>
+              <select value={selectedConnId ?? ''} onChange={(e) => handleConnChange(Number(e.target.value))}
+                className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
+                {connections.map((cn) => (
+                  <option key={cn.id} value={cn.id}>
+                    {cn.stb_no || `Connection ${cn.id}`} — {cn.mso || cn.network || detectMSO(cn.stb_no)} ({cn.status})
+                  </option>
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-                Billing Month
-              </label>
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="glass-input"
-                style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
-              />
-            </div>
-          </div>
+          )}
 
-          {/* Notes */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-              Notes <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="glass-input"
-              style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', minHeight: 70, resize: 'vertical' }}
-              placeholder="Any additional notes..."
-            />
-          </div>
+          {/* Current plan info card */}
+          {selectedCustomer && selectedConnId && !connLoading && (() => {
+            const conn = connections.find(c => c.id === selectedConnId);
+            if (!conn) return null;
+            return (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-secondary)', border: '0.5px solid var(--border)',
+              }}>
+                <div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Current Package</p>
+                  <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)' }}>{conn.plan_name || 'No plan assigned'}</p>
+                  {conn.expiry_date && <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Expiry: {conn.expiry_date}</p>}
+                </div>
+                {conn.plan_amount && (
+                  <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0071e3' }}>{fmtRs(conn.plan_amount)}</p>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Plan selector */}
+          {selectedCustomer && selectedConnId && !connLoading && plans.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Plan</label>
+              <select value={selectedPlanId ?? ''} onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
+                className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
+                <option value="">Select plan</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} — {fmtRs(p.amount)}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Month + Months + Mode */}
+          {selectedPlanId && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Billing Month</label>
+                  <input type="month" value={month} onChange={(e) => setMonth(e.target.value)}
+                    className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Months</label>
+                  <select value={months} onChange={(e) => setMonths(Number(e.target.value))}
+                    className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>{n}{n === 12 ? ' (1 free!)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Mode</label>
+                  <select value={mode} onChange={(e) => setMode(e.target.value)}
+                    className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Gap note */}
+              {gapNote && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  background: 'rgba(255,204,0,0.08)', border: '0.5px solid rgba(255,204,0,0.2)',
+                  padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+                }}>
+                  <Info style={{ width: 16, height: 16, color: '#ffcc00', flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text)' }}>{gapNote}</p>
+                </div>
+              )}
+
+              {/* Prorata note */}
+              {payCalc?.note && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  background: 'rgba(0,113,227,0.06)', border: '0.5px solid rgba(0,113,227,0.15)',
+                  padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+                }}>
+                  <Info style={{ width: 16, height: 16, color: '#0071e3', flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text)' }}>{payCalc.note}</p>
+                </div>
+              )}
+
+              {/* Amount breakdown */}
+              {payCalc && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                  padding: '16px 20px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-secondary)', border: '0.5px solid var(--border)',
+                }}>
+                  {payCalc.discount > 0 && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                        <span style={{ color: 'var(--text-light)' }}>Full Amount</span>
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>{fmtRs(payCalc.fullDisplay)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                        <span style={{ color: 'var(--text-light)' }}>Prorata Discount</span>
+                        <span style={{ color: '#34c759', fontWeight: 500 }}>- {fmtRs(payCalc.discount)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: payCalc.discount > 0 ? 6 : 0, borderTop: payCalc.discount > 0 ? '0.5px solid var(--border)' : 'none' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Amount to Pay</span>
+                    <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.3rem', fontWeight: 700, color: '#0071e3' }}>
+                      <IndianRupee style={{ width: 18, height: 18 }} />{payCalc.netAmount}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                  Notes <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="glass-input"
+                  style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', minHeight: 60, resize: 'vertical' }}
+                  placeholder="Any additional notes..." />
+              </div>
+            </>
+          )}
 
           {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting || !selectedCustomer}
+          <button type="submit" disabled={submitting || !selectedCustomer || !selectedPlanId || !payCalc}
             style={{
-              width: '100%',
-              padding: '13px',
-              borderRadius: 'var(--radius-sm)',
-              background: submitting ? '#005bb5' : '#0071e3',
-              color: '#fff',
-              fontSize: '0.92rem',
-              fontWeight: 600,
-              border: 'none',
-              cursor: submitting || !selectedCustomer ? 'not-allowed' : 'pointer',
+              width: '100%', padding: '13px', borderRadius: 'var(--radius-sm)',
+              background: submitting ? '#005bb5' : '#0071e3', color: '#fff',
+              fontSize: '0.92rem', fontWeight: 600, border: 'none',
+              cursor: submitting || !selectedCustomer || !selectedPlanId ? 'not-allowed' : 'pointer',
               transition: 'var(--transition)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              opacity: !selectedCustomer ? 0.5 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              opacity: !selectedCustomer || !selectedPlanId ? 0.5 : 1,
               boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
-            }}
-          >
+            }}>
             {submitting ? (
-              <>
-                <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
-                Recording...
-              </>
-            ) : (
-              'Record Payment'
-            )}
+              <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Recording...</>
+            ) : payCalc ? (
+              `Record Payment — ${fmtRs(payCalc.netAmount)}`
+            ) : 'Record Payment'}
           </button>
         </div>
       </form>
     </div>
   );
 }
-
-
