@@ -560,7 +560,9 @@ export default function Layout() {
               borderRadius: 50,
               background: 'linear-gradient(135deg, #34c759, #248a3d)',
               border: 'none',
-              boxShadow: '0 6px 20px rgba(52, 199, 89, 0.4)',
+              boxShadow: darkMode
+                ? '0 6px 20px rgba(52, 199, 89, 0.4), 0 0 24px rgba(52, 199, 89, 0.35), 0 0 48px rgba(52, 199, 89, 0.15)'
+                : '0 6px 20px rgba(52, 199, 89, 0.4)',
               cursor: 'pointer',
               color: '#fff',
               fontSize: '0.95rem',
@@ -569,11 +571,15 @@ export default function Layout() {
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.boxShadow = '0 8px 28px rgba(52, 199, 89, 0.5)';
+              e.currentTarget.style.boxShadow = darkMode
+                ? '0 8px 28px rgba(52, 199, 89, 0.5), 0 0 32px rgba(52, 199, 89, 0.4), 0 0 60px rgba(52, 199, 89, 0.2)'
+                : '0 8px 28px rgba(52, 199, 89, 0.5)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 199, 89, 0.4)';
+              e.currentTarget.style.boxShadow = darkMode
+                ? '0 6px 20px rgba(52, 199, 89, 0.4), 0 0 24px rgba(52, 199, 89, 0.35), 0 0 48px rgba(52, 199, 89, 0.15)'
+                : '0 6px 20px rgba(52, 199, 89, 0.4)';
             }}
           >
             <IndianRupee style={{ width: 20, height: 20 }} />
