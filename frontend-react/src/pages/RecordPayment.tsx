@@ -29,12 +29,20 @@ interface ConnectionInfo {
 const PAYMENT_MODES = ['Cash', 'GPay', 'PhonePe', 'UPI', 'Bank Transfer', 'Cheque'];
 
 // ── Status badge for search results ──────────────────────────────────────
-function getPaymentStatus(c: CustomerSearchResult): { label: string; color: string } {
+function getPaymentStatus(c: CustomerSearchResult, cutoffDay: number): { label: string; color: string } {
   const isPaid = c.is_paid === true || c.is_paid === 1;
   const connStatus = (c.conn_status || c.status || '').toLowerCase();
   const isDisconnected = connStatus.includes('disconnected') || connStatus === 'inactive';
+
   if (isPaid) return { label: 'Active | Paid', color: '#34c759' };
+
+  // Not paid — check if past cutoff date
+  const today = new Date();
+  const todayDate = today.getDate();
+  const isOverdue = todayDate > cutoffDay;
+
   if (isDisconnected) return { label: 'Inactive | Unpaid', color: '#ff3b30' };
+  if (isOverdue) return { label: 'Inactive | Unpaid', color: '#ff3b30' };
   return { label: 'Active | Unpaid', color: '#ffcc00' };
 }
 
@@ -489,7 +497,7 @@ export default function RecordPayment() {
             {!selectedCustomer && searchResults && searchResults.length > 0 && (
               <div className="glass-card animate-fade-in" style={{ marginTop: 4, padding: 0, overflow: 'hidden', maxHeight: 280, overflowY: 'auto' }}>
                 {searchResults.map((c) => {
-                  const ps = getPaymentStatus(c);
+                  const ps = getPaymentStatus(c, Number(cutoffDate));
                   return (
                     <div key={c.customer_id} onClick={() => handleCustomerSelect(c)}
                       style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', borderBottom: '0.5px solid var(--border)', transition: 'background 0.15s ease' }}
