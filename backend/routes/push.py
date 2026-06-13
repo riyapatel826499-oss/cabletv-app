@@ -167,7 +167,7 @@ def send_daily_summary(
         # Get yesterday's local payments
         row = conn.execute("""
             SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as total
-            FROM payments WHERE DATE(collected_at) = ?
+            FROM payments WHERE DATE(collected_at::timestamp) = ?
         """, (date_str,)).fetchone()
 
         # Get active customers count
@@ -185,7 +185,7 @@ def send_daily_summary(
             JOIN connections con ON con.customer_id = c.customer_id AND con.status = 'Active'
             WHERE c.customer_id NOT IN (
                 SELECT DISTINCT customer_id FROM payments
-                WHERE TO_CHAR(collected_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                WHERE SUBSTRING(collected_at, 1, 7) = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
             )
         """).fetchone()
 
