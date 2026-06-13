@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi } from '../api';
+import { customersApi, paymentsApi, gtplApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
 import {
   ArrowLeft,
@@ -16,6 +16,11 @@ import {
   Check,
   X,
   AlertCircle,
+  Tv,
+  PauseCircle,
+  PlayCircle,
+  RefreshCw,
+  Settings2,
 } from 'lucide-react';
 
 interface CustomerDetail {
@@ -120,6 +125,14 @@ export default function CustomerDetailPage() {
   const [deletePaymentReason, setDeletePaymentReason] = useState('');
   const [paymentDeleteMsg, setPaymentDeleteMsg] = useState('');
 
+  // GTPL state
+  const [gtplMsg, setGtplMsg] = useState('');
+  const [gtplRenewStb, setGtplRenewStb] = useState('');
+  const [gtplRenewMonths, setGtplRenewMonths] = useState(1);
+  const [gtplPlanStb, setGtplPlanStb] = useState('');
+  const [gtplPlanCode, setGtplPlanCode] = useState('');
+  const [gtplStatus, setGtplStatus] = useState<Record<string, unknown> | null>(null);
+
   const { data: customer, isLoading, isError } = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => (await customersApi.get(String(id))).data as CustomerDetail,
@@ -164,6 +177,30 @@ export default function CustomerDetailPage() {
       setDeletePaymentId(null);
       setDeletePaymentReason('');
     },
+  });
+
+  const gtplMut = useMutation({
+    mutationFn: async ({ action, stb, months, planCode }: { action: string; stb: string; months?: number; planCode?: string }) => {
+      if (action === 'suspend') return (await gtplApi.suspend(stb)).data;
+      if (action === 'activate') return (await gtplApi.activate(stb)).data;
+      if (action === 'renew') return (await gtplApi.renew(stb, months || 1)).data;
+      if (action === 'change-plan') return (await gtplApi.changePlan(stb, planCode || '')).data;
+      throw new Error('Unknown GTPL action');
+    },
+    onSuccess: (data) => {
+      setGtplMsg(String(data?.message || data?.status || 'GTPL operation completed'));
+      setGtplRenewStb('');
+      setGtplPlanStb('');
+    },
+    onError: (err) => {
+      setGtplMsg(`Error: ${err instanceof Error ? err.message : 'GTPL operation failed'}`);
+    },
+  });
+
+  const gtplStatusMut = useMutation({
+    mutationFn: async (stb: string) => (await gtplApi.status(stb)).data,
+    onSuccess: (data) => setGtplStatus(data),
+    onError: (err) => setGtplStatus({ error: err instanceof Error ? err.message : 'Failed to get status' }),
   });
 
   function enterEdit() {
@@ -511,6 +548,297 @@ export default function CustomerDetailPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* GTPL Operations */}
+          {customer.connections?.some((c) => (c.stb_no || '').startsWith('338')) && (
+            <div className="glass-card" style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <Tv style={{ width: 18, height: 18, color: '#ff9f0a' }} />
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>
+                  GTPL Operations
+                </h2>
+              </div>
+
+              {/* GTPL message */}
+              {gtplMsg && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: gtplMsg.startsWith('Error') ? 'rgba(255,59,48,0.08)' : 'rgba(52,199,89,0.08)',
+                    border: `0.5px solid ${gtplMsg.startsWith('Error') ? 'rgba(255,59,48,0.2)' : 'rgba(52,199,89,0.2)'}`,
+                    color: gtplMsg.startsWith('Error') ? '#ff3b30' : '#34c759',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-xs)',
+                    fontSize: '0.82rem',
+                    marginBottom: 12,
+                  }}
+                >
+                  {gtplMsg}
+                  <button
+                    onClick={() => setGtplMsg('')}
+                    style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem' }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {customer.connections
+                ?.filter((c) => (c.stb_no || '').startsWith('338'))
+                .map((conn, idx) => {
+                  const stb = conn.stb_no;
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '12px 0',
+                        borderBottom: idx < (customer.connections!.filter((c) => (c.stb_no || '').startsWith('338')).length - 1)
+                          ? '0.5px solid var(--border)'
+                          : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
+                          STB: {stb}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>({conn.status})</span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => gtplMut.mutate({ action: 'suspend', stb })}
+                          disabled={gtplMut.isPending}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '0.5px solid rgba(255,159,10,0.3)',
+                            background: 'transparent',
+                            color: '#ff9f0a',
+                            fontSize: '0.78rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            opacity: gtplMut.isPending ? 0.6 : 1,
+                          }}
+                        >
+                          <PauseCircle style={{ width: 13, height: 13 }} /> Suspend
+                        </button>
+                        <button
+                          onClick={() => gtplMut.mutate({ action: 'activate', stb })}
+                          disabled={gtplMut.isPending}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '0.5px solid rgba(52,199,89,0.3)',
+                            background: 'transparent',
+                            color: '#34c759',
+                            fontSize: '0.78rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            opacity: gtplMut.isPending ? 0.6 : 1,
+                          }}
+                        >
+                          <PlayCircle style={{ width: 13, height: 13 }} /> Activate
+                        </button>
+
+                        {/* Renew inline */}
+                        {gtplRenewStb === stb ? (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <select
+                              value={gtplRenewMonths}
+                              onChange={(e) => setGtplRenewMonths(Number(e.target.value))}
+                              style={{
+                                padding: '5px 8px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: '0.5px solid var(--border)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text)',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {[1, 2, 3, 6, 12].map((m) => (
+                                <option key={m} value={m}>{m} mo</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => gtplMut.mutate({ action: 'renew', stb, months: gtplRenewMonths })}
+                              disabled={gtplMut.isPending}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: 'none',
+                                background: '#0071e3',
+                                color: '#fff',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                opacity: gtplMut.isPending ? 0.6 : 1,
+                              }}
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setGtplRenewStb('')}
+                              style={{
+                                padding: '5px 8px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: '0.5px solid var(--border)',
+                                background: 'transparent',
+                                color: 'var(--text)',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setGtplRenewStb(stb); setGtplRenewMonths(1); }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '6px 12px',
+                              borderRadius: 'var(--radius-xs)',
+                              border: '0.5px solid rgba(0,113,227,0.3)',
+                              background: 'transparent',
+                              color: '#0071e3',
+                              fontSize: '0.78rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <RefreshCw style={{ width: 13, height: 13 }} /> Renew
+                          </button>
+                        )}
+
+                        {/* Change Plan inline */}
+                        {gtplPlanStb === stb ? (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <input
+                              value={gtplPlanCode}
+                              onChange={(e) => setGtplPlanCode(e.target.value)}
+                              placeholder="Plan code"
+                              style={{
+                                width: 100,
+                                padding: '5px 8px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: '0.5px solid var(--border)',
+                                background: 'var(--bg-secondary)',
+                                color: 'var(--text)',
+                                fontSize: '0.78rem',
+                              }}
+                            />
+                            <button
+                              onClick={() => gtplPlanCode && gtplMut.mutate({ action: 'change-plan', stb, planCode: gtplPlanCode })}
+                              disabled={gtplMut.isPending || !gtplPlanCode}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: 'none',
+                                background: '#0071e3',
+                                color: '#fff',
+                                fontSize: '0.78rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                opacity: gtplMut.isPending || !gtplPlanCode ? 0.6 : 1,
+                              }}
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => { setGtplPlanStb(''); setGtplPlanCode(''); }}
+                              style={{
+                                padding: '5px 8px',
+                                borderRadius: 'var(--radius-xs)',
+                                border: '0.5px solid var(--border)',
+                                background: 'transparent',
+                                color: 'var(--text)',
+                                fontSize: '0.78rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setGtplPlanStb(stb); setGtplPlanCode(''); }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '6px 12px',
+                              borderRadius: 'var(--radius-xs)',
+                              border: '0.5px solid var(--border)',
+                              background: 'transparent',
+                              color: 'var(--text)',
+                              fontSize: '0.78rem',
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Settings2 style={{ width: 13, height: 13 }} /> Change Plan
+                          </button>
+                        )}
+
+                        {/* Status */}
+                        <button
+                          onClick={() => { gtplStatusMut.mutate(stb); setGtplStatus(null); }}
+                          disabled={gtplStatusMut.isPending}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '0.5px solid var(--border)',
+                            background: 'transparent',
+                            color: 'var(--text-light)',
+                            fontSize: '0.78rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            opacity: gtplStatusMut.isPending ? 0.6 : 1,
+                          }}
+                        >
+                          {gtplStatusMut.isPending ? 'Checking...' : 'Status'}
+                        </button>
+                      </div>
+
+                      {/* Status result */}
+                      {gtplStatus && (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: '10px 14px',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: 'var(--radius-xs)',
+                            fontSize: '0.8rem',
+                            color: 'var(--text)',
+                          }}
+                        >
+                          {Object.entries(gtplStatus).map(([k, v]) => (
+                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                              <span style={{ color: 'var(--text-light)', textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}:</span>
+                              <span style={{ fontWeight: 500 }}>{String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
 

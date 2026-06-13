@@ -1,7 +1,7 @@
 import { useAuth } from '../hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi } from '../api';
-import { Users, IndianRupee, TrendingUp, Clock, AlertCircle, Wifi } from 'lucide-react';
+import { dashboardApi, reportsApi } from '../api';
+import { Users, IndianRupee, TrendingUp, Clock, AlertCircle, Wifi, BarChart3 } from 'lucide-react';
 import type { DashboardStats } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
 
@@ -77,6 +77,128 @@ function StatCard({
   );
 }
 
+interface TrendItem {
+  month: string;
+  local: number;
+  paypakka: number;
+  total: number;
+  count: number;
+}
+
+function RevenueBarChart({ data }: { data: TrendItem[] }) {
+  const maxVal = Math.max(...data.map((d) => d.total), 1);
+
+  return (
+    <div>
+      {/* Bars */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: 12,
+          height: 180,
+          padding: '0 8px',
+        }}
+      >
+        {data.map((d, i) => {
+          const localPct = (d.local / maxVal) * 100;
+          const ppPct = (d.paypakka / maxVal) * 100;
+          const totalPct = (d.total / maxVal) * 100;
+          return (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                height: '100%',
+                justifyContent: 'flex-end',
+                position: 'relative',
+              }}
+            >
+              {/* Tooltip on hover */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: `calc(${totalPct}% + 4px)`,
+                  background: 'var(--bg-secondary)',
+                  border: '0.5px solid var(--border)',
+                  borderRadius: 'var(--radius-xs)',
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  whiteSpace: 'nowrap',
+                  opacity: 0,
+                  transition: 'opacity 0.2s',
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                }}
+                className="bar-tooltip"
+              >
+                {fmtRs(d.total)} · {d.count} payments
+              </div>
+
+              {/* Stacked bar */}
+              <div
+                style={{
+                  width: '70%',
+                  maxWidth: 48,
+                  borderRadius: 'var(--radius-xs) var(--radius-xs) 0 0',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scaleY(1.03)';
+                  e.currentTarget.style.transformOrigin = 'bottom';
+                  const tip = e.currentTarget.parentElement?.querySelector('.bar-tooltip') as HTMLElement;
+                  if (tip) tip.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scaleY(1)';
+                  const tip = e.currentTarget.parentElement?.querySelector('.bar-tooltip') as HTMLElement;
+                  if (tip) tip.style.opacity = '0';
+                }}
+              >
+                <div style={{ height: `${ppPct}%`, background: '#ff9f0a', minHeight: d.paypakka > 0 ? 2 : 0 }} />
+                <div style={{ height: `${localPct}%`, background: '#0071e3', minHeight: d.local > 0 ? 2 : 0 }} />
+              </div>
+
+              {/* Month label */}
+              <p
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--text-light)',
+                  marginTop: 8,
+                  fontWeight: 500,
+                }}
+              >
+                {d.month.split(' ')[0]}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 12, height: 12, borderRadius: 3, background: '#0071e3' }} />
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Local</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 12, height: 12, borderRadius: 3, background: '#ff9f0a' }} />
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Paypakka</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
 
@@ -84,6 +206,13 @@ export default function Dashboard() {
     queryKey: ['dashboard'],
     queryFn: async () => (await dashboardApi.stats()).data as DashboardStats,
     refetchInterval: 30000,
+  });
+
+  const { data: trendData } = useQuery({
+    queryKey: ['mom-trend', 6],
+    queryFn: async () => (await reportsApi.momTrend(6)).data as {
+      data: Array<{ month: string; local: number; paypakka: number; total: number; count: number }>;
+    },
   });
 
   if (isLoading) {
@@ -176,6 +305,19 @@ export default function Dashboard() {
           color={stats.collection_efficiency >= 80 ? 'success' : 'warning'}
         />
       </div>
+
+      {/* Revenue Trend Chart */}
+      {trendData?.data && trendData.data.length > 0 && (
+        <div className="glass-card animate-fade-in" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <BarChart3 style={{ width: 18, height: 18, color: 'var(--text-light)' }} />
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
+              Revenue Trend — Last 6 Months
+            </h2>
+          </div>
+          <RevenueBarChart data={trendData.data} />
+        </div>
+      )}
 
       {/* Recent Payments */}
       <div className="glass-card animate-fade-in" style={{ padding: 0, overflow: 'hidden' }}>

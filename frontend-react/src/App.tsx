@@ -20,6 +20,8 @@ import AddCustomer from './pages/AddCustomer';
 import NotRenewed from './pages/NotRenewed';
 import Reminders from './pages/Reminders';
 import AuditLog from './pages/AuditLog';
+import Surrender from './pages/Surrender';
+import MyCollections from './pages/MyCollections';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -79,6 +81,8 @@ function AppRoutes() {
         <Route path="not-renewed" element={<NotRenewed />} />
         <Route path="reminders" element={<Reminders />} />
         <Route path="audit" element={<AuditLog />} />
+        <Route path="surrender" element={<Surrender />} />
+        <Route path="my-collections" element={<MyCollections />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

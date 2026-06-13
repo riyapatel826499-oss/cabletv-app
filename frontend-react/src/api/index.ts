@@ -116,6 +116,32 @@ export const reportsApi = {
   monthly: (monthYear: string) => api.get('/reports/monthly', { params: { month_year: monthYear } }),
   msoReconciliation: (monthYear: string) =>
     api.get('/reports/mso-reconciliation', { params: { month_year: monthYear } }),
+  myCollections: (params?: Record<string, string>) =>
+    api.get('/reports/my-collections', { params }),
+  momTrend: (months: number) =>
+    api.get('/reports/mom-trend', { params: { months } }),
+};
+
+// ── Surrenders ────────────────────────────────────────────────────────────
+export const surrenderApi = {
+  surrender: (customerId: string, reason?: string) =>
+    api.post(`/customers/${customerId}/surrender`, { reason }),
+  listRequests: (status?: string) =>
+    api.get('/surrender-requests', { params: status ? { status } : undefined }),
+  review: (requestId: number, action: string, notes?: string) =>
+    api.post(`/surrender-requests/${requestId}/review`, { action, notes }),
+  reactivate: (customerId: string) =>
+    api.post(`/customers/${customerId}/reactivate`),
+};
+
+// ── GTPL ──────────────────────────────────────────────────────────────────
+export const gtplApi = {
+  suspend: (stbNo: string) => api.post('/gtpl/suspend', { stb_no: stbNo }),
+  activate: (stbNo: string) => api.post('/gtpl/activate', { stb_no: stbNo }),
+  renew: (stbNo: string, months: number) => api.post('/gtpl/renew', { stb_no: stbNo, months }),
+  changePlan: (stbNo: string, planCode: string) => api.post('/gtpl/change-plan', { stb_no: stbNo, plan_code: planCode }),
+  status: (stbNo: string) => api.get(`/gtpl/status/${stbNo}`),
+  plans: () => api.get('/gtpl/plans'),
 };
 
 // ── Settings ──────────────────────────────────────────────────────────────

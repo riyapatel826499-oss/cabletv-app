@@ -21,6 +21,8 @@ import {
   UserX,
   Bell,
   ScrollText,
+  PowerOff,
+  Wallet,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -38,6 +40,8 @@ const navItems = [
   { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
   { to: '/audit', label: 'Audit Log', icon: ScrollText },
+  { to: '/surrender', label: 'Surrenders', icon: PowerOff },
+  { to: '/my-collections', label: 'My Collections', icon: Wallet },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/employees', label: 'Employees', icon: UserCog },
   { to: '/operators', label: 'Operators', icon: Building2 },
