@@ -405,6 +405,102 @@ def payment_mode_stats(
     return result
 
 
+@router.get("/today")
+def dashboard_today(
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Today's collection snapshot + comparison data for actionable dashboard."""
+    _oid = op_id(current_user)
+    _cache_key = f"dashboard_today:{_oid}"
+    cached = get_cached(_cache_key, ttl=20)
+    if cached:
+        return cached
+
+    now = datetime.now()
+    today_start = now.strftime("%Y-%m-%d 00:00:00")
+    today_end = now.strftime("%Y-%m-%d 23:59:59")
+    yesterday_start = (now - timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    yesterday_end = (now - timedelta(days=1)).strftime("%Y-%m-%d 23:59:59")
+
+    # Last month range
+    if now.month == 1:
+        lm_year = now.year - 1
+        lm_month = 12
+    else:
+        lm_year = now.year
+        lm_month = now.month - 1
+    last_month_start = f"{lm_year}-{lm_month:02d}-01"
+    last_month_end = f"{lm_year}-{lm_month:02d}-{(now.replace(month=lm_month, year=lm_year).date().replace(day=28)).day} 23:59:59"
+
+    op_flt = "1=1"
+    if _oid is not None:
+        op_flt = f"operator_id = {_oid}"
+
+    # Today's local collection
+    today_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+                 FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ts AND collected_at <= :te AND {op_flt}"""),
+        {"ts": today_start, "te": today_end},
+    ).fetchone()
+    today_collected = today_row.total or 0 if today_row else 0
+    today_count = today_row.cnt or 0 if today_row else 0
+
+    # Yesterday's collection
+    yest_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+                 FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ys AND collected_at <= :ye AND {op_flt}"""),
+        {"ys": yesterday_start, "ye": yesterday_end},
+    ).fetchone()
+    yesterday_collected = yest_row.total or 0 if yest_row else 0
+
+    # Last month total
+    lm_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(DISTINCT customer_id) as paid
+                 FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :lms AND collected_at <= :lme AND {op_flt}"""),
+        {"lms": last_month_start, "lme": last_month_end},
+    ).fetchone()
+    last_month_collected = lm_row.total or 0 if lm_row else 0
+    last_month_paid = lm_row.paid or 0 if lm_row else 0
+
+    # New customers this month
+    month_start = now.strftime("%Y-%m-01")
+    new_customers = db.execute(
+        text(f"""SELECT COUNT(*) FROM customers WHERE created_at >= :ms AND {op_flt}"""),
+        {"ms": month_start},
+    ).scalar() or 0
+
+    # Temp disconnected count
+    temp_disc = db.execute(
+        text(f"""SELECT COUNT(*) FROM connections WHERE status = 'TempDisconnected' AND {op_flt}"""),
+    ).scalar() or 0
+
+    # Surrendered this month
+    surrendered = db.execute(
+        text(f"""SELECT COUNT(*) FROM customers WHERE status = 'Surrendered' AND updated_at >= :ms AND {op_flt}"""),
+        {"ms": month_start},
+    ).scalar() or 0
+
+    result = {
+        "today_collected": today_collected,
+        "today_count": today_count,
+        "yesterday_collected": yesterday_collected,
+        "last_month_collected": last_month_collected,
+        "last_month_paid": last_month_paid,
+        "new_customers_this_month": new_customers,
+        "temp_disconnected": temp_disc,
+        "surrendered_this_month": surrendered,
+    }
+    set_cached(_cache_key, result)
+    return result
+
+
 @router.get("/master")
 def master_dashboard(
     current_user: dict = Depends(get_current_user),

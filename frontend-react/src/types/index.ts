@@ -117,6 +117,16 @@ export interface RecentPayment {
   stb_no?: string;
 }
 
+export interface ExpiringCustomer {
+  customer_id: string;
+  customer_name: string;
+  phone: string;
+  area: string;
+  plan_name: string;
+  expiry_date: string;
+  status: string;
+}
+
 export interface DashboardStats {
   month: string;
   total_customers: number;
@@ -127,8 +137,19 @@ export interface DashboardStats {
   collection_efficiency: number;
   by_area: AreaStat[];
   recent_payments: RecentPayment[];
-  expiring_soon: unknown[];
+  expiring_soon: ExpiringCustomer[];
   open_sr_count: number;
+}
+
+export interface DashboardToday {
+  today_collected: number;
+  today_count: number;
+  yesterday_collected: number;
+  last_month_collected: number;
+  last_month_paid: number;
+  new_customers_this_month: number;
+  temp_disconnected: number;
+  surrendered_this_month: number;
 }
 
 export interface ServiceRequest {

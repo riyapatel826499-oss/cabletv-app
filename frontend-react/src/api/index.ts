@@ -57,6 +57,8 @@ export const auditApi = {
 // ── Dashboard ─────────────────────────────────────────────────────────────
 export const dashboardApi = {
   stats: () => api.get('/dashboard/stats'),
+  today: () => api.get('/dashboard/today'),
+  paymentModes: () => api.get('/dashboard/payment-modes'),
   master: () => api.get('/dashboard/master'),
 };
 
