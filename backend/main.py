@@ -826,17 +826,21 @@ if FRONTEND_DIR:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/app/")
 
+    # Legacy vanilla routes — all redirect to React app
     @app.get("/dashboard")
     async def serve_dashboard():
-        return FileResponse(os.path.join(FRONTEND_DIR, "dashboard.html"))
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/app/")
 
     @app.get("/login")
     async def serve_login():
-        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/app/")
 
     @app.get("/start")
     async def serve_start():
-        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/app/")
 
     # Catch-all: serve static files from FRONTEND_DIR (JS, CSS, images, etc.)
     _FRONTEND_ROOT = os.path.realpath(FRONTEND_DIR)
