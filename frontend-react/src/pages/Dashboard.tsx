@@ -653,7 +653,7 @@ export default function Dashboard() {
       )}
 
       {/* ── Two Column: Area Performance + Payment Modes ─────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
         {/* Area Performance — worst first */}
         {sortedAreas.length > 0 && (
           <div className="glass-card" style={{ padding: '20px 24px' }}>

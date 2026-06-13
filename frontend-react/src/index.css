@@ -235,3 +235,23 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 ::selection {
   background: rgba(0, 113, 227, 0.2);
 }
+
+/* ── Mobile responsive helpers ────────────────────────────────────── */
+@media (max-width: 1023px) {
+  main {
+    padding: 14px 10px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  main {
+    padding: 24px 28px !important;
+  }
+}
+
+/* Prevent body scroll when mobile sidebar is open */
+@media (max-width: 1023px) {
+  body.sidebar-open {
+    overflow: hidden;
+  }
+}

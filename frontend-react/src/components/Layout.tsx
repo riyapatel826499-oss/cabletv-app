@@ -111,6 +111,16 @@ export default function Layout() {
     localStorage.setItem('dark-mode', String(darkMode));
   }, [darkMode]);
 
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.classList.add('sidebar-open');
+    } else {
+      document.body.classList.remove('sidebar-open');
+    }
+    return () => document.body.classList.remove('sidebar-open');
+  }, [sidebarOpen]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -141,16 +151,14 @@ export default function Layout() {
 
       {/* ── Sidebar ────────────────────────────────────────────── */}
       <aside
-        className={`glass-sidebar fixed lg:static inset-y-0 left-0 z-30 flex flex-col`}
+        className={`glass-sidebar fixed lg:static inset-y-0 left-0 z-30 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         style={{
           width: 'var(--sidebar-width)',
           transition: 'var(--transition)',
-          transform: sidebarOpen ? 'translateX(0)' : undefined,
         }}
       >
-        {/* Mobile hidden class */}
         <div
-          className={`w-full h-full flex flex-col ${sidebarOpen ? '' : '-translate-x-full'} lg:translate-x-0`}
+          className="w-full h-full flex flex-col"
           style={{ transition: 'var(--transition)' }}
         >
           {/* Brand */}
@@ -322,7 +330,7 @@ export default function Layout() {
           style={{
             position: 'sticky',
             top: 0,
-            padding: '14px 32px',
+            padding: '14px 16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -367,7 +375,7 @@ export default function Layout() {
         {/* Content Area */}
         <main
           style={{
-            padding: '28px 32px',
+            padding: '16px 12px',
             maxWidth: 1400,
             margin: '0 auto',
             width: '100%',
