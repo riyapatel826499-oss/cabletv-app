@@ -824,7 +824,7 @@ if FRONTEND_DIR:
     @app.get("/")
     async def serve_root():
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/login")
+        return RedirectResponse(url="/app/")
 
     @app.get("/dashboard")
     async def serve_dashboard():
