@@ -214,6 +214,7 @@ export default function RecordPayment() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Connection + plan state
   const [connections, setConnections] = useState<ConnectionInfo[]>([]);
@@ -377,12 +378,18 @@ export default function RecordPayment() {
     setIsDisconnected(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer) { setError('Please select a customer'); return; }
     if (!selectedPlanId) { setError('Please select a plan'); return; }
     if (!payCalc || payCalc.netAmount <= 0) { setError('Invalid amount'); return; }
     setError('');
+    setShowConfirm(true);
+  };
+
+  const confirmAndPay = async () => {
+    if (!selectedCustomer || !payCalc) return;
+    setShowConfirm(false);
     setSubmitting(true);
     try {
       const monthYear = month.split('-').reverse().join('-');
@@ -720,13 +727,120 @@ export default function RecordPayment() {
               boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
             }}>
             {submitting ? (
-              <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Recording...</>
+              <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Processing...</>
             ) : payCalc ? (
-              `Record Payment — ${fmtRs(payCalc.netAmount)}`
-            ) : 'Record Payment'}
+              `Pay ${fmtRs(payCalc.netAmount)}`
+            ) : 'Pay'}
           </button>
         </div>
       </form>
+
+      {/* Confirmation Modal */}
+      {showConfirm && selectedCustomer && payCalc && (() => {
+        const conn = connections.find(c => c.id === selectedConnId) || connections[0];
+        return (
+          <div onClick={() => setShowConfirm(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 20,
+            }}>
+            <div onClick={(e) => e.stopPropagation()}
+              className="glass-card animate-fade-in"
+              style={{
+                maxWidth: 380, width: '100%', padding: 0, overflow: 'hidden',
+                borderRadius: 16,
+              }}>
+              {/* Header */}
+              <div style={{ padding: '20px 24px 16px', textAlign: 'center' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%',
+                  background: 'rgba(0,113,227,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 12px',
+                }}>
+                  <IndianRupee style={{ width: 24, height: 24, color: '#0071e3' }} />
+                </div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>Confirm Payment</h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 4 }}>
+                  Please verify before proceeding
+                </p>
+              </div>
+
+              {/* Details */}
+              <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Customer</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedCustomer.name}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Customer ID</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedCustomer.customer_id}</span>
+                </div>
+                {conn?.stb_no && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>STB No</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{conn.stb_no}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Plan</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedPlan?.name || '—'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Month</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{month.split('-').reverse().join('-')}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Mode</span>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{mode}</span>
+                </div>
+                {months > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Months</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{months}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Amount + Actions */}
+              <div style={{ padding: '16px 24px 20px' }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 16px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-secondary)', marginBottom: 16,
+                }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Amount</span>
+                  <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.4rem', fontWeight: 700, color: '#0071e3' }}>
+                    <IndianRupee style={{ width: 20, height: 20 }} />{payCalc.netAmount}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button type="button" onClick={() => setShowConfirm(false)}
+                    style={{
+                      flex: 1, padding: '12px', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--bg-secondary)', color: 'var(--text)',
+                      fontSize: '0.88rem', fontWeight: 500, border: '0.5px solid var(--border)',
+                      cursor: 'pointer',
+                    }}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={confirmAndPay}
+                    style={{
+                      flex: 2, padding: '12px', borderRadius: 'var(--radius-sm)',
+                      background: '#34c759', color: '#fff',
+                      fontSize: '0.88rem', fontWeight: 600, border: 'none',
+                      cursor: 'pointer', boxShadow: '0 2px 8px rgba(52,199,89,0.3)',
+                    }}>
+                    Confirm & Pay {fmtRs(payCalc.netAmount)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
