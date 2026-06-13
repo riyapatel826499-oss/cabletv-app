@@ -253,76 +253,50 @@ export default function Reports() {
             </button>
           </div>
 
-          {/* Table */}
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {paidQ.isLoading ? (
-              <Spinner />
-            ) : paidPayments.length === 0 ? (
-              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No transactions in this period</div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>STB</th>
-                      <th>Area</th>
-                      <th>Amount</th>
-                      <th>Mode</th>
-                      <th>Date</th>
-                      <th>Collected By</th>
-                      {user?.role === 'admin' || user?.role === 'master' ? <th></th> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paidPayments.map((p, i) => (
-                      <tr key={i}>
-                        <td>
-                          <div>
-                            <p style={{ fontWeight: 500, color: 'var(--text)' }}>{p.customer_name || '--'}</p>
-                            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{p.customer_id}</p>
-                          </div>
-                        </td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{p.stb_no || '--'}</td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{p.area || '--'}</td>
-                        <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(p.amount)}</td>
-                        <td>
-                          <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                            <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 500, background: 'rgba(0,113,227,0.08)', color: '#0071e3' }}>
-                              {p.payment_mode}
-                            </span>
-                            <span style={{ fontSize: '0.65rem', color: p.source === 'Local' ? '#34c759' : 'var(--text-light)', padding: '1px 6px', borderRadius: 8, border: '0.5px solid var(--border)' }}>
-                              {p.source}
-                            </span>
-                          </span>
-                        </td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{fmtDateTime(p.date)}</td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{p.collector || '--'}</td>
-                        {(user?.role === 'admin' || user?.role === 'master') && (
-                          <td style={{ width: 40, textAlign: 'center' }}>
-                            {p.deletable ? (
-                              <button
-                                onClick={() => { setDeleteTarget(p); setDeleteReason(''); setDeleteResult(null); }}
-                                style={{
-                                  border: 'none', background: 'transparent', cursor: 'pointer',
-                                  padding: 4, borderRadius: 6, display: 'inline-flex',
-                                }}
-                                title="Delete transaction"
-                              >
-                                <Trash2 style={{ width: 16, height: 16, color: '#ff3b30' }} />
-                              </button>
-                            ) : (
-                              <span style={{ fontSize: '0.65rem', color: 'var(--text-light)' }} title="Paypakka transactions cannot be deleted">--</span>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {/* Cards */}
+          {paidQ.isLoading ? (
+            <Spinner />
+          ) : paidPayments.length === 0 ? (
+            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No transactions in this period</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {paidPayments.map((p, i) => (
+                <div key={i} className="glass-card" style={{ padding: '14px 16px', borderLeft: '3px solid #34c759' }}>
+                  {/* Top row: name + amount */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem' }}>{p.customer_name || '--'}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1 }}>{p.customer_id}{p.stb_no ? ` . STB ${p.stb_no}` : ''}</p>
+                    </div>
+                    <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#34c759', whiteSpace: 'nowrap' }}>{fmtRs(p.amount)}</p>
+                  </div>
+                  {/* Bottom row: badges + meta */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
+                    <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 500, background: 'rgba(0,113,227,0.08)', color: '#0071e3' }}>
+                      {p.payment_mode}
+                    </span>
+                    <span style={{ fontSize: '0.65rem', color: p.source === 'Local' ? '#34c759' : 'var(--text-light)', padding: '1px 6px', borderRadius: 8, border: '0.5px solid var(--border)' }}>
+                      {p.source}
+                    </span>
+                    {p.area && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{p.area}</span>}
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginLeft: 'auto' }}>{fmtDateTime(p.date)}</span>
+                    {(user?.role === 'admin' || user?.role === 'master') && p.deletable && (
+                      <button
+                        onClick={() => { setDeleteTarget(p); setDeleteReason(''); setDeleteResult(null); }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex', marginLeft: 4 }}
+                        title="Delete transaction"
+                      >
+                        <Trash2 style={{ width: 15, height: 15, color: '#ff3b30' }} />
+                      </button>
+                    )}
+                  </div>
+                  {p.collector && (
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 6 }}>Collected by {p.collector}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {paidTotalPages > 1 && (
@@ -368,52 +342,48 @@ export default function Reports() {
             </button>
           </div>
 
-          {/* Table */}
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {unpaidQ.isLoading ? (
-              <Spinner />
-            ) : unpaidCustomers.length === 0 ? (
-              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No unpaid customers found</div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
-                  <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>STB</th>
-                      <th>Phone</th>
-                      <th>Area</th>
-                      <th>Plan</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {unpaidCustomers
-                      .filter((c) =>
-                        !search ||
-                        String(c.name || '').toLowerCase().includes(search.toLowerCase()) ||
-                        String(c.customer_id || '').toLowerCase().includes(search.toLowerCase()),
-                      )
-                      .map((c, i) => (
-                        <tr key={i}>
-                          <td>
-                            <div>
-                              <p style={{ fontWeight: 500, color: 'var(--text)' }}>{String(c.name || '--')}</p>
-                              <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{String(c.customer_id || '')}</p>
-                            </div>
-                          </td>
-                          <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{String(c.stb_no || '--')}</td>
-                          <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{String(c.phone || '--')}</td>
-                          <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{String(c.area || '--')}</td>
-                          <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{String(c.plan_name || '--')}</td>
-                          <td style={{ fontWeight: 600, color: '#ff3b30' }}>{fmtRs(Number(c.plan_amount) || 0)}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {/* Cards */}
+          {unpaidQ.isLoading ? (
+            <Spinner />
+          ) : unpaidCustomers.length === 0 ? (
+            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No unpaid customers found</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {unpaidCustomers
+                .filter((c) =>
+                  !search ||
+                  String(c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+                  String(c.customer_id || '').toLowerCase().includes(search.toLowerCase()),
+                )
+                .map((c, i) => {
+                  const phone = String(c.phone || '');
+                  const area = String(c.area || '');
+                  const plan = String(c.plan_name || '');
+                  return (
+                  <div key={i} className="glass-card" style={{ padding: '14px 16px', borderLeft: '3px solid #ff3b30' }}>
+                    {/* Top row: name + amount */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem' }}>{String(c.name || '--')}</p>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1 }}>{String(c.customer_id || '')}{c.stb_no ? ` . STB ${c.stb_no}` : ''}</p>
+                      </div>
+                      <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ff3b30', whiteSpace: 'nowrap' }}>{fmtRs(Number(c.plan_amount) || 0)}</p>
+                    </div>
+                    {/* Bottom row: meta */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
+                      {phone && (
+                        <a href={`tel:${phone}`} style={{ fontSize: '0.75rem', color: '#0071e3', textDecoration: 'none', fontWeight: 500 }}>
+                          {phone}
+                        </a>
+                      )}
+                      {area && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{area}</span>}
+                      {plan && <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginLeft: 'auto' }}>{plan}</span>}
+                    </div>
+                  </div>
+                  );
+                })}
+            </div>
+          )}
 
           {unpaidTotalPages > 1 && (
             <Pagination page={page} totalPages={unpaidTotalPages} total={unpaidTotal} setPage={setPage} />
