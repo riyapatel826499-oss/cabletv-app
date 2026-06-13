@@ -24,8 +24,10 @@ import {
   PowerOff,
   Wallet,
   IndianRupee,
+  Minus,
+  Plus as PlusIcon,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // ── Role-based permissions ─────────────────────────────────────────────────
 // Each route maps to the roles that can access it.
@@ -106,6 +108,9 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [fontScale, setFontScale] = useState(100);
+  const [showFontControl, setShowFontControl] = useState(false);
+  const fontRef = useRef<HTMLDivElement>(null);
 
   // Agent detection + current page check
   const isAgent = user?.role && !['master', 'admin'].includes(user.role);
@@ -118,12 +123,34 @@ export default function Layout() {
   useEffect(() => {
     const saved = localStorage.getItem('dark-mode') === 'true';
     setDarkMode(saved);
+    const savedScale = parseInt(localStorage.getItem('font-scale') || '100', 10);
+    if (!isNaN(savedScale)) setFontScale(savedScale);
   }, []);
 
   useEffect(() => {
     document.body.classList.toggle('dark-mode', darkMode);
     localStorage.setItem('dark-mode', String(darkMode));
   }, [darkMode]);
+
+  // Apply font zoom
+  useEffect(() => {
+    const root = document.getElementById('root');
+    if (root) {
+      (root.style as any).zoom = `${fontScale}%`;
+    }
+    localStorage.setItem('font-scale', String(fontScale));
+  }, [fontScale]);
+
+  // Close font control on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (fontRef.current && !fontRef.current.contains(e.target as Node)) {
+        setShowFontControl(false);
+      }
+    };
+    if (showFontControl) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showFontControl]);
 
   // Lock body scroll when mobile sidebar is open
   useEffect(() => {
@@ -369,6 +396,104 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Font size control */}
+            <div ref={fontRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowFontControl(!showFontControl)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: showFontControl ? 'var(--primary)' : 'var(--bg-secondary)',
+                  border: '0.5px solid var(--border)',
+                  borderRadius: 'var(--radius-xs)',
+                  padding: '7px 11px',
+                  cursor: 'pointer',
+                  color: showFontControl ? '#fff' : 'var(--text-light)',
+                  transition: 'var(--transition)',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  minWidth: 36,
+                }}
+              >
+                Aa
+              </button>
+              {showFontControl && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    background: 'var(--bg-card)',
+                    backdropFilter: 'var(--glass)',
+                    WebkitBackdropFilter: 'var(--glass)',
+                    border: '0.5px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    boxShadow: 'var(--shadow-hover)',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                    zIndex: 200,
+                    minWidth: 170,
+                  }}
+                >
+                  <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Text Size: {fontScale}%
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+                    <button
+                      onClick={() => setFontScale(Math.max(80, fontScale - 10))}
+                      disabled={fontScale <= 80}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 34, height: 34, borderRadius: 'var(--radius-xs)',
+                        border: '0.5px solid var(--border)',
+                        background: fontScale <= 80 ? 'var(--bg-secondary)' : 'var(--bg-secondary)',
+                        color: fontScale <= 80 ? 'var(--text-light)' : 'var(--text)',
+                        cursor: fontScale <= 80 ? 'not-allowed' : 'pointer',
+                        opacity: fontScale <= 80 ? 0.4 : 1,
+                      }}
+                    >
+                      <Minus style={{ width: 16, height: 16 }} />
+                    </button>
+                    {/* Quick presets */}
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {[90, 100, 110, 125].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setFontScale(s)}
+                          style={{
+                            padding: '4px 8px', borderRadius: 6, border: 'none',
+                            fontSize: '0.7rem', fontWeight: 600,
+                            cursor: 'pointer',
+                            background: fontScale === s ? 'var(--primary)' : 'transparent',
+                            color: fontScale === s ? '#fff' : 'var(--text-light)',
+                          }}
+                        >
+                          {s === 100 ? 'M' : s < 100 ? 'S' : s >= 125 ? 'XL' : 'L'}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setFontScale(Math.min(150, fontScale + 10))}
+                      disabled={fontScale >= 150}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 34, height: 34, borderRadius: 'var(--radius-xs)',
+                        border: '0.5px solid var(--border)',
+                        background: 'var(--bg-secondary)',
+                        color: fontScale >= 150 ? 'var(--text-light)' : 'var(--text)',
+                        cursor: fontScale >= 150 ? 'not-allowed' : 'pointer',
+                        opacity: fontScale >= 150 ? 0.4 : 1,
+                      }}
+                    >
+                      <PlusIcon style={{ width: 16, height: 16 }} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Dark mode */}
             <button
               onClick={() => setDarkMode(!darkMode)}
               style={{

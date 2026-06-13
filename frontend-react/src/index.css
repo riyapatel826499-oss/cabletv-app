@@ -236,6 +236,15 @@ body.dark-mode ::-webkit-scrollbar-thumb {
   background: rgba(0, 113, 227, 0.2);
 }
 
+/* ── Prevent accidental double-tap zoom ──────────────────────────── */
+html {
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+}
+* {
+  touch-action: manipulation;
+}
+
 /* ── Mobile responsive helpers ────────────────────────────────────── */
 @media (max-width: 1023px) {
   main {
