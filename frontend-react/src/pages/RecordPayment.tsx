@@ -516,6 +516,77 @@ export default function RecordPayment() {
             </div>
           )}
 
+          {/* Customer verification card */}
+          {selectedCustomer && !connLoading && (() => {
+            const conn = connections.find(c => c.id === selectedConnId) || connections[0];
+            return (
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 0,
+                borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                border: '0.5px solid var(--border)',
+              }}>
+                {/* Header row */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', background: 'var(--bg-secondary)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: '#0071e3', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.95rem', fontWeight: 700, flexShrink: 0,
+                    }}>
+                      {(selectedCustomer.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>{selectedCustomer.name}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>ID: {selectedCustomer.customer_id}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={handleReset}
+                    style={{
+                      background: 'var(--bg-secondary)', border: '0.5px solid var(--border)',
+                      borderRadius: 'var(--radius-xs)', padding: '4px 12px',
+                      fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-light)',
+                    }}>
+                    Change
+                  </button>
+                </div>
+                {/* Details grid */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
+                  borderTop: '0.5px solid var(--border)',
+                }}>
+                  <div style={{ padding: '10px 16px', borderRight: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Phone</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{selectedCustomer.phone || '—'}</p>
+                  </div>
+                  <div style={{ padding: '10px 16px' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Area</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{selectedCustomer.area || '—'}</p>
+                  </div>
+                  <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>STB No</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.stb_no || '—'}</p>
+                  </div>
+                  <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>MSO</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.mso || conn?.network || (conn?.stb_no ? detectMSO(conn.stb_no) : '—')}</p>
+                  </div>
+                  <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Package</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.plan_name || '—'}</p>
+                  </div>
+                  <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)' }}>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expiry</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.expiry_date || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Connection selector (if multiple) */}
           {selectedCustomer && connections.length > 1 && !connLoading && (
             <div>
@@ -530,28 +601,6 @@ export default function RecordPayment() {
               </select>
             </div>
           )}
-
-          {/* Current plan info card */}
-          {selectedCustomer && selectedConnId && !connLoading && (() => {
-            const conn = connections.find(c => c.id === selectedConnId);
-            if (!conn) return null;
-            return (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-secondary)', border: '0.5px solid var(--border)',
-              }}>
-                <div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Current Package</p>
-                  <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)' }}>{conn.plan_name || 'No plan assigned'}</p>
-                  {conn.expiry_date && <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Expiry: {conn.expiry_date}</p>}
-                </div>
-                {conn.plan_amount && (
-                  <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0071e3' }}>{fmtRs(conn.plan_amount)}</p>
-                )}
-              </div>
-            );
-          })()}
 
           {/* Plan selector */}
           {selectedCustomer && selectedConnId && !connLoading && plans.length > 0 && (
