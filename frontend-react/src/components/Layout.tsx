@@ -33,22 +33,22 @@ import { useState, useEffect } from 'react';
 // service roles handled under collection_agent for now
 type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support';
 
-const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent'];
+const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support'];
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/':                    ALL_ROLES,                          // Dashboard
   '/customers':           ALL_ROLES,                          // View customers
   '/customers/:id':       ALL_ROLES,                          // Customer detail
   '/payments/new':        ALL_ROLES,                          // Record payment
-  '/my-collections':      ['master', 'admin', 'agent', 'collection_agent'], // Own collections
-  '/unpaid':              ['master', 'admin', 'agent', 'collection_agent'], // Collection work
-  '/service-requests':    ['master', 'admin', 'agent', 'collection_agent'], // View/resolve SRs
+  '/my-collections':      ALL_ROLES,                          // Own collections
+  '/unpaid':              ALL_ROLES,                          // Collection work
+  '/reports':             ALL_ROLES,                          // Reports (backend auto-filters to own data for agents)
+  '/not-renewed':         ALL_ROLES,
+  '/service-requests':    ALL_ROLES,                          // View/resolve SRs
   // Admin+ only
   '/add-customer':        ['master', 'admin'],
-  '/not-renewed':         ['master', 'admin', 'agent', 'collection_agent'],
   '/payments':            ['master', 'admin'],
   '/plans':               ['master', 'admin'],
-  '/reports':             ['master', 'admin'],
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
@@ -86,6 +86,14 @@ function getAllowedRoutes(role: string | undefined): Set<string> {
   for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
     if (roles.includes(r)) {
       allowed.add(route);
+    }
+  }
+  // Safety: if no routes matched (unknown role), give agent-level access
+  if (allowed.size === 0 && r !== 'master' && r !== 'admin') {
+    for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
+      if (roles.includes('agent' as Role)) {
+        allowed.add(route);
+      }
     }
   }
   return allowed;

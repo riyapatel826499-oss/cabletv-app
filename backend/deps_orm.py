@@ -190,6 +190,12 @@ def op_id(user: dict):
     return user.get("operator_id")
 
 
+def is_agent_role(user: dict) -> bool:
+    """Return True for any non-admin/non-master role (agents, support, etc.)."""
+    role = user.get("role", "")
+    return role not in ("master", "admin", "", None)
+
+
 def _op_flt(user: dict, prefix: str = "") -> str:
     """Raw SQL WHERE clause for operator_id filtering (for text() queries).
     

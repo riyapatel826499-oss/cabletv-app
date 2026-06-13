@@ -9,7 +9,7 @@ from sqlalchemy import select, update, func, text, or_, and_
 from sqlalchemy.orm import Session
 
 from models.base import get_db
-from deps_orm import get_current_user, require_role, apply_op_filter, op_id, block_master
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id, block_master, is_agent_role
 from models.tables import (
     Payment, Customer, Connection, PaypakkaPayment,
     CustomerPlan, Plan, User, PaypakkaEmployee,
@@ -332,7 +332,7 @@ def payment_history(
     )
 
     # Agents can only see their own collected payments
-    if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+    if is_agent_role(current_user):
         query = query.where(Payment.collected_by == current_user["id"])
 
     if customer_id:
@@ -348,7 +348,7 @@ def payment_history(
         .select_from(Payment)
         .where(or_(Payment.deleted.is_(None), Payment.deleted == 0))
     )
-    if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+    if is_agent_role(current_user):
         count_query = count_query.where(Payment.collected_by == current_user["id"])
     if customer_id:
         count_query = count_query.where(Payment.customer_id == customer_id)
@@ -422,7 +422,7 @@ def all_payment_history(
         """
         local_params: dict = {"date_from": date_from, "date_to": date_to}
         # Agents can only see their own collected payments
-        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+        if is_agent_role(current_user):
             local_sql += " AND p.collected_by = :agent_id"
             local_params["agent_id"] = current_user["id"]
         if customer_id:
@@ -449,7 +449,7 @@ def all_payment_history(
             WHERE DATE(pp.paypakka_created_at) >= :date_from AND DATE(pp.paypakka_created_at) <= :date_to
         """
         pp_params: dict = {"date_from": date_from, "date_to": date_to}
-        if current_user.get("role") in ("service_agent", "collection_agent", "agent"):
+        if is_agent_role(current_user):
             pp_sql += " AND pp.emp_ref_id IN (SELECT emp_ref_id FROM paypakka_employees WHERE emp_name = (SELECT name FROM users WHERE id = :agent_user_id))"
             pp_params["agent_user_id"] = current_user["id"]
         if customer_id:

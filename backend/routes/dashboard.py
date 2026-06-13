@@ -14,7 +14,7 @@ from models.tables import (
     Customer, Connection, Payment, PaypakkaPayment, PaypakkaEmployee,
     CustomerPlan, Plan, User, Operator, ServiceRequest,
 )
-from deps_orm import get_current_user, require_role, apply_op_filter, op_id
+from deps_orm import get_current_user, require_role, apply_op_filter, op_id, is_agent_role
 from utils import get_month_range, get_current_month
 from cache import get_cached, set_cached
 
@@ -28,7 +28,7 @@ def dashboard_stats(
 ):
     # 30-second TTL cache — dashboard is expensive (12 queries)
     # But NOT for agents — they need fresh personal data
-    is_agent = current_user.get("role") in ("service_agent", "collection_agent", "agent")
+    is_agent = is_agent_role(current_user)
     _oid = op_id(current_user)
     _cache_key = f"dashboard_stats:{_oid}"  # per-operator to prevent cross-tenant bleed
     if not is_agent:
@@ -411,7 +411,7 @@ def dashboard_today(
     db=Depends(get_db),
 ):
     """Today's collection snapshot + comparison data for actionable dashboard."""
-    is_agent = current_user.get("role") in ("service_agent", "collection_agent", "agent")
+    is_agent = is_agent_role(current_user)
     uid = current_user.get("id")
     _oid = op_id(current_user)
     _cache_key = f"dashboard_today:{'a'+str(uid) if is_agent else 'o'+str(_oid)}"

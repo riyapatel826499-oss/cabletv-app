@@ -53,19 +53,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 // ── Role-based route guard ──────────────────────────────────────────────────
+const _ALL = ['master', 'admin', 'agent', 'collection_agent', 'support'];
+
 const ROUTE_ROLES: Record<string, string[]> = {
-  '/':                    ['master', 'admin', 'agent', 'collection_agent'],
-  '/customers':           ['master', 'admin', 'agent', 'collection_agent'],
-  '/customers/:id':       ['master', 'admin', 'agent', 'collection_agent'],
-  '/payments/new':        ['master', 'admin', 'agent', 'collection_agent'],
-  '/my-collections':      ['master', 'admin', 'agent', 'collection_agent'],
-  '/unpaid':              ['master', 'admin', 'agent', 'collection_agent'],
-  '/not-renewed':         ['master', 'admin', 'agent', 'collection_agent'],
-  '/service-requests':    ['master', 'admin', 'agent', 'collection_agent'],
+  '/':                    _ALL,
+  '/customers':           _ALL,
+  '/customers/:id':       _ALL,
+  '/payments/new':        _ALL,
+  '/my-collections':      _ALL,
+  '/unpaid':              _ALL,
+  '/not-renewed':         _ALL,
+  '/reports':             _ALL,  // backend auto-filters to own data for agents
+  '/service-requests':    _ALL,
   '/add-customer':        ['master', 'admin'],
   '/payments':            ['master', 'admin'],
   '/plans':               ['master', 'admin'],
-  '/reports':             ['master', 'admin'],
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
@@ -79,7 +81,10 @@ function RoleRoute({ path, element }: { path: string; element: React.ReactNode }
   const { user } = useAuth();
   const role = user?.role || 'agent';
   const allowed = ROUTE_ROLES[path] || [];
-  if (!allowed.includes(role)) {
+  // Safety: if role not in any list, treat as agent (not block entirely)
+  const isAllowed = allowed.includes(role)
+    || (!['master', 'admin'].includes(role) && allowed.includes('agent'));
+  if (!isAllowed) {
     return <Navigate to="/" replace />;
   }
   return <>{element}</>;
