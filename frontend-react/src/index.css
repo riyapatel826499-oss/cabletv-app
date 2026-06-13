@@ -240,6 +240,13 @@ body.dark-mode ::-webkit-scrollbar-thumb {
 html {
   touch-action: manipulation;
   -ms-touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 * {
   touch-action: manipulation;
