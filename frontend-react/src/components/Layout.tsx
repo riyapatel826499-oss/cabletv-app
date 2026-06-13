@@ -26,32 +26,80 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
+// ── Role-based permissions ─────────────────────────────────────────────────
+// Each route maps to the roles that can access it.
+// master = Prabhu (full), admin = operator admin (e.g. SSN Cables)
+// collection_agent / agent = collection-focused staff
+// service roles handled under collection_agent for now
+type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support';
+
+const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent'];
+
+const ROUTE_PERMISSIONS: Record<string, Role[]> = {
+  '/':                    ALL_ROLES,                          // Dashboard
+  '/customers':           ALL_ROLES,                          // View customers
+  '/customers/:id':       ALL_ROLES,                          // Customer detail
+  '/payments/new':        ALL_ROLES,                          // Record payment
+  '/my-collections':      ['master', 'admin', 'agent', 'collection_agent'], // Own collections
+  '/unpaid':              ['master', 'admin', 'agent', 'collection_agent'], // Collection work
+  '/service-requests':    ['master', 'admin', 'agent', 'collection_agent'], // View/resolve SRs
+  // Admin+ only
+  '/add-customer':        ['master', 'admin'],
+  '/not-renewed':         ['master', 'admin', 'agent', 'collection_agent'],
+  '/payments':            ['master', 'admin'],
+  '/plans':               ['master', 'admin'],
+  '/reports':             ['master', 'admin'],
+  '/reminders':           ['master', 'admin'],
+  '/connections':         ['master', 'admin'],
+  '/surrender':           ['master', 'admin'],
+  // Master only
+  '/settings':            ['master', 'admin'],
+  '/audit':               ['master'],
+  '/employees':           ['master'],
+  '/operators':           ['master'],
+};
+
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
   { to: '/unpaid', label: 'Unpaid', icon: AlertCircle },
   { to: '/not-renewed', label: 'Not Renewed', icon: UserX },
-  { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/payments/new', label: 'Record Payment', icon: CreditCard },
+  { to: '/my-collections', label: 'My Collections', icon: Wallet },
+  { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/plans', label: 'Plans', icon: Tv },
   { to: '/reports', label: 'Reports', icon: FileBarChart },
   { to: '/reminders', label: 'Reminders', icon: Bell },
   { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
-  { to: '/audit', label: 'Audit Log', icon: ScrollText },
   { to: '/surrender', label: 'Surrenders', icon: PowerOff },
-  { to: '/my-collections', label: 'My Collections', icon: Wallet },
+  { to: '/audit', label: 'Audit Log', icon: ScrollText },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/employees', label: 'Employees', icon: UserCog },
   { to: '/operators', label: 'Operators', icon: Building2 },
 ];
+
+function getAllowedRoutes(role: string | undefined): Set<string> {
+  const r = (role || 'agent') as Role;
+  const allowed = new Set<string>();
+  for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
+    if (roles.includes(r)) {
+      allowed.add(route);
+    }
+  }
+  return allowed;
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+
+  // Role-based nav filtering
+  const allowedRoutes = getAllowedRoutes(user?.role);
+  const visibleNavItems = navItems.filter((item) => allowedRoutes.has(item.to));
 
   useEffect(() => {
     const saved = localStorage.getItem('dark-mode') === 'true';
@@ -148,7 +196,7 @@ export default function Layout() {
           <nav
             style={{ padding: '12px 0', flex: 1, overflowY: 'auto' }}
           >
-            {navItems.map(({ to, label, icon: Icon }) => (
+            {visibleNavItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}

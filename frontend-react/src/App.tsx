@@ -52,6 +52,39 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ── Role-based route guard ──────────────────────────────────────────────────
+const ROUTE_ROLES: Record<string, string[]> = {
+  '/':                    ['master', 'admin', 'agent', 'collection_agent'],
+  '/customers':           ['master', 'admin', 'agent', 'collection_agent'],
+  '/customers/:id':       ['master', 'admin', 'agent', 'collection_agent'],
+  '/payments/new':        ['master', 'admin', 'agent', 'collection_agent'],
+  '/my-collections':      ['master', 'admin', 'agent', 'collection_agent'],
+  '/unpaid':              ['master', 'admin', 'agent', 'collection_agent'],
+  '/not-renewed':         ['master', 'admin', 'agent', 'collection_agent'],
+  '/service-requests':    ['master', 'admin', 'agent', 'collection_agent'],
+  '/add-customer':        ['master', 'admin'],
+  '/payments':            ['master', 'admin'],
+  '/plans':               ['master', 'admin'],
+  '/reports':             ['master', 'admin'],
+  '/reminders':           ['master', 'admin'],
+  '/connections':         ['master', 'admin'],
+  '/surrender':           ['master', 'admin'],
+  '/settings':            ['master', 'admin'],
+  '/audit':               ['master'],
+  '/employees':           ['master'],
+  '/operators':           ['master'],
+};
+
+function RoleRoute({ path, element }: { path: string; element: React.ReactNode }) {
+  const { user } = useAuth();
+  const role = user?.role || 'agent';
+  const allowed = ROUTE_ROLES[path] || [];
+  if (!allowed.includes(role)) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{element}</>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -65,24 +98,24 @@ function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="customers/:id" element={<CustomerDetail />} />
-        <Route path="unpaid" element={<Unpaid />} />
-        <Route path="payments" element={<Payments />} />
-        <Route path="payments/new" element={<RecordPayment />} />
-        <Route path="plans" element={<Plans />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="connections" element={<Connections />} />
-        <Route path="service-requests" element={<ServiceRequests />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="operators" element={<Operators />} />
-        <Route path="employees" element={<Employees />} />
-        <Route path="add-customer" element={<AddCustomer />} />
-        <Route path="not-renewed" element={<NotRenewed />} />
-        <Route path="reminders" element={<Reminders />} />
-        <Route path="audit" element={<AuditLog />} />
-        <Route path="surrender" element={<Surrender />} />
-        <Route path="my-collections" element={<MyCollections />} />
+        <Route path="customers" element={<RoleRoute path="/customers" element={<Customers />} />} />
+        <Route path="customers/:id" element={<RoleRoute path="/customers/:id" element={<CustomerDetail />} />} />
+        <Route path="unpaid" element={<RoleRoute path="/unpaid" element={<Unpaid />} />} />
+        <Route path="payments" element={<RoleRoute path="/payments" element={<Payments />} />} />
+        <Route path="payments/new" element={<RoleRoute path="/payments/new" element={<RecordPayment />} />} />
+        <Route path="plans" element={<RoleRoute path="/plans" element={<Plans />} />} />
+        <Route path="reports" element={<RoleRoute path="/reports" element={<Reports />} />} />
+        <Route path="connections" element={<RoleRoute path="/connections" element={<Connections />} />} />
+        <Route path="service-requests" element={<RoleRoute path="/service-requests" element={<ServiceRequests />} />} />
+        <Route path="settings" element={<RoleRoute path="/settings" element={<Settings />} />} />
+        <Route path="operators" element={<RoleRoute path="/operators" element={<Operators />} />} />
+        <Route path="employees" element={<RoleRoute path="/employees" element={<Employees />} />} />
+        <Route path="add-customer" element={<RoleRoute path="/add-customer" element={<AddCustomer />} />} />
+        <Route path="not-renewed" element={<RoleRoute path="/not-renewed" element={<NotRenewed />} />} />
+        <Route path="reminders" element={<RoleRoute path="/reminders" element={<Reminders />} />} />
+        <Route path="audit" element={<RoleRoute path="/audit" element={<AuditLog />} />} />
+        <Route path="surrender" element={<RoleRoute path="/surrender" element={<Surrender />} />} />
+        <Route path="my-collections" element={<RoleRoute path="/my-collections" element={<MyCollections />} />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
