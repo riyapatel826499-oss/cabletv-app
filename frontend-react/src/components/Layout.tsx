@@ -135,12 +135,9 @@ export default function Layout() {
     localStorage.setItem('dark-mode', String(darkMode));
   }, [darkMode]);
 
-  // Apply font zoom
+  // Apply font zoom (font-size on html, NOT zoom which breaks layout)
   useEffect(() => {
-    const root = document.getElementById('root');
-    if (root) {
-      (root.style as any).zoom = `${fontScale}%`;
-    }
+    document.documentElement.style.fontSize = `${16 * fontScale / 100}px`;
     localStorage.setItem('font-scale', String(fontScale));
   }, [fontScale]);
 
@@ -178,7 +175,7 @@ export default function Layout() {
     .toUpperCase();
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg)', width: '100%', overflowX: 'hidden' }}>
       {/* ── Mobile overlay ─────────────────────────────────────── */}
       {sidebarOpen && (
         <div
@@ -363,6 +360,7 @@ export default function Layout() {
         style={{
           flex: 1,
           minHeight: '100vh',
+          minWidth: 0,
           transition: 'var(--transition)',
           display: 'flex',
           flexDirection: 'column',
