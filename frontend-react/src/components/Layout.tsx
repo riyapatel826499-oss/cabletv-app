@@ -29,6 +29,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 
 // ── Role-based permissions ─────────────────────────────────────────────────
 // Each route maps to the roles that can access it.
@@ -114,6 +115,16 @@ export default function Layout() {
   const [fontScale, setFontScale] = useState(100);
   const [showFontControl, setShowFontControl] = useState(false);
   const fontRef = useRef<HTMLDivElement>(null);
+
+  // ── PWA: show toast when new version is available ──
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisteredSW(url) {
+      console.log('SW registered:', url);
+    },
+  });
 
   // Agent detection + current page check
   const isAgent = user?.role && !['master', 'admin'].includes(user.role);
@@ -607,6 +618,60 @@ export default function Layout() {
             <IndianRupee style={{ width: 20, height: 20 }} />
             Collect
           </button>
+        )}
+
+        {/* ── PWA Update toast ──────────────────────────────────── */}
+        {needRefresh && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 20,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'var(--card)',
+              border: '0.5px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: 'var(--shadow-hover)',
+              padding: '14px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              zIndex: 200,
+              maxWidth: '90vw',
+            }}
+          >
+            <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500 }}>
+              New version available
+            </span>
+            <button
+              onClick={() => updateServiceWorker(true)}
+              style={{
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 'var(--radius-xs)',
+                padding: '7px 16px',
+                fontSize: '0.82rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Update
+            </button>
+            <button
+              onClick={() => setNeedRefresh(false)}
+              style={{
+                background: 'transparent',
+                color: 'var(--text-light)',
+                border: 'none',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              Later
+            </button>
+          </div>
         )}
       </div>
     </div>
