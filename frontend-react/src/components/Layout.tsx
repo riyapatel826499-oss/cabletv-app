@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard,
@@ -23,6 +23,7 @@ import {
   ScrollText,
   PowerOff,
   Wallet,
+  IndianRupee,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -102,8 +103,13 @@ function getAllowedRoutes(role: string | undefined): Set<string> {
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+
+  // Agent detection + current page check
+  const isAgent = user?.role && !['master', 'admin'].includes(user.role);
+  const isPaymentPage = location.pathname === '/payments/new';
 
   // Role-based nav filtering
   const allowedRoutes = getAllowedRoutes(user?.role);
@@ -393,6 +399,43 @@ export default function Layout() {
         >
           <Outlet />
         </main>
+
+        {/* ── Floating Record Payment button (agents only) ──────────────── */}
+        {isAgent && !isPaymentPage && (
+          <button
+            onClick={() => navigate('/payments/new')}
+            style={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              zIndex: 50,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '14px 24px',
+              borderRadius: 50,
+              background: 'linear-gradient(135deg, #34c759, #248a3d)',
+              border: 'none',
+              boxShadow: '0 6px 20px rgba(52, 199, 89, 0.4)',
+              cursor: 'pointer',
+              color: '#fff',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 8px 28px rgba(52, 199, 89, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(52, 199, 89, 0.4)';
+            }}
+          >
+            <IndianRupee style={{ width: 20, height: 20 }} />
+            Collect
+          </button>
+        )}
       </div>
     </div>
   );
