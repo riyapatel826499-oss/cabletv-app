@@ -27,6 +27,7 @@ import {
   Minus,
   Plus as PlusIcon,
   Phone,
+  Share,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -125,6 +126,22 @@ export default function Layout() {
       console.log('SW registered:', url);
     },
   });
+
+  // ── iOS install detection ──
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+
+  useEffect(() => {
+    if (isIOS && !isStandalone) {
+      const dismissed = localStorage.getItem('ios-install-dismissed') === 'true';
+      if (!dismissed) {
+        // Small delay so it appears after page load
+        const t = setTimeout(() => setShowIOSPrompt(true), 2000);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [isIOS, isStandalone]);
 
   // Agent detection + current page check
   const isAgent = user?.role && !['master', 'admin'].includes(user.role);
@@ -618,6 +635,59 @@ export default function Layout() {
             <IndianRupee style={{ width: 20, height: 20 }} />
             Collect
           </button>
+        )}
+
+        {/* ── iOS install prompt ────────────────────────────────── */}
+        {showIOSPrompt && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'var(--card)',
+              borderTop: '1px solid var(--border)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+              padding: '20px 20px calc(20px + env(safe-area-inset-bottom))',
+              zIndex: 150,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Tv style={{ width: 22, height: 22, color: '#fff' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+                  Install Wasool App
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: 1.4, marginBottom: 8 }}>
+                  Get the app on your home screen for quick access
+                </p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text)', lineHeight: 1.5 }}>
+                  Tap <Share style={{ width: 13, height: 13, display: 'inline', verticalAlign: 'middle', color: 'var(--primary)' }} /> in Safari bar, then{' '}
+                  <strong>Add to Home Screen</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowIOSPrompt(false);
+                  localStorage.setItem('ios-install-dismissed', 'true');
+                }}
+                style={{
+                  background: 'transparent', border: 'none', fontSize: '1.2rem',
+                  color: 'var(--text-light)', cursor: 'pointer', padding: '0 4px',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
         )}
 
         {/* ── PWA Update toast ──────────────────────────────────── */}
