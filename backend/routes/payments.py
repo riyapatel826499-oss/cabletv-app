@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import calendar
 import threading
@@ -19,6 +19,8 @@ from cache import invalidate_dashboard
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
 from routes.wa_notify import send_payment_receipt
+
+ist = timezone(timedelta(hours=5, minutes=30))
 from audit import log_action
 
 router = APIRouter(prefix="/api", tags=["Payments"])
@@ -101,7 +103,7 @@ def create_payment(
         payment_mode=data.payment_mode,
         payment_type=data.payment_type or "regular",
         collected_by=current_user["id"],
-        collected_at=data.collected_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        collected_at=data.collected_at or datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
         month_year=data.month_year,
         months_paid=data.months_paid or 1,
         notes=data.notes,
@@ -141,7 +143,7 @@ def create_payment(
                 start_month = int(parts[0])
                 start_year = int(parts[1])
             else:
-                now = datetime.now()
+                now = datetime.now(ist)
                 start_month = now.month
                 start_year = now.year
 
@@ -396,7 +398,7 @@ def all_payment_history(
 
     try:
         # Default: current month
-        now = datetime.now()
+        now = datetime.now(ist)
         if not date_from:
             date_from = f"{now.year}-{now.month:02d}-01"
         if not date_to:
@@ -596,7 +598,7 @@ def delete_payment(
         .values(
             deleted=1,
             deleted_by=current_user["id"],
-            deleted_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            deleted_at=datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S"),
             delete_reason=reason or "",
         )
     )
