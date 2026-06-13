@@ -5,7 +5,7 @@ import { dashboardApi, reportsApi } from '../api';
 import {
   IndianRupee, TrendingUp, TrendingDown, Clock, AlertCircle, Wifi,
   BarChart3, Plus, Send, Wrench, ArrowRight, Phone, ZapOff, UserPlus,
-  Calendar, CreditCard, ListChecks, Target,
+  Calendar, CreditCard, ListChecks, Target, Store,
 } from 'lucide-react';
 import type { DashboardStats, DashboardToday, AgentDashboardStats, ExpiringCustomer, RecentPayment } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
@@ -152,6 +152,16 @@ function RevenueBarChart({ data }: { data: TrendItem[] }) {
 }
 
 // ── Agent Dashboard ────────────────────────────────────────────────────────
+function fmtMonth(m?: string): string {
+  // Convert "06-2026" → "June 2026"
+  if (!m) return '';
+  const parts = m.split('-');
+  if (parts.length !== 2) return m;
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const mi = parseInt(parts[0], 10) - 1;
+  return (mi >= 0 && mi < 12) ? `${months[mi]} ${parts[1]}` : m;
+}
+
 function AgentDashboard({ stats }: { stats: AgentDashboardStats }) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -178,13 +188,20 @@ function AgentDashboard({ stats }: { stats: AgentDashboardStats }) {
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            Hi {user?.name?.split(' ')[0] || 'Agent'}
-          </h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {stats.month} . You collected {fmtRs(myCollected)} from {myCount} payments
-          </p>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {user?.role === 'collection_point' && (
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(88,86,214,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Store style={{ width: 24, height: 24, color: '#5856d6' }} />
+            </div>
+          )}
+          <div>
+            <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+              {user?.name || 'Agent'}
+            </h1>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
+              {fmtMonth(stats.month)} . You collected {fmtRs(myCollected)} from {myCount} payments
+            </p>
+          </div>
         </div>
 
       </div>
@@ -439,7 +456,7 @@ export default function Dashboard() {
             {user?.name?.split(' ')[0] || 'Admin'} — here's today
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {adminStats.month} . {efficiency}% collected . {adminStats.paid_this_month} of {adminStats.total_customers} paid
+            {fmtMonth(adminStats.month)} . {efficiency}% collected . {adminStats.paid_this_month} of {adminStats.total_customers} paid
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

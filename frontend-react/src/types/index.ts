@@ -4,7 +4,7 @@ export interface User {
   id: number;
   username: string;
   name: string;
-  role: 'master' | 'admin' | 'agent';
+  role: 'master' | 'admin' | 'agent' | 'collection_point' | 'collection_agent' | 'support' | 'service_agent';
   phone?: string;
   operator_id?: number | null;
   permissions?: Record<string, unknown>;
