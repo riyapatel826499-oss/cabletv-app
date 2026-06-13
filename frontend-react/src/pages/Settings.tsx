@@ -10,6 +10,8 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const [botToken, setBotToken] = useState('');
   const [chatIds, setChatIds] = useState('');
+  const [cutoffInput, setCutoffInput] = useState('');
+  const [cutoffSaved, setCutoffSaved] = useState(false);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const { data: notifSettings, isLoading } = useQuery({
@@ -157,30 +159,58 @@ export default function Settings() {
         </div>
 
         {/* Cutoff Date */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
             <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Payment Cutoff Date</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Day of month after which unpaid connections are disconnected</p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               type="number"
               min="1"
               max="28"
-              value={notifSettings?.cutoff_date ?? '12'}
+              value={cutoffInput || notifSettings?.cutoff_date || '12'}
               onChange={e => {
-                const val = e.target.value;
-                if (val && Number(val) >= 1 && Number(val) <= 28) {
-                  updateNotifMut.mutate({ cutoff_date: val });
-                }
+                setCutoffInput(e.target.value);
+                setCutoffSaved(false);
               }}
               style={{
-                width: 60, textAlign: 'center', padding: '8px 8px', borderRadius: 10,
-                border: '0.5px solid var(--border)', background: 'var(--bg-secondary)',
+                width: 56, textAlign: 'center', padding: '8px 8px', borderRadius: 10,
+                border: cutoffInput && cutoffInput !== (notifSettings?.cutoff_date ?? '12')
+                  ? '0.5px solid #0071e3' : '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
                 color: 'var(--text)', fontSize: '0.85rem', fontWeight: 600,
               }}
             />
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}></span>
+            {/* Save button — only shows when value changed */}
+            {cutoffInput && cutoffInput !== (notifSettings?.cutoff_date ?? '12') && Number(cutoffInput) >= 1 && Number(cutoffInput) <= 28 && !cutoffSaved && (
+              <button
+                onClick={() => {
+                  updateNotifMut.mutate({ cutoff_date: cutoffInput });
+                  setCutoffSaved(true);
+                }}
+                style={{
+                  padding: '6px 14px', borderRadius: 10, border: 'none',
+                  background: '#0071e3', color: '#fff',
+                  fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                  boxShadow: '0 1px 4px rgba(0,113,227,0.3)',
+                }}
+              >
+                Save
+              </button>
+            )}
+            {/* Saved confirmation */}
+            {cutoffSaved && (
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: '0.78rem', fontWeight: 500, color: '#34c759',
+              }}>
+                <Check style={{ width: 14, height: 14 }} /> Saved
+              </span>
+            )}
+            {cutoffInput && (Number(cutoffInput) < 1 || Number(cutoffInput) > 28) && (
+              <span style={{ fontSize: '0.72rem', color: '#ff3b30' }}>1-28 only</span>
+            )}
           </div>
         </div>
       </div>
