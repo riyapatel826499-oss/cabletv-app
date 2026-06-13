@@ -372,29 +372,35 @@ def mom_trend(
        label = date(y, m, 1).strftime("%b %Y")
        first = f"{y}-{m:02d}-01"
        last_day = calendar.monthrange(y, m)[1]
-       last = f"{y}-{m:02d}-{last_day}"
-       month_list.append({"label": label, "first": first, "last": last})
+       # Use first day of NEXT month as upper bound (exclusive)
+       # so string comparison captures all timestamps within the month
+       nm, nyy = m + 1, y
+       if nm > 12:
+           nm, nyy = 1, y + 1
+       next_first = f"{nyy}-{nm:02d}-01"
+       month_list.append({"label": label, "first": first, "next_first": next_first})
    results = []
    with get_conn() as conn:
        for mo in month_list:
-           # Local payments
+           # Local payments — string comparison works on TEXT collected_at
+           # because ISO format (YYYY-MM-DD ...) sorts lexicographically
            local = conn.execute(
                f"""SELECT COALESCE(SUM(p.amount), 0) as total, COUNT(*) as cnt
                    FROM payments p
                    JOIN customers c ON p.customer_id = c.customer_id
                    WHERE (p.deleted IS NULL OR p.deleted = 0)
-                     AND DATE(p.collected_at) >= ? AND DATE(p.collected_at) <= ?
+                     AND p.collected_at >= ? AND p.collected_at < ?
                      AND {flt_c}""",
-               (mo["first"], mo["last"])
+               (mo["first"], mo["next_first"])
            ).fetchone()
            # Paypakka payments
            pp = conn.execute(
                f"""SELECT COALESCE(SUM(pp.collection_amount), 0) as total, COUNT(*) as cnt
                    FROM paypakka_payments pp
                    LEFT JOIN customers c ON pp.customer_id = c.customer_id
-                   WHERE DATE(pp.paypakka_created_at) >= ? AND DATE(pp.paypakka_created_at) <= ?
+                   WHERE pp.paypakka_created_at >= ? AND pp.paypakka_created_at < ?
                      AND {flt_pp}""",
-               (mo["first"], mo["last"])
+               (mo["first"], mo["next_first"])
            ).fetchone()
            local_total = local["total"] if local else 0
            pp_total = pp["total"] if pp else 0
