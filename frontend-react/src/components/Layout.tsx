@@ -66,6 +66,7 @@ const navItems = [
   { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
   { to: '/unpaid', label: 'Unpaid', icon: AlertCircle },
   { to: '/not-renewed', label: 'Not Renewed', icon: UserX },
+  { to: '/payments/new', label: 'Record Payment', icon: CreditCard },
   { to: '/my-collections', label: 'My Collections', icon: Wallet },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/plans', label: 'Plans', icon: Tv },

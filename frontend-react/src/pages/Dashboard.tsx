@@ -186,18 +186,7 @@ function AgentDashboard({ stats }: { stats: AgentDashboardStats }) {
             {stats.month} . You collected {fmtRs(myCollected)} from {myCount} payments
           </p>
         </div>
-        <button
-          onClick={() => navigate('/payments/new')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 18px', borderRadius: 'var(--radius-sm)',
-            background: '#34c759', border: 'none', cursor: 'pointer',
-            fontWeight: 600, fontSize: '0.85rem', color: '#fff',
-          }}
-        >
-          <IndianRupee style={{ width: 17, height: 17 }} />
-          Record Payment
-        </button>
+
       </div>
 
       {/* Collection Cards */}
@@ -454,7 +443,6 @@ export default function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <QuickAction icon={IndianRupee} label="Record Payment" onClick={() => navigate('/payments/new')} color="#34c759" />
           <QuickAction icon={Plus} label="Add Customer" onClick={() => navigate('/add-customer')} color="#0071e3" />
           <QuickAction icon={Send} label="Reminders" onClick={() => navigate('/reminders')} color="#ff9f0a" />
         </div>
