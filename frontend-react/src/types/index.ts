@@ -141,6 +141,17 @@ export interface DashboardStats {
   open_sr_count: number;
 }
 
+export interface AgentDashboardStats {
+  month: string;
+  is_agent: true;
+  agent_name: string;
+  my_collected: number;
+  my_payments: number;
+  recent_payments: RecentPayment[];
+  open_sr_count: number;
+  my_open_sr_count: number;
+}
+
 export interface DashboardToday {
   today_collected: number;
   today_count: number;

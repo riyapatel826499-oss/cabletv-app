@@ -411,8 +411,10 @@ def dashboard_today(
     db=Depends(get_db),
 ):
     """Today's collection snapshot + comparison data for actionable dashboard."""
+    is_agent = current_user.get("role") in ("service_agent", "collection_agent", "agent")
+    uid = current_user.get("id")
     _oid = op_id(current_user)
-    _cache_key = f"dashboard_today:{_oid}"
+    _cache_key = f"dashboard_today:{'a'+str(uid) if is_agent else 'o'+str(_oid)}"
     cached = get_cached(_cache_key, ttl=20)
     if cached:
         return cached
@@ -432,7 +434,56 @@ def dashboard_today(
         lm_month = now.month - 1
     last_month_start = f"{lm_year}-{lm_month:02d}-01"
     last_month_end = f"{lm_year}-{lm_month:02d}-{(now.replace(month=lm_month, year=lm_year).date().replace(day=28)).day} 23:59:59"
+    month_start = now.strftime("%Y-%m-01")
 
+    if is_agent:
+        # Agent: personal stats only (filter by collected_by)
+        agent_flt = "collected_by = :uid"
+
+        today_row = db.execute(
+            text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+                     FROM payments
+                     WHERE (deleted IS NULL OR deleted = 0)
+                       AND collected_at >= :ts AND collected_at <= :te AND {agent_flt}"""),
+            {"ts": today_start, "te": today_end, "uid": uid},
+        ).fetchone()
+        today_collected = today_row.total or 0 if today_row else 0
+        today_count = today_row.cnt or 0 if today_row else 0
+
+        yest_row = db.execute(
+            text(f"""SELECT COALESCE(SUM(amount), 0) as total
+                     FROM payments
+                     WHERE (deleted IS NULL OR deleted = 0)
+                       AND collected_at >= :ys AND collected_at <= :ye AND {agent_flt}"""),
+            {"ys": yesterday_start, "ye": yesterday_end, "uid": uid},
+        ).fetchone()
+        yesterday_collected = yest_row.total or 0 if yest_row else 0
+
+        lm_row = db.execute(
+            text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(DISTINCT customer_id) as paid
+                     FROM payments
+                     WHERE (deleted IS NULL OR deleted = 0)
+                       AND collected_at >= :lms AND collected_at <= :lme AND {agent_flt}"""),
+            {"lms": last_month_start, "lme": last_month_end, "uid": uid},
+        ).fetchone()
+        last_month_collected = lm_row.total or 0 if lm_row else 0
+        last_month_paid = lm_row.paid or 0 if lm_row else 0
+
+        result = {
+            "is_agent": True,
+            "today_collected": today_collected,
+            "today_count": today_count,
+            "yesterday_collected": yesterday_collected,
+            "last_month_collected": last_month_collected,
+            "last_month_paid": last_month_paid,
+            "new_customers_this_month": 0,
+            "temp_disconnected": 0,
+            "surrendered_this_month": 0,
+        }
+        set_cached(_cache_key, result)
+        return result
+
+    # Non-agent path
     op_flt = "1=1"
     if _oid is not None:
         op_flt = f"operator_id = {_oid}"
@@ -470,7 +521,6 @@ def dashboard_today(
     last_month_paid = lm_row.paid or 0 if lm_row else 0
 
     # New customers this month
-    month_start = now.strftime("%Y-%m-01")
     new_customers = db.execute(
         text(f"""SELECT COUNT(*) FROM customers WHERE created_at >= :ms AND {op_flt}"""),
         {"ms": month_start},

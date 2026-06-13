@@ -5,9 +5,9 @@ import { dashboardApi, reportsApi } from '../api';
 import {
   IndianRupee, TrendingUp, TrendingDown, Clock, AlertCircle, Wifi,
   BarChart3, Plus, Send, Wrench, ArrowRight, Phone, ZapOff, UserPlus,
-  Calendar, CreditCard,
+  Calendar, CreditCard, ListChecks, Target,
 } from 'lucide-react';
-import type { DashboardStats, DashboardToday, ExpiringCustomer } from '../types';
+import type { DashboardStats, DashboardToday, AgentDashboardStats, ExpiringCustomer, RecentPayment } from '../types';
 import { fmtRs, fmtDate } from '../lib/format';
 
 // ── Progress Ring ──────────────────────────────────────────────────────────
@@ -151,6 +151,212 @@ function RevenueBarChart({ data }: { data: TrendItem[] }) {
   );
 }
 
+// ── Agent Dashboard ────────────────────────────────────────────────────────
+function AgentDashboard({ stats }: { stats: AgentDashboardStats }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const { data: today } = useQuery({
+    queryKey: ['dashboard-today'],
+    queryFn: async () => (await dashboardApi.today()).data as DashboardToday,
+    refetchInterval: 20000,
+  });
+
+  const myCollected = stats.my_collected ?? 0;
+  const myCount = stats.my_payments ?? 0;
+  const openSR = stats.my_open_sr_count ?? 0;
+  const todayCollected = today?.today_collected ?? 0;
+  const todayCount = today?.today_count ?? 0;
+  const yesterday = today?.yesterday_collected ?? 0;
+  const lastMonth = today?.last_month_collected ?? 0;
+
+  const todayVsYesterday = yesterday > 0 ? Math.round(((todayCollected - yesterday) / yesterday) * 100) : 0;
+  const monthVsLast = lastMonth > 0 ? Math.round(((myCollected - lastMonth) / lastMonth) * 100) : 0;
+  const recentPayments = stats.recent_payments || [];
+
+  return (
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
+            Hi {user?.name?.split(' ')[0] || 'Agent'}
+          </h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {stats.month} . You collected {fmtRs(myCollected)} from {myCount} payments
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/payments/new')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px', borderRadius: 'var(--radius-sm)',
+            background: '#34c759', border: 'none', cursor: 'pointer',
+            fontWeight: 600, fontSize: '0.85rem', color: '#fff',
+          }}
+        >
+          <IndianRupee style={{ width: 17, height: 17 }} />
+          Record Payment
+        </button>
+      </div>
+
+      {/* Collection Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+        {/* Today */}
+        <div className="glass-card" style={{ padding: 20, borderLeft: '3px solid #34c759' }}>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 500 }}>
+            My Collection Today
+          </p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: '#34c759', letterSpacing: '-0.02em', marginTop: 4 }}>
+            {fmtRs(todayCollected)}
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {todayCount} payments today
+          </p>
+          {yesterday > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 6 }}>
+              {todayVsYesterday >= 0 ? (
+                <TrendingUp style={{ width: 13, height: 13, color: '#34c759' }} />
+              ) : (
+                <TrendingDown style={{ width: 13, height: 13, color: '#ff3b30' }} />
+              )}
+              <span style={{
+                fontSize: '0.7rem', fontWeight: 500,
+                color: todayVsYesterday >= 0 ? '#34c759' : '#ff3b30',
+              }}>
+                {todayVsYesterday >= 0 ? '+' : ''}{todayVsYesterday}% vs yesterday
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* This Month Total */}
+        <div className="glass-card" style={{ padding: 20, borderLeft: '3px solid #0071e3' }}>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 500 }}>
+            My Total This Month
+          </p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: '#0071e3', letterSpacing: '-0.02em', marginTop: 4 }}>
+            {fmtRs(myCollected)}
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {myCount} total payments
+          </p>
+          {lastMonth > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 6 }}>
+              {monthVsLast >= 0 ? (
+                <TrendingUp style={{ width: 13, height: 13, color: '#34c759' }} />
+              ) : (
+                <TrendingDown style={{ width: 13, height: 13, color: '#ff3b30' }} />
+              )}
+              <span style={{
+                fontSize: '0.7rem', fontWeight: 500,
+                color: monthVsLast >= 0 ? '#34c759' : '#ff3b30',
+              }}>
+                {monthVsLast >= 0 ? '+' : ''}{monthVsLast}% vs last month
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Last Month */}
+        <div className="glass-card" style={{ padding: 20, borderLeft: '3px solid #8e8e93' }}>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 500 }}>
+            Last Month Total
+          </p>
+          <p style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text-light)', letterSpacing: '-0.02em', marginTop: 4 }}>
+            {fmtRs(lastMonth)}
+          </p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+            {today?.last_month_paid ?? 0} payments
+          </p>
+        </div>
+
+        {/* Open SRs */}
+        {openSR > 0 && (
+          <div
+            className="glass-card"
+            style={{ padding: 20, borderLeft: '3px solid #ff9f0a', cursor: 'pointer' }}
+            onClick={() => navigate('/service-requests')}
+          >
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 500 }}>
+              My Open Service Requests
+            </p>
+            <p style={{ fontSize: '1.8rem', fontWeight: 700, color: '#ff9f0a', letterSpacing: '-0.02em', marginTop: 4 }}>
+              {openSR}
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+              Tap to view . <ArrowRight style={{ width: 12, height: 12, display: 'inline' }} />
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Daily Target / Streak (motivational) */}
+      {todayCount > 0 && (
+        <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Target style={{ width: 20, height: 20, color: '#34c759' }} />
+          <p style={{ fontSize: '0.85rem', color: 'var(--text)' }}>
+            You've made <b>{todayCount} payment{todayCount > 1 ? 's' : ''}</b> today
+            {todayCount >= 5 ? ' . Great pace! Keep going!' : ' . Keep collecting!'}
+          </p>
+        </div>
+      )}
+
+      {/* My Recent Payments */}
+      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ListChecks style={{ width: 17, height: 17, color: 'var(--text-light)' }} />
+            <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>
+              My Recent Collections
+            </h2>
+          </div>
+          <button onClick={() => navigate('/my-collections')} style={{ fontSize: '0.78rem', color: '#0071e3', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+            View all . <ArrowRight style={{ width: 12, height: 12, display: 'inline' }} />
+          </button>
+        </div>
+        {recentPayments.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Area</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentPayments.slice(0, 8).map((p: RecentPayment, i: number) => (
+                  <tr key={i} style={{ cursor: 'pointer' }} onClick={() => navigate(`/customers/${p.customer_id}`)}>
+                    <td style={{ fontWeight: 500 }}>{p.customer_name || '--'}</td>
+                    <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(Number(p.amount) || 0)}</td>
+                    <td>
+                      <span style={{
+                        padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 500,
+                        background: 'rgba(0,113,227,0.08)', color: '#0071e3',
+                      }}>
+                        {p.mode || '--'}
+                      </span>
+                    </td>
+                    <td style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>{p.area || '--'}</td>
+                    <td style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>{fmtDate(p.date || '')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
+            No collections yet this month. Start collecting!
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { user } = useAuth();
@@ -158,7 +364,7 @@ export default function Dashboard() {
 
   const { data: stats, isLoading, isError } = useQuery({
     queryKey: ['dashboard'],
-    queryFn: async () => (await dashboardApi.stats()).data as DashboardStats,
+    queryFn: async () => (await dashboardApi.stats()).data as DashboardStats | AgentDashboardStats,
     refetchInterval: 30000,
   });
 
@@ -201,13 +407,19 @@ export default function Dashboard() {
     );
   }
 
-  const efficiency = stats.collection_efficiency ?? 0;
+  // ── Agent branch ─────────────────────────────────────────────────────
+  const adminStats = stats as DashboardStats;
+  if ('is_agent' in stats && stats.is_agent) {
+    return <AgentDashboard stats={stats} />;
+  }
+
+  const efficiency = adminStats.collection_efficiency ?? 0;
   const isPastCutoff = new Date().getDate() > 12; // default cutoff
-  const expiring = (stats.expiring_soon || []) as ExpiringCustomer[];
+  const expiring = (adminStats.expiring_soon || []) as ExpiringCustomer[];
 
   // Sort areas worst-first (lowest paid_count to total ratio)
   // We don't have total per area, so sort by paid_count ascending
-  const sortedAreas = [...(stats.by_area || [])].sort((a, b) => Number(a.paid_count) - Number(b.paid_count));
+  const sortedAreas = [...(adminStats.by_area || [])].sort((a, b) => Number(a.paid_count) - Number(b.paid_count));
 
   // Payment modes sorted by total desc
   const modes = modesData?.modes
@@ -222,12 +434,12 @@ export default function Dashboard() {
 
   // Month vs last month trend
   const monthVsLast = today?.last_month_collected
-    ? Math.round(((stats.total_collected - today.last_month_collected) / today.last_month_collected) * 100)
+    ? Math.round(((adminStats.total_collected - today.last_month_collected) / today.last_month_collected) * 100)
     : 0;
 
   // Estimate expected revenue (avg per paying customer * total)
-  const avgPerCustomer = stats.paid_this_month > 0 ? stats.total_collected / stats.paid_this_month : 0;
-  const expectedRevenue = Math.round(avgPerCustomer * stats.total_customers);
+  const avgPerCustomer = adminStats.paid_this_month > 0 ? adminStats.total_collected / adminStats.paid_this_month : 0;
+  const expectedRevenue = Math.round(avgPerCustomer * adminStats.total_customers);
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -238,7 +450,7 @@ export default function Dashboard() {
             {user?.name?.split(' ')[0] || 'Admin'} — here's today
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {stats.month} . {efficiency}% collected . {stats.paid_this_month} of {stats.total_customers} paid
+            {adminStats.month} . {efficiency}% collected . {adminStats.paid_this_month} of {adminStats.total_customers} paid
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -265,7 +477,7 @@ export default function Dashboard() {
               Collected This Month
             </p>
             <p style={{ fontSize: '2.2rem', fontWeight: 700, color: '#34c759', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              {fmtRs(stats.total_collected ?? 0)}
+              {fmtRs(adminStats.total_collected ?? 0)}
             </p>
             <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
               {/* Today */}
@@ -316,7 +528,7 @@ export default function Dashboard() {
                     {fmtRs(expectedRevenue)}
                   </p>
                   <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 2 }}>
-                    {stats.unpaid_this_month} unpaid pending
+                    {adminStats.unpaid_this_month} unpaid pending
                   </p>
                 </div>
               )}
@@ -330,9 +542,9 @@ export default function Dashboard() {
         <ActionCard
           icon={Clock}
           label="Unpaid Customers"
-          value={stats.unpaid_this_month ?? 0}
+          value={adminStats.unpaid_this_month ?? 0}
           color={isPastCutoff ? '#ff3b30' : '#ff9f0a'}
-          subtitle={isPastCutoff ? 'Past cutoff — disconnect pending' : `Collected from ${stats.paid_this_month}`}
+          subtitle={isPastCutoff ? 'Past cutoff — disconnect pending' : `Collected from ${adminStats.paid_this_month}`}
           onClick={() => navigate('/unpaid')}
         />
         <ActionCard
@@ -343,11 +555,11 @@ export default function Dashboard() {
           subtitle={expiring.length > 0 ? 'Call to renew' : 'All up to date'}
           onClick={() => navigate('/customers')}
         />
-        {stats.open_sr_count > 0 && (
+        {adminStats.open_sr_count > 0 && (
           <ActionCard
             icon={Wrench}
             label="Open Service Requests"
-            value={stats.open_sr_count}
+            value={adminStats.open_sr_count}
             color="#0071e3"
             subtitle="Needs attention"
             onClick={() => navigate('/service-requests')}
@@ -546,7 +758,7 @@ export default function Dashboard() {
             View all . <ArrowRight style={{ width: 12, height: 12, display: 'inline' }} />
           </button>
         </div>
-        {stats.recent_payments && stats.recent_payments.length > 0 ? (
+        {adminStats.recent_payments && adminStats.recent_payments.length > 0 ? (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
@@ -559,7 +771,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {stats.recent_payments.slice(0, 6).map((p, i) => (
+                {adminStats.recent_payments.slice(0, 6).map((p, i) => (
                   <tr key={i} style={{ cursor: 'pointer' }} onClick={() => navigate(`/customers/${p.customer_id}`)}>
                     <td style={{ fontWeight: 500 }}>{p.customer_name || '--'}</td>
                     <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(Number(p.amount) || 0)}</td>
@@ -598,7 +810,7 @@ export default function Dashboard() {
       {/* Footer Info */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 16, padding: '4px 0 12px', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Wifi style={{ width: 13, height: 13 }} /> {stats.total_connections ?? 0} connections
+          <Wifi style={{ width: 13, height: 13 }} /> {adminStats.total_connections ?? 0} connections
         </span>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
           . Auto-refreshes every 30s
