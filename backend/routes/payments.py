@@ -112,6 +112,7 @@ def create_payment(
         previous_balance=data.previous_balance,
         bill_amount=data.bill_amount,
         operator_id=op_id(current_user),
+        prev_expiry=connection_dict.get("expiry_date"),  # store expiry BEFORE this payment
     )
     db.add(payment)
     db.flush()
@@ -616,66 +617,28 @@ def delete_payment(
         or_(Payment.deleted.is_(None), Payment.deleted == 0),
     )
     remaining_query = apply_op_filter(remaining_query, Payment, current_user)
-    remaining_query = remaining_query.order_by(Payment.collected_at.asc())
     remaining = db.execute(remaining_query).scalars().all()
 
-    new_expiry = old_expiry  # default: no change
+    # Restore expiry to what it was BEFORE this payment was made
+    new_expiry = payment.prev_expiry
 
-    if remaining:
-        # Recalculate expiry: count unique months paid
-        months_paid = set()
-        for p in remaining:
-            my = p.month_year  # format: "04-2026"
-            if my:
-                months_paid.add(my)
-
-        num_months = len(months_paid) if months_paid else 1
-
-        # Find the earliest payment date to base expiry from
-        earliest = remaining[0]
-        earliest_date = datetime.strptime(earliest.collected_at[:10], "%Y-%m-%d")
-
-        # Expiry = last day of (earliest_month + num_months - 1)
-        exp_month = earliest_date.month + num_months - 1
-        exp_year = earliest_date.year
-        while exp_month > 12:
-            exp_month -= 12
-            exp_year += 1
-
-        last_day = calendar.monthrange(exp_year, exp_month)[1]
-        new_expiry = f"{exp_year}-{exp_month:02d}-{last_day:02d}"
-
-        # Update customer_plans expiry
+    if new_expiry:
+        # Restore expiry on customer plan
         if cust_plan:
             db.execute(
                 update(CustomerPlan)
                 .where(CustomerPlan.id == cust_plan.id)
                 .values(expiry_date=new_expiry)
             )
-
-        # Update connections expiry_date
+        # Restore expiry on connection
         db.execute(
             update(Connection)
             .where(Connection.id == connection_id)
             .values(expiry_date=new_expiry)
         )
     else:
-        # No payments left — clear expiry
-        new_expiry = None
-
-        if cust_plan:
-            # Set expiry to start_date (effectively expired) since NOT NULL
-            db.execute(
-                update(CustomerPlan)
-                .where(CustomerPlan.id == cust_plan.id)
-                .values(status="Expired", expiry_date=cust_plan.start_date)
-            )
-
-        db.execute(
-            update(Connection)
-            .where(Connection.id == connection_id)
-            .values(expiry_date=None)
-        )
+        # No prev_expiry stored (old payment before this feature) — no change
+        new_expiry = old_expiry
 
     db.commit()
     invalidate_dashboard(op_id(current_user))  # dashboard/collection totals changed

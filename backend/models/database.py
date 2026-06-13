@@ -664,6 +664,7 @@ def run_migrations(db_path: str = None):
         ("deleted_by", "ALTER TABLE payments ADD COLUMN deleted_by INTEGER"),
         ("deleted_at", "ALTER TABLE payments ADD COLUMN deleted_at TEXT"),
         ("delete_reason", "ALTER TABLE payments ADD COLUMN delete_reason TEXT"),
+        ("prev_expiry", "ALTER TABLE payments ADD COLUMN prev_expiry TEXT"),
     ]
     for col_name, sql in migrations_v2:
         try:

@@ -197,6 +197,7 @@ class Payment(Base):
     months_paid: Mapped[Optional[int]] = mapped_column(Integer)
     operator_id: Mapped[Optional[int]] = mapped_column(Integer)
     payment_type: Mapped[Optional[str]] = mapped_column(String(50))
+    prev_expiry: Mapped[Optional[str]] = mapped_column(String(100))
     deleted: Mapped[Optional[int]] = mapped_column(Integer, default=0)
     deleted_by: Mapped[Optional[int]] = mapped_column(Integer)
     deleted_at: Mapped[Optional[str]] = mapped_column(String(100))
