@@ -75,12 +75,11 @@ def push_test(current_user=Depends(get_current_user)):
 
 def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None):
     """Send a push notification to all subscriptions of a user."""
-    conn = get_conn()
-    subs = conn.execute(
-        "SELECT * FROM push_subscriptions WHERE user_id=?",
-        (user_id,)
-    ).fetchall()
-    conn.close()
+    with get_conn() as conn:
+        subs = conn.execute(
+            "SELECT * FROM push_subscriptions WHERE user_id=?",
+            (user_id,)
+        ).fetchall()
 
     if not subs:
         return 0
@@ -122,14 +121,13 @@ def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: 
 
 def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None):
     """Send push notification to all users with given roles."""
-    conn = get_conn()
-    users = conn.execute(
-        "SELECT id FROM users WHERE role IN ({}) AND status='Active'".format(
-            ",".join(["?"] * len(roles))
-        ),
-        roles
-    ).fetchall()
-    conn.close()
+    with get_conn() as conn:
+        users = conn.execute(
+            "SELECT id FROM users WHERE role IN ({}) AND status=?".format(
+                ",".join(["?"] * len(roles))
+            ),
+            roles + ["Active"]
+        ).fetchall()
 
     total = 0
     for user in users:
@@ -139,10 +137,9 @@ def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: 
 
 def _remove_subscription(sub_id: int):
     """Remove an expired push subscription."""
-    conn = get_conn()
-    conn.execute("DELETE FROM push_subscriptions WHERE id=?", (sub_id,))
-    conn.commit()
-    conn.close()
+    with get_conn() as conn:
+        conn.execute("DELETE FROM push_subscriptions WHERE id=?", (sub_id,))
+        conn.commit()
 
 
 # ── Daily Summary Endpoint (called by cron) ──
