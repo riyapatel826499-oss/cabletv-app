@@ -26,6 +26,7 @@ import {
   IndianRupee,
   Minus,
   Plus as PlusIcon,
+  Phone,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
@@ -494,6 +495,24 @@ export default function Layout() {
                 </div>
               )}
             </div>
+
+            {/* Call support */}
+            <a
+              href="tel:9787225577"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--bg-secondary)',
+                border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius-xs)',
+                padding: 8,
+                cursor: 'pointer',
+                color: '#34c759',
+                transition: 'var(--transition)',
+                textDecoration: 'none',
+              }}
+            >
+              <Phone style={{ width: 18, height: 18 }} />
+            </a>
 
             {/* Dark mode */}
             <button
