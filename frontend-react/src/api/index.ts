@@ -10,6 +10,10 @@ export const customersApi = {
   search: (query: string) => api.get('/customers/search', { params: { q: query } }),
   unpaid: (params: Record<string, string>) => api.get('/customers/unpaid', { params }),
   tempDisconnected: () => api.get('/customers/temp-disconnected'),
+  notRenewed: (month: string) => api.get('/customers/not-renewed', { params: { month } }),
+  delete: (id: string) => api.delete(`/customers/${id}`),
+  changePlan: (customerId: string, data: { plan_id: number }) =>
+    api.put(`/customers/${customerId}/change-plan`, data),
 };
 
 // ── Connections ───────────────────────────────────────────────────────────
@@ -34,6 +38,20 @@ export const paymentsApi = {
     api.get('/payments/all', { params: { month_year: monthYear, page: page || 1 } }),
   history: (customerId: string) =>
     api.get('/payments/history', { params: { customer_id: customerId, per_page: '50' } }),
+  delete: (id: number, reason?: string) => api.delete(`/payments/${id}`, { params: reason ? { reason } : undefined }),
+};
+
+// ── Reminders ─────────────────────────────────────────────────────────────
+export const remindersApi = {
+  due: () => api.get('/reminders/due'),
+  send: (data: { customer_ids: string[]; message?: string }) => api.post('/reminders/send', data),
+  history: () => api.get('/reminders/history'),
+  status: () => api.get('/reminders/status'),
+};
+
+// ── Audit Log ─────────────────────────────────────────────────────────────
+export const auditApi = {
+  list: (params?: Record<string, string>) => api.get('/reports/audit-log', { params }),
 };
 
 // ── Dashboard ─────────────────────────────────────────────────────────────

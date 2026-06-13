@@ -17,19 +17,27 @@ import {
   AlertCircle,
   Building2,
   UserCog,
+  UserPlus,
+  UserX,
+  Bell,
+  ScrollText,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Users },
+  { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
   { to: '/unpaid', label: 'Unpaid', icon: AlertCircle },
+  { to: '/not-renewed', label: 'Not Renewed', icon: UserX },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/payments/new', label: 'Record Payment', icon: CreditCard },
   { to: '/plans', label: 'Plans', icon: Tv },
   { to: '/reports', label: 'Reports', icon: FileBarChart },
+  { to: '/reminders', label: 'Reminders', icon: Bell },
   { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
+  { to: '/audit', label: 'Audit Log', icon: ScrollText },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/employees', label: 'Employees', icon: UserCog },
   { to: '/operators', label: 'Operators', icon: Building2 },

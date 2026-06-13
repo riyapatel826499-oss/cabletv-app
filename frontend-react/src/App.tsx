@@ -16,6 +16,10 @@ import ServiceRequests from './pages/ServiceRequests';
 import Settings from './pages/Settings';
 import Operators from './pages/Operators';
 import Employees from './pages/Employees';
+import AddCustomer from './pages/AddCustomer';
+import NotRenewed from './pages/NotRenewed';
+import Reminders from './pages/Reminders';
+import AuditLog from './pages/AuditLog';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -71,6 +75,10 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="operators" element={<Operators />} />
         <Route path="employees" element={<Employees />} />
+        <Route path="add-customer" element={<AddCustomer />} />
+        <Route path="not-renewed" element={<NotRenewed />} />
+        <Route path="reminders" element={<Reminders />} />
+        <Route path="audit" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
