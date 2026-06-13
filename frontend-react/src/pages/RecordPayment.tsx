@@ -293,15 +293,18 @@ export default function RecordPayment() {
           const currentPlanName = activeConn.plan_name;
           if (currentPlanName) {
             const exact = planOpts.find(p => p.name?.toLowerCase() === currentPlanName.toLowerCase());
-            if (exact) { setSelectedPlanId(exact.id); return; }
-            const partial = planOpts.find(p =>
-              p.name?.toLowerCase().includes(currentPlanName.toLowerCase()) ||
-              currentPlanName.toLowerCase().includes(p.name.toLowerCase())
-            );
-            if (partial) { setSelectedPlanId(partial.id); return; }
+            if (exact) { setSelectedPlanId(exact.id); }
+            else {
+              const partial = planOpts.find(p =>
+                p.name?.toLowerCase().includes(currentPlanName.toLowerCase()) ||
+                currentPlanName.toLowerCase().includes(p.name.toLowerCase())
+              );
+              if (partial) { setSelectedPlanId(partial.id); }
+              else { setSelectedPlanId(null); }
+            }
+          } else {
+            setSelectedPlanId(null);
           }
-          // Fallback: no auto-select
-          setSelectedPlanId(null);
         } catch { setPlans([]); }
       }
     } catch { /* ignore */ }
