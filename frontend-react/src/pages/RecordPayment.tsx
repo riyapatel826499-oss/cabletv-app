@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi } from '../api';
+import { customersApi, paymentsApi, settingsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
 import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee } from 'lucide-react';
@@ -9,6 +9,17 @@ import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee } fro
 interface CustomerSearchResult extends CustomerListItem {}
 
 const PAYMENT_MODES = ['Cash', 'GPay', 'PhonePe', 'UPI', 'Bank Transfer', 'Cheque'];
+
+// Compute the payment status badge for a customer
+function getPaymentStatus(c: CustomerSearchResult): { label: string; color: string } {
+  const isPaid = c.is_paid === true || c.is_paid === 1;
+  const connStatus = (c.conn_status || c.status || '').toLowerCase();
+  const isDisconnected = connStatus.includes('disconnected') || connStatus === 'inactive';
+
+  if (isPaid) return { label: 'Active | Paid', color: '#34c759' };
+  if (isDisconnected) return { label: 'Inactive | Unpaid', color: '#ff3b30' };
+  return { label: 'Active | Unpaid', color: '#ffcc00' };
+}
 
 export default function RecordPayment() {
   const navigate = useNavigate();
@@ -32,6 +43,13 @@ export default function RecordPayment() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+
+  // Fetch cutoff date from settings (used to show due date hint for unpaid customers)
+  const { data: notifSettings } = useQuery({
+    queryKey: ['settings-notifications'],
+    queryFn: async () => (await settingsApi.getNotifications()).data,
+  });
+  const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
   // Search customers
   const { data: searchResults, isFetching } = useQuery({
@@ -257,9 +275,21 @@ export default function RecordPayment() {
                           {fmtRs(c.plan_amount)}
                         </p>
                       )}
-                      <p style={{ fontSize: '0.7rem', color: c.status === 'active' ? '#34c759' : '#ff3b30' }}>
-                        {c.status}
-                      </p>
+                      {(() => {
+                        const ps = getPaymentStatus(c);
+                        return (
+                          <>
+                            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>
+                              {ps.label}
+                            </p>
+                            {ps.label === 'Active | Unpaid' && (
+                              <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>
+                                Due by {cutoffDate}th
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}

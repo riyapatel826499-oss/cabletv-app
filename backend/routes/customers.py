@@ -60,7 +60,7 @@ def _customer_to_dict(row):
         "status": row["status"],
     }
     # Add optional fields if available
-    for field in ["surrendered_date", "surrender_reason", "stb_no"]:
+    for field in ["surrendered_date", "surrender_reason", "stb_no", "conn_status"]:
         try:
             d[field] = row[field] if row[field] is not None else None
         except (IndexError, KeyError):
@@ -922,7 +922,7 @@ def search_customers(
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
         rows = conn.execute(f"""
-            SELECT c.*, conn.stb_no,
+            SELECT c.*, conn.stb_no, conn.status as conn_status,
             CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END as is_paid
             FROM customers c
             LEFT JOIN connections conn ON c.customer_id = conn.customer_id

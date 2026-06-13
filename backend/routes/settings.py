@@ -18,6 +18,7 @@ DEFAULTS = {
     "notify_payment_scope": "disconnected",  # "all" or "disconnected"
     "notify_service_scope": "all",
     "notify_enabled": "true",
+    "cutoff_date": "12",  # Day of month after which unpaid connections are disconnected
 }
 
 
@@ -137,6 +138,7 @@ def get_notification_settings(operator_id: int = None, user=Depends(get_current_
         "notify_payment_scope": settings.get("notify_payment_scope", "disconnected"),
         "notify_service_scope": settings.get("notify_service_scope", "all"),
         "notify_enabled": settings.get("notify_enabled", "true"),
+        "cutoff_date": settings.get("cutoff_date", "12"),
         "telegram_linked": tg["has_token"],
         "telegram_bot_username": settings.get("telegram_bot_username", ""),
         "telegram_chat_count": len(tg["chat_ids"]),
@@ -147,6 +149,7 @@ class NotifySettingUpdate(BaseModel):
     notify_payment_scope: Optional[str] = None
     notify_service_scope: Optional[str] = None
     notify_enabled: Optional[str] = None
+    cutoff_date: Optional[str] = None
     operator_id: Optional[int] = None  # master only: target operator
 
 

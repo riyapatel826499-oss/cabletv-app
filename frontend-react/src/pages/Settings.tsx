@@ -138,7 +138,7 @@ export default function Settings() {
         </div>
 
         {/* Service Scope */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
             <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Service Alerts</p>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Which service requests trigger notifications</p>
@@ -154,6 +154,34 @@ export default function Settings() {
             <option value="all">All tickets</option>
             <option value="high_priority">High priority only</option>
           </select>
+        </div>
+
+        {/* Cutoff Date */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+          <div>
+            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Payment Cutoff Date</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Day of month after which unpaid connections are disconnected</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="number"
+              min="1"
+              max="28"
+              value={notifSettings?.cutoff_date ?? '12'}
+              onChange={e => {
+                const val = e.target.value;
+                if (val && Number(val) >= 1 && Number(val) <= 28) {
+                  updateNotifMut.mutate({ cutoff_date: val });
+                }
+              }}
+              style={{
+                width: 60, textAlign: 'center', padding: '8px 8px', borderRadius: 10,
+                border: '0.5px solid var(--border)', background: 'var(--bg-secondary)',
+                color: 'var(--text)', fontSize: '0.85rem', fontWeight: 600,
+              }}
+            />
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}></span>
+          </div>
         </div>
       </div>
 

@@ -83,6 +83,7 @@ export interface CustomerListItem {
   status?: string;
   stb_no?: string;
   is_paid?: number | boolean;
+  conn_status?: string;
   plan_name?: string;
   plan_amount?: number;
 }
