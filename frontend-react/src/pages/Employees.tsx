@@ -23,6 +23,7 @@ const ROLE_COLORS: Record<string, string> = {
   support: '#34c759',
   collection_agent: '#ff9f0a',
   service_agent: '#bf5af2',
+  collection_point: '#5856d6',
 };
 
 export default function Employees() {
@@ -276,6 +277,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
                 <option value="support">Support</option>
                 <option value="collection_agent">Collection Agent</option>
                 <option value="service_agent">Service Agent</option>
+                <option value="collection_point">Collection Point</option>
               </select>
             </div>
           </div>
@@ -349,6 +351,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
               <option value="support">Support</option>
               <option value="collection_agent">Collection Agent</option>
               <option value="service_agent">Service Agent</option>
+              <option value="collection_point">Collection Point</option>
             </select>
           </div>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 4 }}>

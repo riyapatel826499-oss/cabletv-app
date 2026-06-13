@@ -34,20 +34,22 @@ import { useState, useEffect, useRef } from 'react';
 // master = Prabhu (full), admin = operator admin (e.g. SSN Cables)
 // collection_agent / agent = collection-focused staff
 // service roles handled under collection_agent for now
-type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support';
+type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support' | 'collection_point';
 
 const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support'];
+const CP: Role[] = [...ALL_ROLES, 'collection_point'];
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  '/':                    ALL_ROLES,                          // Dashboard
-  '/customers':           ALL_ROLES,                          // View customers
-  '/customers/:id':       ALL_ROLES,                          // Customer detail
-  '/payments/new':        ALL_ROLES,                          // Record payment
-  '/my-collections':      ALL_ROLES,                          // Own collections
-  '/unpaid':              ALL_ROLES,                          // Collection work
-  '/reports':             ALL_ROLES,                          // Reports (backend auto-filters to own data for agents)
+  '/':                    CP,                                  // Dashboard
+  '/customers/:id':       CP,                                  // Customer detail (clickable from collections)
+  '/payments/new':        CP,                                  // Record payment (via floating Collect button)
+  '/my-collections':      CP,                                  // Own collections
+  '/reports':             CP,                                  // Reports (backend auto-filters)
+  '/service-requests':    CP,                                  // View/resolve SRs
+  // Staff only (no collection_point)
+  '/customers':           ALL_ROLES,                           // View customers list
+  '/unpaid':              ALL_ROLES,                           // Collection work
   '/not-renewed':         ALL_ROLES,
-  '/service-requests':    ALL_ROLES,                          // View/resolve SRs
   // Admin+ only
   '/add-customer':        ['master', 'admin'],
   '/payments':            ['master', 'admin'],
