@@ -415,7 +415,7 @@ export default function RecordPayment() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
       setSuccess(true);
-      setTimeout(() => navigate('/payments'), 2000);
+      setTimeout(() => navigate('/'), 2000);
     } catch {
       setError('Failed to record payment. Please try again.');
     } finally {
@@ -432,7 +432,7 @@ export default function RecordPayment() {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
             {selectedPlan && payCalc ? `${fmtRs(payCalc.netAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
           </p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to payments...</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to dashboard...</p>
         </div>
       </div>
     );
