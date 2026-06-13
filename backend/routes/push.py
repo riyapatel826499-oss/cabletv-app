@@ -163,34 +163,31 @@ def send_daily_summary(
     yesterday = datetime.now() - timedelta(days=1)
     date_str = yesterday.strftime("%Y-%m-%d")
 
-    conn = get_conn()
+    with get_conn() as conn:
+        # Get yesterday's local payments
+        row = conn.execute("""
+            SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as total
+            FROM payments WHERE DATE(collected_at) = ?
+        """, (date_str,)).fetchone()
 
-    # Get yesterday's local payments
-    row = conn.execute("""
-        SELECT COUNT(*) as cnt, COALESCE(SUM(amount),0) as total
-        FROM payments WHERE DATE(collected_at) = ?
-    """, (date_str,)).fetchone()
+        # Get active customers count
+        active = conn.execute("""
+            SELECT COUNT(DISTINCT c.customer_id) as cnt
+            FROM customers c
+            JOIN connections con ON con.customer_id = c.customer_id
+            WHERE con.status = 'Active'
+        """).fetchone()
 
-    # Get active customers count
-    active = conn.execute("""
-        SELECT COUNT(DISTINCT c.customer_id) as cnt
-        FROM customers c
-        JOIN connections con ON con.customer_id = c.customer_id
-        WHERE con.status = 'Active'
-    """).fetchone()
-
-    # Get unpaid count
-    unpaid = conn.execute("""
-        SELECT COUNT(DISTINCT c.customer_id) as cnt
-        FROM customers c
-        JOIN connections con ON con.customer_id = c.customer_id AND con.status = 'Active'
-        WHERE c.customer_id NOT IN (
-            SELECT DISTINCT customer_id FROM payments
-            WHERE strftime('%Y-%m', collected_at) = strftime('%Y-%m', 'now')
-        )
-    """).fetchone()
-
-    conn.close()
+        # Get unpaid count (this month)
+        unpaid = conn.execute("""
+            SELECT COUNT(DISTINCT c.customer_id) as cnt
+            FROM customers c
+            JOIN connections con ON con.customer_id = c.customer_id AND con.status = 'Active'
+            WHERE c.customer_id NOT IN (
+                SELECT DISTINCT customer_id FROM payments
+                WHERE TO_CHAR(collected_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+            )
+        """).fetchone()
 
     pay_count = row["cnt"] if row else 0
     pay_total = row["total"] if row else 0
