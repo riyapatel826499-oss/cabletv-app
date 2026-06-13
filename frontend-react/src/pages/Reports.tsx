@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { customersApi } from '../api';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtRs, fmtDateTime } from '../lib/format';
 import {
   FileBarChart,
   Download,
@@ -79,6 +79,15 @@ export default function Reports() {
       )
     : customers;
 
+  // Sort paid customers by payment date descending (most recent first)
+  const sorted = tab === 'paid'
+    ? [...filtered].sort((a, b) => {
+        const da = String(a.payment_date || '');
+        const db = String(b.payment_date || '');
+        return db.localeCompare(da);
+      })
+    : filtered;
+
   // Unpaid count and pending amount for stat cards
   const unpaidCount = tab === 'unpaid' ? total : 0;
   const unpaidPending = tab === 'unpaid'
@@ -86,11 +95,11 @@ export default function Reports() {
     : 0;
 
   function exportCSV() {
-    if (!filtered.length) return;
+    if (!sorted.length) return;
     if (tab === 'paid') {
       downloadCSV(
         `paid-customers-${from}_to_${to}.csv`,
-        filtered.map((c) => ({
+        sorted.map((c) => ({
           ID: c.customer_id,
           Name: c.name,
           STB: c.stb_no || '',
@@ -103,9 +112,9 @@ export default function Reports() {
         })),
       );
     } else {
-      downloadCSV(
+        downloadCSV(
         `unpaid-customers.csv`,
-        filtered.map((c) => ({
+        sorted.map((c) => ({
           ID: c.customer_id,
           Name: c.name,
           STB: c.stb_no || '',
@@ -216,7 +225,7 @@ export default function Reports() {
         </div>
         <button
           onClick={exportCSV}
-          disabled={!filtered.length}
+          disabled={!sorted.length}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -228,8 +237,8 @@ export default function Reports() {
             color: '#fff',
             fontSize: '0.82rem',
             fontWeight: 600,
-            cursor: filtered.length ? 'pointer' : 'not-allowed',
-            opacity: filtered.length ? 1 : 0.5,
+            cursor: sorted.length ? 'pointer' : 'not-allowed',
+            opacity: sorted.length ? 1 : 0.5,
           }}
         >
           <Download style={{ width: 14, height: 14 }} /> CSV
@@ -242,7 +251,7 @@ export default function Reports() {
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <div style={{ width: 36, height: 36, border: '4px solid rgba(0,113,227,0.2)', borderTopColor: '#0071e3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sorted.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             {tab === 'paid' ? 'No paid customers in this period' : 'No unpaid customers found'}
           </div>
@@ -272,7 +281,7 @@ export default function Reports() {
                 )}
               </thead>
               <tbody>
-                {filtered.map((c, i) => (
+                {sorted.map((c, i) => (
                   <tr key={i}>
                     <td>
                       <div>
@@ -290,7 +299,7 @@ export default function Reports() {
                             {String(c.payment_mode || '--')}
                           </span>
                         </td>
-                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{fmtDate(String(c.payment_date || ''))}</td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{fmtDateTime(String(c.payment_date || ''))}</td>
                         <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{String(c.collected_by || '--')}</td>
                       </>
                     ) : (

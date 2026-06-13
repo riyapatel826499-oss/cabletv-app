@@ -11,3 +11,12 @@ export function fmtDate(d: string | null | undefined): string {
   if (isNaN(dt.getTime())) return String(d);
   return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
+
+export function fmtDateTime(d: string | null | undefined): string {
+  if (!d) return '--';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  const dateStr = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timeStr = dt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${dateStr}, ${timeStr}`;
+}

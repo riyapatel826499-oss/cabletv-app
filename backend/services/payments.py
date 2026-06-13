@@ -76,12 +76,16 @@ def local_payment_details_sql(placeholders, current_month):
     
     Always uses collected_at date range for consistency with paypakka queries.
     """
-    return f"""SELECT customer_id, SUM(amount) as total_amount,
-            {_gc('payment_mode')} as payment_modes,
-            MAX(collected_at) as last_payment_date
-        FROM payments WHERE customer_id IN ({placeholders})
-        AND collected_at >= ? AND collected_at <= ?
-        GROUP BY customer_id"""
+    return f"""SELECT p.customer_id, SUM(p.amount) as total_amount,
+            {_gc('p.payment_mode')} as payment_modes,
+            MAX(p.collected_at) as last_payment_date,
+            {_gc('u.name')} as collected_by
+        FROM payments p
+        LEFT JOIN users u ON p.collected_by = u.id
+        WHERE p.customer_id IN ({placeholders})
+        AND p.collected_at >= ? AND p.collected_at <= ?
+        AND p.deleted = 0
+        GROUP BY p.customer_id"""
 
 
 def get_merged_payments(conn, customer_ids, month_start, month_end, current_month):
@@ -121,6 +125,13 @@ def get_merged_payments(conn, customer_ids, month_start, month_end, current_mont
             existing["mode"] = (existing["mode"] + ", " + lr["payment_modes"]).strip(", ")
         if lr["last_payment_date"] and (not existing.get("date") or lr["last_payment_date"] > existing["date"]):
             existing["date"] = lr["last_payment_date"]
+        # Merge collected_by from local payments
+        local_collector = lr["collected_by"] if "collected_by" in lr.keys() else None
+        if local_collector:
+            if existing.get("collected_by"):
+                existing["collected_by"] = existing["collected_by"] + ", " + local_collector
+            else:
+                existing["collected_by"] = local_collector
         pay_map[cid] = existing
 
     return pay_map
