@@ -568,7 +568,11 @@ export default function RecordPayment() {
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 16px', background: 'var(--bg-secondary)',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    onClick={() => navigate(`/customers/${selectedCustomer.customer_id}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                    title="View customer profile"
+                  >
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%',
                       background: '#0071e3', color: '#fff',
@@ -578,8 +582,8 @@ export default function RecordPayment() {
                       {(selectedCustomer.name || '?').charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>{selectedCustomer.name}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>ID: {selectedCustomer.customer_id}</p>
+                      <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0071e3', textDecoration: 'underline', textUnderlineOffset: 2 }}>{selectedCustomer.name}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>ID: {selectedCustomer.customer_id} · Tap to view profile</p>
                     </div>
                   </div>
                   <button type="button" onClick={handleReset}
