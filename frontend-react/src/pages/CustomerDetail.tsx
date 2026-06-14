@@ -1168,9 +1168,9 @@ export default function CustomerDetailPage() {
               Current STB: <strong style={{ color: 'var(--text)' }}>{exchangeConn.stb_no}</strong>
             </p>
 
-            {/* New STB picker */}
+            {/* New STB picker — inventory only */}
             <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
-              New STB (from inventory or type manually)
+              Select New STB from Inventory
             </label>
             {availableStbs.length > 0 ? (
               <select
@@ -1184,35 +1184,31 @@ export default function CustomerDetailPage() {
                   background: 'var(--bg-secondary)',
                   color: 'var(--text)',
                   fontSize: '0.85rem',
-                  marginBottom: 6,
+                  marginBottom: 14,
                   cursor: 'pointer',
                 }}
               >
-                <option value="">— Select from inventory —</option>
+                <option value="">— Select an STB —</option>
                 {availableStbs.map((s) => (
                   <option key={s.stb_no} value={s.stb_no}>
                     {s.stb_no} ({s.status})
                   </option>
                 ))}
               </select>
-            ) : null}
-            <input
-              type="text"
-              value={exchangeNewStb}
-              onChange={(e) => setExchangeNewStb(e.target.value)}
-              placeholder={availableStbs.length > 0 ? '...or type STB number' : 'Enter new STB number'}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-xs)',
-                border: '0.5px solid var(--border)',
+            ) : (
+              <p style={{
+                fontSize: '0.82rem',
+                color: 'var(--text-light)',
+                padding: '16px',
+                textAlign: 'center',
                 background: 'var(--bg-secondary)',
-                color: 'var(--text)',
-                fontSize: '0.85rem',
+                borderRadius: 'var(--radius-xs)',
                 marginBottom: 14,
-                marginTop: availableStbs.length > 0 ? 0 : 0,
-              }}
-            />
+                border: '0.5px solid var(--border)',
+              }}>
+                No STBs available in inventory. Surrender a customer first to add STBs.
+              </p>
+            )}
 
             {/* Old STB status */}
             <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
