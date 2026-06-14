@@ -194,6 +194,8 @@ class Payment(Base):
     longitude: Mapped[Optional[float]] = mapped_column(Float)
     previous_balance: Mapped[Optional[float]] = mapped_column(Float)
     bill_amount: Mapped[Optional[float]] = mapped_column(Float)
+    discount: Mapped[Optional[float]] = mapped_column(Float, default=0)
+    discount_reason: Mapped[Optional[str]] = mapped_column(String(50))
     months_paid: Mapped[Optional[int]] = mapped_column(Integer)
     operator_id: Mapped[Optional[int]] = mapped_column(Integer)
     payment_type: Mapped[Optional[str]] = mapped_column(String(50))

@@ -238,6 +238,11 @@ export default function RecordPayment() {
   const [gapNote, setGapNote] = useState('');
   const [connLoading, setConnLoading] = useState(false);
 
+  // Discount state
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountReason, setDiscountReason] = useState('');
+  const DISCOUNT_REASONS = ['Node', 'Injector', 'Others'];
+
   // Cutoff date from settings
   const { data: notifSettings } = useQuery({
     queryKey: ['settings-notifications'],
@@ -351,6 +356,18 @@ export default function RecordPayment() {
     return calcPayAmount(selectedPlan.amount, months, month, isDisconnected);
   }, [selectedPlan, months, month, isDisconnected]);
 
+  // Discount amount (parsed from input)
+  const discountAmt = useMemo(() => {
+    const v = parseFloat(discountInput);
+    return isNaN(v) || v <= 0 ? 0 : v;
+  }, [discountInput]);
+
+  // Final amount after discount
+  const finalAmount = useMemo(() => {
+    if (!payCalc) return 0;
+    return Math.max(0, payCalc.netAmount - discountAmt);
+  }, [payCalc, discountAmt]);
+
   // Also reload plans when connection changes
   useEffect(() => {
     if (selectedConnId && connections.length) {
@@ -384,6 +401,8 @@ export default function RecordPayment() {
     setMonths(1);
     setGapNote('');
     setIsDisconnected(false);
+    setDiscountInput('');
+    setDiscountReason('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -391,6 +410,8 @@ export default function RecordPayment() {
     if (!selectedCustomer) { setError('Please select a customer'); return; }
     if (!selectedPlanId) { setError('Please select a plan'); return; }
     if (!payCalc || payCalc.netAmount <= 0) { setError('Invalid amount'); return; }
+    if (discountAmt > 0 && !discountReason) { setError('Please select a reason for the discount'); return; }
+    if (discountAmt > payCalc.netAmount) { setError('Discount cannot exceed total amount'); return; }
     setError('');
     setShowConfirm(true);
   };
@@ -405,11 +426,13 @@ export default function RecordPayment() {
         customer_id: selectedCustomer.customer_id,
         connection_id: selectedConnId || undefined,
         plan_id: selectedPlanId || undefined,
-        amount: payCalc.netAmount,
+        amount: finalAmount,
         payment_mode: mode,
         month_year: monthYear,
         months_paid: months,
         notes: notes || undefined,
+        discount: discountAmt || undefined,
+        discount_reason: discountReason || undefined,
       } as any);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
@@ -430,7 +453,7 @@ export default function RecordPayment() {
           <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>Payment Recorded!</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
-            {selectedPlan && payCalc ? `${fmtRs(payCalc.netAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
+            {selectedPlan && payCalc ? `${fmtRs(finalAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
           </p>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to dashboard...</p>
         </div>
@@ -701,12 +724,50 @@ export default function RecordPayment() {
                       </div>
                     </>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: payCalc.discount > 0 ? 6 : 0, borderTop: payCalc.discount > 0 ? '0.5px solid var(--border)' : 'none' }}>
+                  {discountAmt > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                      <span style={{ color: 'var(--text-light)' }}>
+                        Discount ({discountReason})
+                      </span>
+                      <span style={{ color: '#ff9f0a', fontWeight: 500 }}>- {fmtRs(discountAmt)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: (payCalc.discount > 0 || discountAmt > 0) ? 6 : 0, borderTop: (payCalc.discount > 0 || discountAmt > 0) ? '0.5px solid var(--border)' : 'none' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Amount to Pay</span>
                     <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.3rem', fontWeight: 700, color: '#0071e3' }}>
-                      <IndianRupee style={{ width: 18, height: 18 }} />{payCalc.netAmount}
+                      <IndianRupee style={{ width: 18, height: 18 }} />{finalAmount}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {/* Discount Input + Reason */}
+              {payCalc && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                      Discount <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <input
+                      type="number" min="0" step="1" value={discountInput}
+                      onChange={(e) => { setDiscountInput(e.target.value); if (!e.target.value) setDiscountReason(''); }}
+                      className="glass-input"
+                      style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
+                      placeholder="0"
+                    />
+                  </div>
+                  {discountAmt > 0 && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                        Reason <span style={{ color: '#ff3b30' }}>*</span>
+                      </label>
+                      <select value={discountReason} onChange={(e) => setDiscountReason(e.target.value)}
+                        className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
+                        <option value="">Select reason</option>
+                        {DISCOUNT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -737,7 +798,7 @@ export default function RecordPayment() {
             {submitting ? (
               <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Processing...</>
             ) : payCalc ? (
-              `Pay ${fmtRs(payCalc.netAmount)}`
+              `Pay ${fmtRs(finalAmount)}`
             ) : 'Pay'}
           </button>
         </div>
@@ -810,6 +871,12 @@ export default function RecordPayment() {
                     <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{months}</span>
                   </div>
                 )}
+                {discountAmt > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Discount ({discountReason})</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#ff9f0a' }}>- {fmtRs(discountAmt)}</span>
+                  </div>
+                )}
               </div>
 
               {/* Amount + Actions */}
@@ -821,7 +888,7 @@ export default function RecordPayment() {
                 }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Amount</span>
                   <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.4rem', fontWeight: 700, color: '#0071e3' }}>
-                    <IndianRupee style={{ width: 20, height: 20 }} />{payCalc.netAmount}
+                    <IndianRupee style={{ width: 20, height: 20 }} />{finalAmount}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -841,7 +908,7 @@ export default function RecordPayment() {
                       fontSize: '0.88rem', fontWeight: 600, border: 'none',
                       cursor: 'pointer', boxShadow: '0 2px 8px rgba(52,199,89,0.3)',
                     }}>
-                    Confirm & Pay {fmtRs(payCalc.netAmount)}
+                    Confirm & Pay {fmtRs(finalAmount)}
                   </button>
                 </div>
               </div>

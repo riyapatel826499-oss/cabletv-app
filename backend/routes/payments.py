@@ -49,6 +49,8 @@ class PaymentCreate(BaseModel):
     longitude: Optional[float] = None
     previous_balance: Optional[float] = 0
     bill_amount: Optional[float] = 0
+    discount: Optional[float] = 0
+    discount_reason: Optional[str] = None
     collected_at: Optional[str] = None  # Allow setting collected_at timestamp
 
 
@@ -111,6 +113,8 @@ def create_payment(
         longitude=data.longitude,
         previous_balance=data.previous_balance,
         bill_amount=data.bill_amount,
+        discount=data.discount or 0,
+        discount_reason=data.discount_reason,
         operator_id=op_id(current_user),
         prev_expiry=connection_dict.get("expiry_date"),  # store expiry BEFORE this payment
     )
