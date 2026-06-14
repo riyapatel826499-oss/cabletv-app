@@ -242,7 +242,7 @@ export default function CustomerDetailPage() {
     enabled: !!exchangeConn,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.stbs || inventoryData?.inventory || [];
+  const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.available || inventoryData?.stbs || inventoryData?.inventory || [];
 
   // Exchange STB mutation
   const exchangeMut = useMutation({
