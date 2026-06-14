@@ -81,7 +81,7 @@ def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Dep
 @router.post("/customers/{customer_id}/connections/{connection_id}/exchange-stb")
 def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest, current_user=Depends(get_current_user)):
    """Exchange a customer's faulty STB with a new/spare one."""
-   if current_user["role"] not in ["admin", "support"]:
+   if current_user["role"] not in ["master", "admin", "support"]:
        raise HTTPException(status_code=403, detail="Only Admin or Support can exchange STBs")
    flt = _op_flt(current_user)
    flt_con = _op_flt(current_user, "con.")
@@ -106,8 +106,16 @@ def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest,
            raise HTTPException(status_code=400, detail=f"STB {data.new_stb_no} is assigned to {active['name']} ({active['customer_id']})")
        # 3. Remove new STB from inventory if it exists there
        conn.execute(f"DELETE FROM stb_inventory WHERE stb_no = ? AND {flt}", [data.new_stb_no])
-       # 4. Update connection with new STB
-       conn.execute(f"UPDATE connections SET stb_no = ? WHERE id = ? AND {flt}", [data.new_stb_no, connection_id])
+       # 4. Update connection with new STB + auto-update MSO/network from STB prefix
+       new_stb_clean = data.new_stb_no.strip()
+       if new_stb_clean.startswith("172") or new_stb_clean.startswith("173"):
+           new_mso = "TACTV"
+       elif new_stb_clean.startswith("5000"):
+           new_mso = "SCV"
+       else:
+           new_mso = "GTPL"
+       conn.execute(f"UPDATE connections SET stb_no = ?, mso = ?, network = ? WHERE id = ? AND {flt}",
+                    [data.new_stb_no, new_mso, new_mso, connection_id])
        # 5. Add old STB to inventory
        notes = data.old_stb_notes or f"Exchanged from {customer_id}"
        # Check if old STB already exists in inventory (upsert)
