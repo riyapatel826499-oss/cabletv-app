@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi, gtplApi } from '../api';
+import { customersApi, paymentsApi, gtplApi, surrenderApi, stbApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
 import {
   ArrowLeft,
@@ -21,6 +21,8 @@ import {
   PlayCircle,
   RefreshCw,
   Settings2,
+  PowerOff,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 interface CustomerDetail {
@@ -133,6 +135,17 @@ export default function CustomerDetailPage() {
   const [gtplPlanCode, setGtplPlanCode] = useState('');
   const [gtplStatus, setGtplStatus] = useState<Record<string, unknown> | null>(null);
 
+  // Surrender state
+  const [surrenderOpen, setSurrenderOpen] = useState(false);
+  const [surrenderReason, setSurrenderReason] = useState('');
+  const [surrenderMsg, setSurrenderMsg] = useState('');
+
+  // Exchange STB state
+  const [exchangeConn, setExchangeConn] = useState<{ id: number; stb_no: string } | null>(null);
+  const [exchangeNewStb, setExchangeNewStb] = useState('');
+  const [exchangeOldStatus, setExchangeOldStatus] = useState('faulty');
+  const [exchangeMsg, setExchangeMsg] = useState('');
+
   const { data: customer, isLoading, isError } = useQuery({
     queryKey: ['customer', id],
     queryFn: async () => (await customersApi.get(String(id))).data as CustomerDetail,
@@ -201,6 +214,56 @@ export default function CustomerDetailPage() {
     mutationFn: async (stb: string) => (await gtplApi.status(stb)).data,
     onSuccess: (data) => setGtplStatus(data),
     onError: (err) => setGtplStatus({ error: err instanceof Error ? err.message : 'Failed to get status' }),
+  });
+
+  // Surrender mutation
+  const surrenderMut = useMutation({
+    mutationFn: async () => (await surrenderApi.surrender(customer!.customer_id, surrenderReason.trim() || undefined)).data,
+    onSuccess: (data) => {
+      setSurrenderMsg(data?.message || 'Customer surrendered successfully');
+      setSurrenderOpen(false);
+      setSurrenderReason('');
+      queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Surrender failed');
+      setSurrenderMsg(`Error: ${detail}`);
+      setSurrenderOpen(false);
+    },
+  });
+
+  // Available STB inventory for exchange
+  const { data: inventoryData } = useQuery({
+    queryKey: ['stb-inventory-available'],
+    queryFn: async () => (await stbApi.available()).data,
+    enabled: !!exchangeConn,
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.stbs || inventoryData?.inventory || [];
+
+  // Exchange STB mutation
+  const exchangeMut = useMutation({
+    mutationFn: async () =>
+      (await stbApi.exchange(customer!.customer_id, exchangeConn!.id, {
+        new_stb_no: exchangeNewStb.trim(),
+        old_stb_status: exchangeOldStatus,
+      })).data,
+    onSuccess: (data) => {
+      setExchangeMsg(data?.message || 'STB exchanged successfully');
+      setExchangeConn(null);
+      setExchangeNewStb('');
+      queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: (err) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Exchange failed');
+      setExchangeMsg(`Error: ${detail}`);
+      setExchangeConn(null);
+    },
   });
 
   function enterEdit() {
@@ -390,6 +453,27 @@ export default function CustomerDetailPage() {
         >
           <Trash2 style={{ width: 14, height: 14 }} /> Delete
         </button>
+        {active && (
+          <button
+            onClick={() => { setSurrenderMsg(''); setSurrenderOpen(true); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              border: '0.5px solid rgba(255,159,10,0.3)',
+              background: 'transparent',
+              color: '#ff9f0a',
+              fontSize: '0.85rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'var(--transition)',
+            }}
+          >
+            <PowerOff style={{ width: 14, height: 14 }} /> Surrender
+          </button>
+        )}
         <Link
           to="/payments/new"
           state={{ customerId: customer.customer_id, customerName: customer.name }}
@@ -546,6 +630,29 @@ export default function CustomerDetailPage() {
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
                     {conn.amount ? `\u20B9${conn.amount}` : '--'}
                   </span>
+                  {conn.status !== 'Surrendered' && (
+                    <button
+                      onClick={() => { setExchangeMsg(''); setExchangeConn({ id: conn.id, stb_no: conn.stb_no }); }}
+                      title="Exchange STB"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '5px 10px',
+                        borderRadius: 'var(--radius-xs)',
+                        border: '0.5px solid var(--border)',
+                        background: 'transparent',
+                        color: 'var(--text-light)',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'var(--transition)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <ArrowLeftRight style={{ width: 12, height: 12 }} /> Swap
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -914,6 +1021,258 @@ export default function CustomerDetailPage() {
           </div>
         </div>
       </div>
+
+
+      {/* Surrender / Exchange result banner */}
+      {(surrenderMsg || exchangeMsg) && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: (surrenderMsg || exchangeMsg).startsWith('Error')
+              ? 'rgba(255,59,48,0.08)'
+              : 'rgba(52,199,89,0.08)',
+            border: `0.5px solid ${
+              (surrenderMsg || exchangeMsg).startsWith('Error')
+                ? 'rgba(255,59,48,0.2)'
+                : 'rgba(52,199,89,0.2)'
+            }`,
+            color: (surrenderMsg || exchangeMsg).startsWith('Error') ? '#ff3b30' : '#34c759',
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
+          {surrenderMsg || exchangeMsg}
+          <button
+            onClick={() => { setSurrenderMsg(''); setExchangeMsg(''); }}
+            style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Surrender Modal */}
+      {surrenderOpen && (
+        <div
+          onClick={() => setSurrenderOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card"
+            style={{ padding: 28, borderRadius: 16, maxWidth: 400, width: '90%' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ padding: 10, borderRadius: 12, background: 'rgba(255,159,10,0.1)' }}>
+                <PowerOff style={{ width: 24, height: 24, color: '#ff9f0a' }} />
+              </div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Surrender Customer?</h3>
+            </div>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 14 }}>
+              This will surrender <strong style={{ color: 'var(--text)' }}>{customer.name}</strong> ({customer.customer_id}).
+              All STBs will be freed and moved to inventory. The customer status will change to "Surrendered".
+            </p>
+            <input
+              type="text"
+              value={surrenderReason}
+              onChange={(e) => setSurrenderReason(e.target.value)}
+              placeholder="Reason (optional)"
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                fontSize: '0.85rem',
+                marginBottom: 16,
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setSurrenderOpen(false); setSurrenderReason(''); }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: '0.5px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => surrenderMut.mutate()}
+                disabled={surrenderMut.isPending}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#ff9f0a',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: surrenderMut.isPending ? 0.6 : 1,
+                }}
+              >
+                {surrenderMut.isPending ? 'Surrendering...' : 'Surrender'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exchange STB Modal */}
+      {exchangeConn && (
+        <div
+          onClick={() => setExchangeConn(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card"
+            style={{ padding: 28, borderRadius: 16, maxWidth: 420, width: '90%' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ padding: 10, borderRadius: 12, background: 'rgba(0,113,227,0.1)' }}>
+                <ArrowLeftRight style={{ width: 24, height: 24, color: '#0071e3' }} />
+              </div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Exchange STB</h3>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: 16 }}>
+              Current STB: <strong style={{ color: 'var(--text)' }}>{exchangeConn.stb_no}</strong>
+            </p>
+
+            {/* New STB picker */}
+            <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
+              New STB (from inventory or type manually)
+            </label>
+            {availableStbs.length > 0 ? (
+              <select
+                value={exchangeNewStb}
+                onChange={(e) => setExchangeNewStb(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '0.5px solid var(--border)',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                  marginBottom: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">— Select from inventory —</option>
+                {availableStbs.map((s) => (
+                  <option key={s.stb_no} value={s.stb_no}>
+                    {s.stb_no} ({s.status})
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <input
+              type="text"
+              value={exchangeNewStb}
+              onChange={(e) => setExchangeNewStb(e.target.value)}
+              placeholder={availableStbs.length > 0 ? '...or type STB number' : 'Enter new STB number'}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                fontSize: '0.85rem',
+                marginBottom: 14,
+                marginTop: availableStbs.length > 0 ? 0 : 0,
+              }}
+            />
+
+            {/* Old STB status */}
+            <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
+              Old STB ({exchangeConn.stb_no}) goes to inventory as:
+            </label>
+            <select
+              value={exchangeOldStatus}
+              onChange={(e) => setExchangeOldStatus(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: 'var(--radius-xs)',
+                border: '0.5px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text)',
+                fontSize: '0.85rem',
+                marginBottom: 16,
+                cursor: 'pointer',
+              }}
+            >
+              <option value="faulty">Faulty (needs repair)</option>
+              <option value="spare">Spare (working, reusable)</option>
+            </select>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setExchangeConn(null); setExchangeNewStb(''); }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: '0.5px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--text)',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => exchangeMut.mutate()}
+                disabled={exchangeMut.isPending || !exchangeNewStb.trim()}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: '#0071e3',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: exchangeMut.isPending || !exchangeNewStb.trim() ? 0.6 : 1,
+                }}
+              >
+                {exchangeMut.isPending ? 'Exchanging...' : 'Exchange'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Customer Modal */}
       {deleteOpen && (

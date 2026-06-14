@@ -136,6 +136,14 @@ export const surrenderApi = {
     api.post(`/customers/${customerId}/reactivate`),
 };
 
+// ── STB Inventory & Exchange ──────────────────────────────────────────────
+export const stbApi = {
+  listInventory: (params?: Record<string, string>) => api.get('/stb-inventory', { params }),
+  available: (params?: Record<string, string>) => api.get('/stb-inventory/available', { params }),
+  exchange: (customerId: string, connectionId: number, data: { new_stb_no: string; old_stb_status?: string; old_stb_notes?: string }) =>
+    api.post(`/customers/${customerId}/connections/${connectionId}/exchange-stb`, data),
+};
+
 // ── GTPL ──────────────────────────────────────────────────────────────────
 export const gtplApi = {
   suspend: (stbNo: string) => api.post('/gtpl/suspend', { stb_no: stbNo }),
