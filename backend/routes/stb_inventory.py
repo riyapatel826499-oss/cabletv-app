@@ -153,3 +153,29 @@ def list_available_stbs(network: Optional[str] = None, current_user=Depends(get_
        query += " ORDER BY stb_no ASC"
        rows = conn.execute(query, params if params else None).fetchall()
    return {"available": [dict(r) for r in rows], "total": len(rows)}
+
+@router.post("/connections/fix-mso")
+def fix_connection_mso(current_user=Depends(get_current_user)):
+   """Auto-fix MSO/network fields on all connections based on STB prefix. Master/Admin only."""
+   if current_user["role"] not in ["master", "admin"]:
+       raise HTTPException(status_code=403, detail="Only Master or Admin can run this")
+   flt = _op_flt(current_user)
+   fixed = []
+   with get_conn() as conn:
+       rows = conn.execute(f"SELECT id, stb_no, mso, network FROM connections WHERE {flt}").fetchall()
+       for r in rows:
+           stb = (r["stb_no"] or "").strip()
+           if stb.startswith("172") or stb.startswith("173"):
+               correct = "TACTV"
+           elif stb.startswith("5000"):
+               correct = "SCV"
+           elif stb:
+               correct = "GTPL"
+           else:
+               continue
+           if r["mso"] != correct or r["network"] != correct:
+               conn.execute("UPDATE connections SET mso = ?, network = ? WHERE id = ?",
+                            [correct, correct, r["id"]])
+               fixed.append({"id": r["id"], "stb_no": stb, "old_mso": r["mso"], "new_mso": correct})
+       conn.commit()
+   return {"message": f"Fixed {len(fixed)} connections", "fixed": fixed}
