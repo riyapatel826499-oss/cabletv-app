@@ -24,7 +24,7 @@ SESSION_TS_FILE  = "/tmp/gtpl_session_ts.txt"
 SESSION_TTL      = 25 * 60   # 25 min — safe under 30-min GTPL idle timeout
 
 USER = "SPCHE5698"
-PASS = "Chaitanya@0506"
+PASS = "Indhu@1007"
 
 # GTPL plan codes (Base packs only — what LCO can change)
 GTPL_PLANS = {
