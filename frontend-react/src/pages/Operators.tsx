@@ -54,6 +54,7 @@ export default function Operators() {
   });
 
   if (isError) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const detail = (error as any)?.response?.data?.detail || '';
     if (detail.includes('Master admin')) {
       return (
@@ -219,6 +220,7 @@ function NewOperatorModal({ onClose }: { onClose: () => void }) {
       queryClient.invalidateQueries({ queryKey: ['operators'] });
       onClose();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => setError(err?.response?.data?.detail || 'Failed to create operator'),
   });
 
@@ -324,6 +326,7 @@ function ResetPasswordModal({ operator, onClose }: { operator: OperatorData; onC
   const resetMut = useMutation({
     mutationFn: async () => (await operatorsApi.resetPassword(operator.id, newPassword)).data,
     onSuccess: () => onClose(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => setError(err?.response?.data?.detail || 'Reset failed'),
   });
 

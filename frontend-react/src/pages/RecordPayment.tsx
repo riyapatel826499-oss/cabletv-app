@@ -6,7 +6,7 @@ import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
 import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee, Info } from 'lucide-react';
 
-interface CustomerSearchResult extends CustomerListItem {}
+type CustomerSearchResult = CustomerListItem;
 
 interface PlanOption {
   id: number;
@@ -274,14 +274,16 @@ export default function RecordPayment() {
     setConnLoading(true);
     try {
       const res = await customersApi.get(customer.customer_id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = res.data as any;
       const conns: ConnectionInfo[] = data.connections || [];
       setConnections(conns);
 
       // Auto-select active connection
-      let activeConn = conns.find(c => c.status === 'Active') || conns[0];
+      const activeConn = conns.find(c => c.status === 'Active') || conns[0];
       if (activeConn) {
         setSelectedConnId(activeConn.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const net = (activeConn as any).network || detectMSO(activeConn.stb_no);
 
         // Detect gap + set month
@@ -294,7 +296,9 @@ export default function RecordPayment() {
         // Load plans filtered by MSO
         try {
           const planRes = await plansApi.list({ status: 'Active', network: net });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const planData = (planRes.data as any).plans || (planRes.data as any).items || planRes.data || [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const planOpts: PlanOption[] = planData.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -373,9 +377,12 @@ export default function RecordPayment() {
     if (selectedConnId && connections.length) {
       const conn = connections.find(c => c.id === selectedConnId);
       if (conn) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const net = (conn as any).network || detectMSO(conn.stb_no);
         plansApi.list({ status: 'Active', network: net }).then((res) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const planData = (res.data as any).plans || (res.data as any).items || res.data || [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const planOpts: PlanOption[] = planData.map((p: any) => ({
             id: p.id, name: p.name, amount: p.amount || p.price || 0, network: p.network || net,
           }));
@@ -433,6 +440,7 @@ export default function RecordPayment() {
         notes: notes || undefined,
         discount: discountAmt || undefined,
         discount_reason: discountReason || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
