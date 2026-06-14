@@ -316,6 +316,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               />
               {searchResults.length > 0 && (
                 <div style={{ marginTop: 4, maxHeight: 160, overflowY: 'auto', borderRadius: 10, border: '0.5px solid var(--border)', background: 'var(--bg-card)' }}>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {searchResults.slice(0, 6).map((c: any) => (
                     <div
                       key={c.customer_id}

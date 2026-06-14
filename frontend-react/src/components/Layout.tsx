@@ -129,6 +129,7 @@ export default function Layout() {
 
   // ── iOS install detection ──
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
@@ -160,6 +161,7 @@ export default function Layout() {
   useEffect(() => {
     const isManual = localStorage.getItem('dark-mode-manual') === 'true';
     if (isManual) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDarkMode(localStorage.getItem('dark-mode') === 'true');
     } else {
       setDarkMode(isDarkHour());

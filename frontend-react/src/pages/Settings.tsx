@@ -26,6 +26,7 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ['settings-notifications'] });
       flash('success', 'Settings updated');
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => flash('error', err?.response?.data?.detail || 'Update failed'),
   });
 
@@ -41,12 +42,14 @@ export default function Settings() {
       setBotToken('');
       setChatIds('');
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => flash('error', err?.response?.data?.detail || 'Verification failed'),
   });
 
   const detectChatsMut = useMutation({
     mutationFn: async () => (await settingsApi.detectChats()).data,
     onSuccess: (data) => flash('success', data.message || `Detected ${data.chat_count} users`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => flash('error', err?.response?.data?.detail || 'Detection failed'),
   });
 

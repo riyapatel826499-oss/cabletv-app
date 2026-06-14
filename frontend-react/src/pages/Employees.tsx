@@ -229,6 +229,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       onClose();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => setError(err?.response?.data?.detail || 'Failed to create employee'),
   });
 
@@ -315,6 +316,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       onClose();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => setError(err?.response?.data?.detail || 'Update failed'),
   });
 
@@ -381,6 +383,7 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
   const resetMut = useMutation({
     mutationFn: async () => (await employeesApi.resetPassword(employee.id, password)).data,
     onSuccess: () => onClose(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => setError(err?.response?.data?.detail || 'Reset failed'),
   });
 

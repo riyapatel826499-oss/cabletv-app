@@ -79,7 +79,7 @@ function downloadCsv(filename: string, content: string) {
 
 export default function NotRenewed() {
   const navigate = useNavigate();
-  const monthOptions = useMemo(buildMonthOptions, []);
+  const monthOptions = useMemo(() => buildMonthOptions(), []);
   const [month, setMonth] = useState(monthOptions[0].value);
   const [search, setSearch] = useState('');
 

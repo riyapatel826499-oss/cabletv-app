@@ -14,7 +14,7 @@ export function fmtDate(d: string | null | undefined): string {
 
 export function fmtDateTime(d: string | null | undefined): string {
   if (!d) return '--';
-  let raw = String(d).trim();
+  const raw = String(d).trim();
 
   // Two timestamp sources with different timezone bugs:
   // 1. Paypakka: "2026-04-27T10:21:34.000Z" — actually IST time but tagged as UTC (Z).
