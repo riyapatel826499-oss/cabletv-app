@@ -453,7 +453,7 @@ export default function CustomerDetailPage() {
         >
           <Trash2 style={{ width: 14, height: 14 }} /> Delete
         </button>
-        {active && (
+        {customer.status !== 'Surrendered' && customer.status !== 'Pending Surrender' && (
           <button
             onClick={() => { setSurrenderMsg(''); setSurrenderOpen(true); }}
             style={{
