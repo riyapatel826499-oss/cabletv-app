@@ -29,7 +29,7 @@ def surrender_customer(customer_id: str, req: SurrenderRequest = SurrenderReques
        stb_list = [row["stb_no"] for row in stbs if row["stb_no"]]
    
        # Admin/Support → immediate surrender
-       if current_user["role"] in ["admin", "support"]:
+       if current_user["role"] in ["master", "admin", "support"]:
            conn.execute(f"UPDATE connections SET status = 'Surrendered' WHERE customer_id = ? AND {flt}", [customer_id])
            # Release the UNIQUE stb_no on surrendered connections so the STB
            # can be reused for new customers without renaming later.
