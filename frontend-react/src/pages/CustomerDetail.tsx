@@ -271,7 +271,7 @@ export default function CustomerDetailPage() {
   const { data: inventoryData } = useQuery({
     queryKey: ['stb-inventory-available'],
     queryFn: async () => (await stbApi.available()).data,
-    enabled: !!exchangeConn,
+    enabled: !!exchangeConn || !!restoreConn,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.available || inventoryData?.stbs || inventoryData?.inventory || [];
