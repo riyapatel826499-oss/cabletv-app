@@ -279,9 +279,16 @@ export default function CustomerDetailPage() {
   // Auto-select old STB if available when opening restore modal
   useEffect(() => {
     if (restoreConn && availableStbs.length > 0) {
-      const oldStbAvailable = availableStbs.find(s => s.stb_no === restoreConn.stb_no);
-      if (oldStbAvailable) {
-        setRestoreSelectedStb(restoreConn.stb_no);
+      // The connection stb_no might be "SURRENDERED-XX" after surrender
+      // so we also check inventory notes for the customer_id
+      const matchByStb = availableStbs.find(s => s.stb_no === restoreConn.stb_no);
+      const matchByNotes = availableStbs.find(s =>
+        (s.notes || '').includes(restoreConn.customer_id)
+      );
+      if (matchByStb) {
+        setRestoreSelectedStb(matchByStb.stb_no);
+      } else if (matchByNotes) {
+        setRestoreSelectedStb(matchByNotes.stb_no);
       } else {
         setRestoreSelectedStb('');
       }
@@ -289,7 +296,10 @@ export default function CustomerDetailPage() {
   }, [restoreConn, availableStbs]);
 
   const oldStbInInventory = restoreConn
-    ? availableStbs.some(s => s.stb_no === restoreConn.stb_no)
+    ? availableStbs.some(s =>
+        s.stb_no === restoreConn.stb_no ||
+        (s.notes || '').includes(restoreConn.customer_id)
+      )
     : false;
 
   // Swap STB mutation (with portal sync)
@@ -1563,11 +1573,15 @@ export default function CustomerDetailPage() {
                     }}
                   >
                     <option value="">— Select an STB —</option>
-                    {availableStbs.map((s) => (
-                      <option key={s.stb_no} value={s.stb_no}>
-                        {s.stb_no}{s.stb_no === restoreConn.stb_no ? ' (old box)' : ''}{s.notes ? ` — ${s.notes}` : ''}
-                      </option>
-                    ))}
+                    {availableStbs.map((s) => {
+                      const isOldBox = s.stb_no === restoreConn.stb_no ||
+                        (s.notes || '').includes(restoreConn.customer_id);
+                      return (
+                        <option key={s.stb_no} value={s.stb_no}>
+                          {s.stb_no}{isOldBox ? ' (old box)' : ''}{s.notes ? ` — ${s.notes}` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
 
