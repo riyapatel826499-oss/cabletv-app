@@ -22,6 +22,7 @@ import {
   Bell,
   ScrollText,
   PowerOff,
+  Package,
   Wallet,
   IndianRupee,
   Minus,
@@ -60,6 +61,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
+  '/inventory':           ['master', 'admin'],
   // Master only
   '/settings':            ['master', 'admin'],
   '/audit':               ['master'],
@@ -82,6 +84,7 @@ const navItems = [
   { to: '/connections', label: 'Connections', icon: Wifi },
   { to: '/service-requests', label: 'Service Requests', icon: Wrench },
   { to: '/surrender', label: 'Surrenders', icon: PowerOff },
+  { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/audit', label: 'Audit Log', icon: ScrollText },
   { to: '/settings', label: 'Settings', icon: Settings },
   { to: '/employees', label: 'Employees', icon: UserCog },

@@ -22,6 +22,7 @@ import Reminders from './pages/Reminders';
 import AuditLog from './pages/AuditLog';
 import Surrender from './pages/Surrender';
 import MyCollections from './pages/MyCollections';
+import Inventory from './pages/Inventory';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -74,6 +75,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
+  '/inventory':           ['master', 'admin'],
   '/settings':            ['master', 'admin'],
   '/audit':               ['master'],
   '/employees':           ['master'],
@@ -123,6 +125,7 @@ function AppRoutes() {
         <Route path="reminders" element={<RoleRoute path="/reminders" element={<Reminders />} />} />
         <Route path="audit" element={<RoleRoute path="/audit" element={<AuditLog />} />} />
         <Route path="surrender" element={<RoleRoute path="/surrender" element={<Surrender />} />} />
+        <Route path="inventory" element={<RoleRoute path="/inventory" element={<Inventory />} />} />
         <Route path="my-collections" element={<RoleRoute path="/my-collections" element={<MyCollections />} />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
