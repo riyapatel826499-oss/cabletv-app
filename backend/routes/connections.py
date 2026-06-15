@@ -910,6 +910,26 @@ def swap_stb(
         user=current_user,
     )
 
+    # Create notification
+    from routes.notifications import _create_notification
+    status = "success" if (portal_sync["old_stb_suspended"] and portal_sync["new_stb_activated"]) else "warning"
+    if portal_sync["warning"]:
+        status = "error" if ("FAILED" in portal_sync["warning"]) else "warning"
+    
+    _create_notification(
+        db,
+        type="swap",
+        title=f"STB Swapped: {old_stb} → {new_stb}",
+        message=f"Customer {customer_name} ({data.customer_id}) - MSO: {detected}. "
+                f"Old box suspended: {'✅' if portal_sync['old_stb_suspended'] else '❌'}. "
+                f"New box activated: {'✅' if portal_sync['new_stb_activated'] else '❌'}",
+        status=status,
+        mso=detected,
+        stb_no=new_stb,
+        customer_id=data.customer_id,
+        operator_id=_opid,
+    )
+
     return {
         "ok": True,
         "message": "STB swapped successfully",

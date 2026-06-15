@@ -482,6 +482,28 @@ class PushSubscription(Base):
 # ---------------------------------------------------------------------------
 # SMS LOG
 # ---------------------------------------------------------------------------
+class ActivityNotification(Base):
+    __tablename__ = "activity_notifications"
+    __table_args__ = (
+        Index("idx_activity_notif_created", "created_at"),
+        Index("idx_activity_notif_unread", "is_read"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    type: Mapped[Optional[str]] = mapped_column(String(50))  # activation, swap, suspension, failure, reconnect
+    title: Mapped[Optional[str]] = mapped_column(String(200))
+    message: Mapped[Optional[str]] = mapped_column(Text)
+    status: Mapped[Optional[str]] = mapped_column(String(20))  # success, error, warning
+    mso: Mapped[Optional[str]] = mapped_column(String(50))  # GTPL, TACTV, SCV
+    stb_no: Mapped[Optional[str]] = mapped_column(String(50))
+    customer_id: Mapped[Optional[str]] = mapped_column(String(20))
+    operator_id: Mapped[Optional[int]] = mapped_column(Integer)
+    is_read: Mapped[Optional[int]] = mapped_column(Integer, default=0)
+    created_at: Mapped[Optional[str]] = mapped_column(String(100))
+
+
+# ---------------------------------------------------------------------------
+# SMS LOG
+# ---------------------------------------------------------------------------
 class SmsLog(Base):
     __tablename__ = "sms_log"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

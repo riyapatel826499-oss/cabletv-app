@@ -30,6 +30,7 @@ import {
   Phone,
   Share,
 } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
@@ -563,6 +564,9 @@ export default function Layout() {
             >
               <Phone style={{ width: 18, height: 18 }} />
             </a>
+
+            {/* Activity Bell */}
+            <NotificationBell />
 
             {/* Dark mode */}
             <button

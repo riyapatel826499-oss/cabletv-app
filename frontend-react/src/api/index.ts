@@ -167,3 +167,12 @@ export const settingsApi = {
   detectChats: () => api.post('/settings/telegram/detect-chats'),
   unlinkTelegram: () => api.delete('/settings/telegram'),
 };
+
+// ── Activity Notifications (MSO Portal Status) ──────────────────────────
+export const notificationsApi = {
+  list: (params?: { limit?: number; unread_only?: boolean }) =>
+    api.get('/notifications', { params }),
+  markRead: (id: number) => api.put(`/notifications/${id}/read`),
+  markAllRead: () => api.put('/notifications/read-all'),
+  create: (data: Record<string, unknown>) => api.post('/notifications', data),
+};

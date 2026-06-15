@@ -98,6 +98,7 @@ _routers = {
     "service_requests": ("routes.service_requests", "router"),
     "operators": ("routes.operators", "router"),
     "push": ("routes.push", "router"),
+    "notifications": ("routes.notifications", "router"),
 }
 
 for route_name, (module, attr) in _routers.items():

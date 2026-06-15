@@ -15,8 +15,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from deps_orm import get_current_user, require_role
+from deps_orm import get_current_user, require_role, get_db
 from conn import get_conn
+from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/gtpl", tags=["gtpl"])
@@ -115,27 +116,53 @@ class ChangePlanRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @router.post("/suspend")
-async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('admin', 'support'))):
+async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('admin', 'support')), db: Session = Depends(get_db)):
     """Suspend STB on GTPL Saathi (cuts signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
     _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL suspend: {data.stb_no} by {current_user['username']}")
-    return await _proxy("POST", "/suspend", {"stb_no": data.stb_no})
+    result = await _proxy("POST", "/suspend", {"stb_no": data.stb_no})
+    # Create notification
+    from routes.notifications import _create_notification
+    _create_notification(
+        db,
+        type="suspension",
+        title=f"STB {data.stb_no} suspended on GTPL",
+        message=f"Signal cut for STB {data.stb_no} by {current_user.get('name', current_user['username'])}",
+        status="success" if result.get("success") else "error",
+        mso="GTPL",
+        stb_no=data.stb_no,
+        operator_id=current_user.get("operator_id", 1),
+    )
+    return result
 
 
 @router.post("/activate")
-async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('admin', 'support'))):
+async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('admin', 'support')), db: Session = Depends(get_db)):
     """Activate/reconnect STB on GTPL Saathi (restores signal)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
     _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL activate: {data.stb_no} by {current_user['username']}")
-    return await _proxy("POST", "/activate", {"stb_no": data.stb_no})
+    result = await _proxy("POST", "/activate", {"stb_no": data.stb_no})
+    # Create notification
+    from routes.notifications import _create_notification
+    _create_notification(
+        db,
+        type="activation",
+        title=f"STB {data.stb_no} activated on GTPL",
+        message=f"Signal restored for STB {data.stb_no} by {current_user.get('name', current_user['username'])}",
+        status="success" if result.get("success") else "error",
+        mso="GTPL",
+        stb_no=data.stb_no,
+        operator_id=current_user.get("operator_id", 1),
+    )
+    return result
 
 
 @router.post("/renew")
-async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admin', 'support'))):
+async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admin', 'support')), db: Session = Depends(get_db)):
     """Renew STB subscription on GTPL (deducts from LCO wallet)."""
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
@@ -143,7 +170,19 @@ async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admi
         raise HTTPException(400, "months must be 1, 2, 3, 6, or 12")
     _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL renew: {data.stb_no} x{data.months}mo by {current_user['username']}")
-    return await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": data.months})
+    result = await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": data.months})
+    from routes.notifications import _create_notification
+    _create_notification(
+        db,
+        type="renew",
+        title=f"STB {data.stb_no} renewed on GTPL",
+        message=f"{data.months} month(s) renewal for STB {data.stb_no} by {current_user.get('name', current_user['username'])}",
+        status="success" if result.get("success") else "error",
+        mso="GTPL",
+        stb_no=data.stb_no,
+        operator_id=current_user.get("operator_id", 1),
+    )
+    return result
 
 
 @router.post("/change-plan")
