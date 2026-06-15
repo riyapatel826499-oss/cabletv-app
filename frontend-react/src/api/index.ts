@@ -28,6 +28,8 @@ export const connectionsApi = {
     api.post('/connections/restore', data),
   tempDisconnect: (data: { connection_id: number; reason?: string }) =>
     api.post('/connections/temp-disconnect', data),
+  swapStb: (data: { connection_id: number; customer_id: string; new_stb_no: string; old_stb_notes?: string; sync_portal?: boolean }) =>
+    api.post('/connections/swap-stb', data),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi, gtplApi, surrenderApi, stbApi } from '../api';
+import { customersApi, paymentsApi, gtplApi, surrenderApi, stbApi, connectionsApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
 import {
   ArrowLeft,
@@ -145,6 +145,14 @@ export default function CustomerDetailPage() {
   const [exchangeNewStb, setExchangeNewStb] = useState('');
   const [exchangeOldStatus, setExchangeOldStatus] = useState('faulty');
   const [exchangeMsg, setExchangeMsg] = useState('');
+  const [swapPortalSync, setSwapPortalSync] = useState(true);
+  const [swapResult, setSwapResult] = useState<{
+    old_stb?: string;
+    new_stb?: string;
+    mso?: string;
+    portal_sync?: { old_stb_suspended?: boolean; new_stb_activated?: boolean; warning?: string | null };
+    inventory?: { old_stb_status?: string; new_stb_removed?: boolean };
+  } | null>(null);
 
   const { data: customer, isLoading, isError } = useQuery({
     queryKey: ['customer', id],
@@ -244,15 +252,21 @@ export default function CustomerDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.available || inventoryData?.stbs || inventoryData?.inventory || [];
 
-  // Exchange STB mutation
+  // Swap STB mutation (with portal sync)
   const exchangeMut = useMutation({
-    mutationFn: async () =>
-      (await stbApi.exchange(customer!.customer_id, exchangeConn!.id, {
+    mutationFn: async () => {
+      setSwapResult(null);
+      return (await connectionsApi.swapStb({
+        connection_id: exchangeConn!.id,
+        customer_id: customer!.customer_id,
         new_stb_no: exchangeNewStb.trim(),
-        old_stb_status: exchangeOldStatus,
-      })).data,
+        old_stb_notes: exchangeOldStatus === 'faulty' ? 'Faulty - replaced' : 'Spare - working',
+        sync_portal: swapPortalSync,
+      })).data;
+    },
     onSuccess: (data) => {
-      setExchangeMsg(data?.message || 'STB exchanged successfully');
+      setExchangeMsg(data?.message || 'STB swapped successfully');
+      setSwapResult(data);
       setExchangeConn(null);
       setExchangeNewStb('');
       queryClient.invalidateQueries({ queryKey: ['customer', id] });
@@ -260,7 +274,7 @@ export default function CustomerDetailPage() {
     },
     onError: (err) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Exchange failed');
+      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Swap failed');
       setExchangeMsg(`Error: ${detail}`);
       setExchangeConn(null);
     },
@@ -1138,10 +1152,10 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
-      {/* Exchange STB Modal */}
+      {/* Swap STB Modal */}
       {exchangeConn && (
         <div
-          onClick={() => setExchangeConn(null)}
+          onClick={() => { setExchangeConn(null); setExchangeNewStb(''); setSwapResult(null); }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -1156,16 +1170,22 @@ export default function CustomerDetailPage() {
           <div
             onClick={(e) => e.stopPropagation()}
             className="glass-card"
-            style={{ padding: 28, borderRadius: 16, maxWidth: 420, width: '90%' }}
+            style={{ padding: 28, borderRadius: 16, maxWidth: 440, width: '90%' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(0,113,227,0.1)' }}>
                 <ArrowLeftRight style={{ width: 24, height: 24, color: '#0071e3' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Exchange STB</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Swap STB</h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: 16 }}>
               Current STB: <strong style={{ color: 'var(--text)' }}>{exchangeConn.stb_no}</strong>
+              <br />
+              <span style={{ fontSize: '0.78rem' }}>
+                MSO: {' '}
+                {(exchangeConn.stb_no || '').startsWith('172') || (exchangeConn.stb_no || '').startsWith('173')
+                  ? 'TACTV' : (exchangeConn.stb_no || '').startsWith('5000') ? 'SCV' : 'GTPL'}
+              </span>
             </p>
 
             {/* New STB picker — inventory only */}
@@ -1191,7 +1211,7 @@ export default function CustomerDetailPage() {
                 <option value="">— Select an STB —</option>
                 {availableStbs.map((s) => (
                   <option key={s.stb_no} value={s.stb_no}>
-                    {s.stb_no} ({s.status})
+                    {s.stb_no} ({s.status}){s.notes ? ` — ${s.notes}` : ''}
                   </option>
                 ))}
               </select>
@@ -1225,7 +1245,7 @@ export default function CustomerDetailPage() {
                 background: 'var(--bg-secondary)',
                 color: 'var(--text)',
                 fontSize: '0.85rem',
-                marginBottom: 16,
+                marginBottom: 14,
                 cursor: 'pointer',
               }}
             >
@@ -1233,9 +1253,38 @@ export default function CustomerDetailPage() {
               <option value="spare">Spare (working, reusable)</option>
             </select>
 
+            {/* Portal sync toggle */}
+            <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
+              MSO Portal Sync
+            </label>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-xs)',
+              border: '0.5px solid var(--border)',
+              background: 'var(--bg-secondary)',
+              marginBottom: 16,
+              cursor: 'pointer',
+            }} onClick={() => setSwapPortalSync(!swapPortalSync)}>
+              <input
+                type="checkbox"
+                checked={swapPortalSync}
+                onChange={(e) => setSwapPortalSync(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.82rem', color: 'var(--text)', flex: 1 }}>
+                Auto-sync MSO portal
+              </span>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                {swapPortalSync ? '✅ Will suspend old + activate new' : '⚠️ DB only, no portal sync'}
+              </span>
+            </div>
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
-                onClick={() => { setExchangeConn(null); setExchangeNewStb(''); }}
+                onClick={() => { setExchangeConn(null); setExchangeNewStb(''); setSwapResult(null); }}
                 style={{
                   padding: '8px 18px',
                   borderRadius: 10,
@@ -1263,10 +1312,53 @@ export default function CustomerDetailPage() {
                   opacity: exchangeMut.isPending || !exchangeNewStb.trim() ? 0.6 : 1,
                 }}
               >
-                {exchangeMut.isPending ? 'Exchanging...' : 'Exchange'}
+                {exchangeMut.isPending ? 'Swapping...' : 'Swap Box'}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Swap Result Banner */}
+      {swapResult && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            background: swapResult.portal_sync?.warning ? 'rgba(255,159,10,0.08)' : 'rgba(52,199,89,0.08)',
+            border: `0.5px solid ${swapResult.portal_sync?.warning ? 'rgba(255,159,10,0.2)' : 'rgba(52,199,89,0.2)'}`,
+            color: swapResult.portal_sync?.warning ? '#ff9f0a' : '#34c759',
+            padding: '16px 20px',
+            borderRadius: 'var(--radius-sm)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+            <Check style={{ width: 18, height: 18 }} />
+            STB Swapped: {swapResult.old_stb} → {swapResult.new_stb} ({swapResult.mso})
+          </div>
+          {swapResult.portal_sync && (
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-light)' }}>
+              <span style={{ color: swapResult.portal_sync.old_stb_suspended ? '#34c759' : '#ff3b30' }}>
+                {swapResult.portal_sync.old_stb_suspended ? '✅' : '❌'} Old box suspended
+              </span>
+              <span style={{ color: swapResult.portal_sync.new_stb_activated ? '#34c759' : '#ff3b30' }}>
+                {swapResult.portal_sync.new_stb_activated ? '✅' : '❌'} New box activated
+              </span>
+            </div>
+          )}
+          {swapResult.portal_sync?.warning && (
+            <div style={{ fontSize: '0.78rem', color: '#ff9f0a', padding: '8px 12px', background: 'rgba(255,159,10,0.06)', borderRadius: 8 }}>
+              ⚠️ {swapResult.portal_sync.warning}
+            </div>
+          )}
+          <button
+            onClick={() => setSwapResult(null)}
+            style={{ alignSelf: 'flex-end', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '0.85rem' }}
+          >
+            Dismiss ×
+          </button>
         </div>
       )}
 
