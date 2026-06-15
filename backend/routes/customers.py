@@ -985,6 +985,18 @@ def get_customer(customer_id: str, current_user=Depends(get_current_user)):
         _of_conn = "" if _of == "1=1" else f"AND {_of}"
         result["connections"] = [_connection_to_dict(r) for r in
             conn.execute(f"SELECT * FROM connections WHERE customer_id = ? {_of_conn}", [customer_id]).fetchall()]
+        # Include last 25 payments for the payment history section
+        result["payments"] = [
+            dict(p) for p in conn.execute("""
+                SELECT p.*, u.name as collector_name
+                FROM payments p
+                LEFT JOIN users u ON p.collected_by = u.id
+                WHERE p.customer_id = ?
+                  AND (p.deleted IS NULL OR p.deleted = 0)
+                ORDER BY p.collected_at DESC
+                LIMIT 25
+            """, [customer_id]).fetchall()
+        ]
         return result
 
 
