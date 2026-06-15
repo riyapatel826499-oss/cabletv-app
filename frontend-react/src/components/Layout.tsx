@@ -131,22 +131,54 @@ export default function Layout() {
     },
   });
 
-  // ── iOS install detection ──
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // ── Standalone (PWA) detection ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+
+  // ── Android install prompt ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showAndroidInstall, setShowAndroidInstall] = useState(false);
+
+  useEffect(() => {
+    if (isStandalone) return; // already installed
+    const handler = (e: Event) => {
+      e.preventDefault(); // stop Chrome's default infobar
+      setDeferredPrompt(e);
+      const dismissed = localStorage.getItem('android-install-dismissed') === 'true';
+      if (!dismissed) {
+        setTimeout(() => setShowAndroidInstall(true), 2000);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, [isStandalone]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowAndroidInstall(false);
+      setDeferredPrompt(null);
+    }
+    localStorage.setItem('android-install-dismissed', 'true');
+  };
+
+  // ── iOS install detection ──
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
   useEffect(() => {
-    if (isIOS && !isStandalone) {
-      const dismissed = localStorage.getItem('ios-install-dismissed') === 'true';
-      if (!dismissed) {
-        // Small delay so it appears after page load
-        const t = setTimeout(() => setShowIOSPrompt(true), 2000);
-        return () => clearTimeout(t);
+      if (isIOS && !isStandalone) {
+        const dismissed = localStorage.getItem('ios-install-dismissed') === 'true';
+        if (!dismissed) {
+          // Small delay so it appears after page load
+          const t = setTimeout(() => setShowIOSPrompt(true), 2000);
+          return () => clearTimeout(t);
+        }
       }
-    }
-  }, [isIOS, isStandalone]);
+    }, [isIOS, isStandalone]);
 
   // Agent detection + current page check
   const isAgent = user?.role && !['master', 'admin'].includes(user.role);
@@ -696,6 +728,72 @@ export default function Layout() {
                 ✕
               </button>
             </div>
+          </div>
+        )}
+
+        {/* ── Android install prompt ──────────────────────────── */}
+        {showAndroidInstall && (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: 'var(--card)',
+              borderTop: '1px solid var(--border)',
+              boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
+              padding: '20px 20px calc(20px + env(safe-area-inset-bottom))',
+              zIndex: 150,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <Tv style={{ width: 22, height: 22, color: '#fff' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+                  Install Wasool App
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: 1.4 }}>
+                  Add to home screen for quick access — works offline
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAndroidInstall(false);
+                  localStorage.setItem('android-install-dismissed', 'true');
+                }}
+                style={{
+                  background: 'transparent', border: 'none', fontSize: '1.2rem',
+                  color: 'var(--text-light)', cursor: 'pointer', padding: '0 4px',
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <button
+              onClick={handleInstallClick}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: 12,
+                border: 'none',
+                background: 'linear-gradient(135deg, #0071e3, #0091ff)',
+                color: '#fff',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(0,113,227,0.3)',
+              }}
+            >
+              Install App
+            </button>
           </div>
         )}
 

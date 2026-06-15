@@ -15,6 +15,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
+        id: '/app/',
         name: 'Wasool — Cable TV Management',
         short_name: 'Wasool',
         description: 'Cable TV customer management, payments & collections',
