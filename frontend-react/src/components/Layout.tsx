@@ -61,7 +61,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
-  '/inventory':           ['master', 'admin'],
+  '/inventory':           ['master', 'admin', 'support'],
   // Master only
   '/settings':            ['master', 'admin'],
   '/audit':               ['master'],

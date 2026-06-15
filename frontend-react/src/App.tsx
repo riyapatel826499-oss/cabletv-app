@@ -75,7 +75,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
-  '/inventory':           ['master', 'admin'],
+  '/inventory':           ['master', 'admin', 'support'],
   '/settings':            ['master', 'admin'],
   '/audit':               ['master'],
   '/employees':           ['master'],

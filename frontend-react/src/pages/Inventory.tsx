@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { stbApi } from '../api';
 import { fmtDate } from '../lib/format';
@@ -20,6 +21,11 @@ export default function Inventory() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const role = user?.role || "agent";
+  const isLcoAdmin = ["master", "admin"].includes(role);
+  const canAdd = ["master", "admin", "support"].includes(role);
+  const canDelete = isLcoAdmin;
 
   const { data, isLoading } = useQuery({
     queryKey: ['stb-inventory', statusFilter],
@@ -73,7 +79,7 @@ export default function Inventory() {
           </p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => setShowAddModal(true)} disabled={!canAdd}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 12,
             border: 'none', background: '#0071e3', color: '#fff', fontSize: '0.85rem', fontWeight: 600,
@@ -121,7 +127,7 @@ export default function Inventory() {
                 <th>Notes</th>
                 <th>Added</th>
                 <th>Added By</th>
-                <th style={{ width: 60 }}></th>
+                <th style={{ width: 60 }}>{canDelete ? "" : null}</th>
               </tr>
             </thead>
             <tbody>
