@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi, paymentsApi, gtplApi, surrenderApi, stbApi, connectionsApi } from '../api';
@@ -23,6 +23,7 @@ import {
   Settings2,
   PowerOff,
   ArrowLeftRight,
+  RotateCcw,
 } from 'lucide-react';
 
 interface CustomerDetail {
@@ -139,6 +140,10 @@ export default function CustomerDetailPage() {
   const [surrenderOpen, setSurrenderOpen] = useState(false);
   const [surrenderReason, setSurrenderReason] = useState('');
   const [surrenderMsg, setSurrenderMsg] = useState('');
+  // Restore state
+  const [restoreConn, setRestoreConn] = useState<{ id: number; stb_no: string; customer_id: string } | null>(null);
+  const [restoreSelectedStb, setRestoreSelectedStb] = useState('');
+  const [restoreMsg, setRestoreMsg] = useState('');
 
   // Exchange STB state
   const [exchangeConn, setExchangeConn] = useState<{ id: number; stb_no: string } | null>(null);
@@ -236,10 +241,29 @@ export default function CustomerDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Surrender failed');
       setSurrenderMsg(`Error: ${detail}`);
       setSurrenderOpen(false);
+    },
+  });
+
+  // Restore mutation
+  const restoreMut = useMutation({
+    mutationFn: async () => {
+      setRestoreMsg('');
+      return (await connectionsApi.restore({
+        connection_id: restoreConn!.id,
+        customer_id: restoreConn!.customer_id,
+        stb_no: restoreSelectedStb,
+      })).data;
+    },
+    onSuccess: (data) => {
+      setRestoreMsg(data?.message || 'Connection restored successfully!');
+      queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      queryClient.invalidateQueries({ queryKey: ['stb-inventory-available'] });
+    },
+    onError: (err: any) => {
+      setRestoreMsg(err?.response?.data?.detail || 'Failed to restore. Please try again.');
     },
   });
 
@@ -251,6 +275,22 @@ export default function CustomerDetailPage() {
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const availableStbs: Array<{ stb_no: string; status: string; notes?: string }> = inventoryData?.available || inventoryData?.stbs || inventoryData?.inventory || [];
+
+  // Auto-select old STB if available when opening restore modal
+  useEffect(() => {
+    if (restoreConn && availableStbs.length > 0) {
+      const oldStbAvailable = availableStbs.find(s => s.stb_no === restoreConn.stb_no);
+      if (oldStbAvailable) {
+        setRestoreSelectedStb(restoreConn.stb_no);
+      } else {
+        setRestoreSelectedStb('');
+      }
+    }
+  }, [restoreConn, availableStbs]);
+
+  const oldStbInInventory = restoreConn
+    ? availableStbs.some(s => s.stb_no === restoreConn.stb_no)
+    : false;
 
   // Swap STB mutation (with portal sync)
   const exchangeMut = useMutation({
@@ -665,6 +705,29 @@ export default function CustomerDetailPage() {
                       }}
                     >
                       <ArrowLeftRight style={{ width: 12, height: 12 }} /> Swap
+                    </button>
+                  )}
+                  {conn.status === 'Surrendered' && (
+                    <button
+                      onClick={() => { setRestoreMsg(''); setRestoreConn({ id: conn.id, stb_no: conn.stb_no, customer_id: customer!.customer_id }); }}
+                      title="Restore Connection"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '5px 10px',
+                        borderRadius: 'var(--radius-xs)',
+                        border: '0.5px solid rgba(48,209,88,0.3)',
+                        background: 'transparent',
+                        color: '#34c759',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'var(--transition)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <RotateCcw style={{ width: 12, height: 12 }} /> Restore
                     </button>
                   )}
                 </div>
@@ -1359,6 +1422,193 @@ export default function CustomerDetailPage() {
           >
             Dismiss ×
           </button>
+        </div>
+      )}
+
+      {/* Restore Modal */}
+      {restoreConn && (
+        <div
+          onClick={() => { setRestoreConn(null); setRestoreSelectedStb(''); setRestoreMsg(''); }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--bg-primary)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '28px 24px',
+              maxWidth: 420,
+              width: '100%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              border: '0.5px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <RotateCcw style={{ width: 20, height: 20, color: '#34c759' }} />
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+                Restore Connection
+              </h3>
+            </div>
+
+            {restoreMsg && !restoreMsg.includes('successfully') ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(255,59,48,0.08)',
+                  border: '0.5px solid rgba(255,59,48,0.2)',
+                  fontSize: '0.82rem',
+                  color: '#ff3b30',
+                }}>
+                  {restoreMsg}
+                </div>
+              </div>
+            ) : null}
+
+            {restoreMsg && restoreMsg.includes('successfully') ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(48,209,88,0.08)',
+                  border: '0.5px solid rgba(48,209,88,0.2)',
+                  fontSize: '0.82rem',
+                  color: '#34c759',
+                  fontWeight: 500,
+                }}>
+                  ✓ {restoreMsg}
+                </div>
+                <button
+                  onClick={() => { setRestoreConn(null); setRestoreSelectedStb(''); setRestoreMsg(''); }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    marginTop: 14,
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: '#0071e3',
+                    color: '#fff',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Old STB info */}
+                <div style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-secondary)',
+                  marginBottom: 14,
+                }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>
+                    Old STB: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{restoreConn.stb_no}</span>
+                  </p>
+                  {oldStbInInventory ? (
+                    <p style={{ fontSize: '0.72rem', color: '#34c759', marginTop: 4, fontWeight: 500 }}>
+                      ✓ Old box is available in inventory — can restore with same box
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: '0.72rem', color: '#ff9f0a', marginTop: 4, fontWeight: 500 }}>
+                      ⚠ Old box not available — choose a different box below
+                    </p>
+                  )}
+                </div>
+
+                {/* STB selection */}
+                <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text)', display: 'block', marginBottom: 6 }}>
+                  Select STB from Inventory
+                </label>
+                {availableStbs.length === 0 ? (
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(255,159,10,0.08)',
+                    border: '0.5px solid rgba(255,159,10,0.2)',
+                    fontSize: '0.82rem',
+                    color: '#ff9f0a',
+                    textAlign: 'center',
+                    marginBottom: 14,
+                  }}>
+                    No available STBs in inventory. Add one first.
+                  </div>
+                ) : (
+                  <select
+                    value={restoreSelectedStb}
+                    onChange={(e) => setRestoreSelectedStb(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '0.5px solid var(--border)',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text)',
+                      fontSize: '0.85rem',
+                      marginBottom: 14,
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="">— Select an STB —</option>
+                    {availableStbs.map((s) => (
+                      <option key={s.stb_no} value={s.stb_no}>
+                        {s.stb_no}{s.stb_no === restoreConn.stb_no ? ' (old box)' : ''}{s.notes ? ` — ${s.notes}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => { setRestoreConn(null); setRestoreSelectedStb(''); setRestoreMsg(''); }}
+                    style={{
+                      flex: 1,
+                      padding: '11px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '0.5px solid var(--border)',
+                      background: 'transparent',
+                      color: 'var(--text)',
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => restoreMut.mutate()}
+                    disabled={!restoreSelectedStb || restoreMut.isPending}
+                    style={{
+                      flex: 1,
+                      padding: '11px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: (!restoreSelectedStb || restoreMut.isPending) ? 'rgba(48,209,88,0.3)' : '#34c759',
+                      color: '#fff',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: (!restoreSelectedStb || restoreMut.isPending) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {restoreMut.isPending ? 'Restoring...' : 'Restore Connection'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
