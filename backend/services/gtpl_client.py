@@ -196,7 +196,9 @@ def _login(max_attempts: int = 3) -> bool:
         hdrs, body = _curl_post("https://gtplsaathi.com/Login.aspx", payload,
                                 referer="https://gtplsaathi.com/Login.aspx")
 
-        if "302" in hdrs and "IntroPageGuj" in hdrs:
+        if "302" in hdrs and "Location: /Login" not in hdrs:
+            # 302 redirect to any page other than Login = success
+            # (portal redirects to InterConnectPageMIANew.aspx on success)
             log.info("GTPL login SUCCESS")
             with open(SESSION_TS_FILE, "w") as f:
                 f.write(str(time.time()))

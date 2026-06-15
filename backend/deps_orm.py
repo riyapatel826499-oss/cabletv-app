@@ -191,8 +191,16 @@ def op_id(user: dict):
 
 
 def is_agent_role(user: dict) -> bool:
-    """Return True for any non-admin/non-master role (agents, support, etc.)."""
+    """Return True for non-admin/non-master roles that should be restricted to their own data.
+    
+    EXCLUDED from restriction: support (can view ALL employee transactions for reconciliation)
+    INCLUDED in restriction: operator, collector, lco (restricted to their own payments)
+    """
     role = user.get("role", "")
+    # Support agent can view ALL transactions (not restricted)
+    if role == "support":
+        return False
+    # Other non-admin roles are restricted
     return role not in ("master", "admin", "", None)
 
 
