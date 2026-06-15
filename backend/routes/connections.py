@@ -1,7 +1,12 @@
+import json
+import ssl
+import asyncio
+import urllib.request
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select, update, func, text, and_
 from sqlalchemy.orm import Session
@@ -12,6 +17,7 @@ from models.tables import (
     Connection, Customer, Plan, StbInventory,
     CustomerPlan, Payment, PaypakkaPayment, PaypakkaEmployee, SmsLog,
 )
+from audit import log_action
 
 router = APIRouter(prefix="/api", tags=["Connections"])
 
@@ -561,4 +567,359 @@ def reconnect_customer(
         "message": f"{cust.name} reconnected with STB {data.stb_no}. No installation charges applied.",
         "customer_id": data.customer_id,
         "stb_no": data.stb_no,
+    }
+
+
+# ── STB Swap with MSO Portal Sync ──────────────────────────────────────────
+
+class SwapStbRequest(BaseModel):
+    connection_id: int
+    customer_id: str
+    new_stb_no: str
+    old_stb_notes: Optional[str] = None
+    sync_portal: Optional[bool] = True
+
+
+# GTPL portal daemon (available on local/LCO machine, NOT on Railway)
+GTPL_DAEMON_URL = "http://localhost:8199"
+GTPL_DAEMON_TOKEN = "gtpl_secret_2026"
+
+
+def _gtpl_portal_call(endpoint: str, stb_no: str):
+    """Call a GTPL daemon endpoint (suspend/activate) for a single STB.
+
+    Returns parsed JSON dict on success. Raises on network/timeout failure so
+    the caller can catch and degrade gracefully.
+    """
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    url = f"{GTPL_DAEMON_URL}/{endpoint}"
+    payload = json.dumps({"stb_no": str(stb_no)}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GTPL_DAEMON_TOKEN}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+@router.post("/connections/swap-stb")
+def swap_stb(
+    data: SwapStbRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Swap a customer's STB with a spare one AND sync the MSO portal.
+
+    - Suspends the old STB and activates the new STB on the GTPL/TACTV portal.
+    - Updates the DB connection + STB inventory regardless of portal outcome.
+    - Portal failures are logged as warnings and never block the DB swap.
+    - If suspend succeeded but activate failed, attempts to re-activate the
+      old STB on the portal (rollback) so the customer isn't left disconnected.
+    """
+    # Role check: master blocked, admin/support allowed
+    if current_user.get("role") == "master":
+        raise HTTPException(
+            status_code=403,
+            detail="Master admin cannot swap STBs. Use an operator admin account.",
+        )
+    if current_user["role"] not in ("admin", "support"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    _opid = op_id(current_user)
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
+
+    # 1. Validate connection exists, is Active, belongs to customer
+    conn_query = (
+        select(Connection, Customer.name.label("customer_name"))
+        .join(Customer, Connection.customer_id == Customer.customer_id)
+        .where(
+            Connection.id == data.connection_id,
+            Connection.customer_id == data.customer_id,
+        )
+    )
+    conn_query = apply_op_filter(conn_query, Customer, current_user)
+    conn_result = db.execute(conn_query).first()
+
+    if not conn_result:
+        raise HTTPException(
+            status_code=404,
+            detail="Connection not found for this customer",
+        )
+
+    conn_obj, customer_name = conn_result
+    if conn_obj.status != "Active":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connection status is '{conn_obj.status}', only Active connections can be swapped",
+        )
+
+    # 2. Get old STB from connection
+    old_stb = conn_obj.stb_no
+    new_stb = data.new_stb_no.strip()
+
+    if not new_stb:
+        raise HTTPException(status_code=400, detail="new_stb_no is required")
+    if old_stb == new_stb:
+        raise HTTPException(
+            status_code=400,
+            detail="New STB is the same as the current STB — nothing to swap",
+        )
+
+    # 3. Detect MSO from new STB prefix
+    detected = _detect_network(new_stb)
+
+    # 4. Validate new STB is available in inventory (spare/available)
+    inv_stb = db.execute(
+        select(StbInventory).where(StbInventory.stb_no == new_stb)
+    ).scalar_one_or_none()
+
+    if inv_stb and inv_stb.status not in ("spare", "available"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"STB {new_stb} is in inventory as '{inv_stb.status}', not available for assignment",
+        )
+
+    # 5. Validate new STB is not assigned to another active customer
+    in_use_query = (
+        select(Customer.name, Customer.customer_id)
+        .join(Connection, Connection.customer_id == Customer.customer_id)
+        .where(
+            Connection.stb_no == new_stb,
+            Connection.status == "Active",
+            Connection.id != data.connection_id,
+        )
+    )
+    in_use_query = apply_op_filter(in_use_query, Customer, current_user)
+    in_use = db.execute(in_use_query).first()
+    if in_use:
+        in_use_name, in_use_cust = in_use
+        raise HTTPException(
+            status_code=400,
+            detail=f"STB {new_stb} is already assigned to {in_use_name} ({in_use_cust})",
+        )
+
+    # 6. Portal sync
+    portal_sync = {
+        "old_stb_suspended": False,
+        "new_stb_activated": False,
+        "warning": None,
+    }
+
+    if data.sync_portal:
+        if detected == "GTPL":
+            # Suspend old STB
+            try:
+                resp = _gtpl_portal_call("suspend", old_stb)
+                if resp and resp.get("success"):
+                    portal_sync["old_stb_suspended"] = True
+                else:
+                    portal_sync["warning"] = (
+                        f"GTPL suspend non-success: "
+                        f"{(resp or {}).get('message', 'unknown')}"
+                    )
+            except Exception:
+                portal_sync["warning"] = (
+                    "GTPL daemon not available - manual portal sync needed"
+                )
+
+            # Activate new STB
+            try:
+                resp = _gtpl_portal_call("activate", new_stb)
+                if resp and resp.get("success"):
+                    portal_sync["new_stb_activated"] = True
+                else:
+                    w = portal_sync["warning"]
+                    extra = (
+                        f"GTPL activate non-success: "
+                        f"{(resp or {}).get('message', 'unknown')}"
+                    )
+                    portal_sync["warning"] = (w + " | " if w else "") + extra
+            except Exception:
+                if not portal_sync["warning"]:
+                    portal_sync["warning"] = (
+                        "GTPL daemon not available - manual portal sync needed"
+                    )
+
+        elif detected == "TACTV":
+            try:
+                from services.tactv_playwright import TACTVClient
+
+                async def _tactv_swap():
+                    client = TACTVClient()
+                    try:
+                        await client.login()
+                        disc = await client.disconnect_stb(old_stb)
+                        act = await client.activate_stb(new_stb)
+                        return disc, act
+                    finally:
+                        await client.close()
+
+                disc, act = asyncio.run(_tactv_swap())
+                if disc.get("status") in ("deactivated", "already_deactive"):
+                    portal_sync["old_stb_suspended"] = True
+                else:
+                    portal_sync["warning"] = (
+                        f"TACTV disconnect {old_stb}: {disc.get('status')} - "
+                        f"{disc.get('error') or disc.get('message', '')}"
+                    )
+                if act.get("status") in ("activated", "already_active"):
+                    portal_sync["new_stb_activated"] = True
+                else:
+                    w = portal_sync["warning"]
+                    extra = (
+                        f"TACTV activate {new_stb}: {act.get('status')} - "
+                        f"{act.get('error') or act.get('message', '')}"
+                    )
+                    portal_sync["warning"] = (w + " | " if w else "") + extra
+            except Exception as e:
+                portal_sync["warning"] = (
+                    f"TACTV portal sync failed: {e} - manual portal sync needed"
+                )
+
+        elif detected == "SCV":
+            portal_sync["warning"] = "SCV does not have portal automation"
+
+        # 8. Rollback: if suspend succeeded but activate failed, re-activate old STB
+        if portal_sync["old_stb_suspended"] and not portal_sync["new_stb_activated"]:
+            if detected == "GTPL":
+                try:
+                    resp = _gtpl_portal_call("activate", old_stb)
+                    if resp and resp.get("success"):
+                        portal_sync["warning"] = (
+                            (portal_sync["warning"] or "")
+                            + " | Rolled back: re-activated old STB on GTPL"
+                        )
+                    else:
+                        portal_sync["warning"] = (
+                            (portal_sync["warning"] or "")
+                            + " | Rollback FAILED: could not re-activate old STB on GTPL"
+                        )
+                except Exception:
+                    portal_sync["warning"] = (
+                        (portal_sync["warning"] or "")
+                        + " | Rollback FAILED: GTPL daemon unreachable during re-activate"
+                    )
+            elif detected == "TACTV":
+                try:
+                    from services.tactv_playwright import TACTVClient
+
+                    async def _tactv_reactivate():
+                        client = TACTVClient()
+                        try:
+                            await client.login()
+                            return await client.activate_stb(old_stb)
+                        finally:
+                            await client.close()
+
+                    rb = asyncio.run(_tactv_reactivate())
+                    if rb.get("status") in ("activated", "already_active"):
+                        portal_sync["warning"] = (
+                            (portal_sync["warning"] or "")
+                            + " | Rolled back: re-activated old STB on TACTV"
+                        )
+                    else:
+                        portal_sync["warning"] = (
+                            (portal_sync["warning"] or "")
+                            + f" | Rollback FAILED on TACTV: {rb.get('status')}"
+                        )
+                except Exception as e:
+                    portal_sync["warning"] = (
+                        (portal_sync["warning"] or "")
+                        + f" | Rollback FAILED on TACTV: {e}"
+                    )
+
+    # 7. Database updates (always happen, even if portal sync failed)
+    note_text = data.old_stb_notes or f"Exchanged from {data.customer_id}"
+
+    # a. Update connection: stb_no, mso, network + audit note
+    db.execute(
+        update(Connection)
+        .where(Connection.id == data.connection_id)
+        .values(stb_no=new_stb, mso=detected, network=detected)
+    )
+    try:
+        db.execute(
+            update(Connection)
+            .where(Connection.id == data.connection_id)
+            .values(
+                notes=(conn_obj.notes or "")
+                + f"\n[STB Swap {now}: {old_stb} → {new_stb} ({detected})]",
+                updated_at=now,
+            )
+        )
+    except Exception:
+        pass  # notes/updated_at columns optional
+
+    # b. Remove new STB from inventory (mark as "assigned")
+    if inv_stb:
+        db.execute(
+            update(StbInventory)
+            .where(StbInventory.id == inv_stb.id)
+            .values(status="assigned")
+        )
+    new_stb_removed = True
+
+    # c. Add old STB to inventory as "faulty"
+    old_inv = db.execute(
+        select(StbInventory).where(StbInventory.stb_no == old_stb)
+    ).scalar_one_or_none()
+    cust_oid = _opid or 1
+    if old_inv:
+        db.execute(
+            update(StbInventory)
+            .where(StbInventory.id == old_inv.id)
+            .values(
+                status="faulty",
+                notes=note_text,
+                added_at=now,
+                added_by=current_user.get("name"),
+                operator_id=cust_oid,
+            )
+        )
+    else:
+        db.add(StbInventory(
+            stb_no=old_stb,
+            status="faulty",
+            notes=note_text,
+            added_at=now,
+            added_by=current_user.get("name"),
+            operator_id=cust_oid,
+        ))
+
+    db.commit()
+
+    # Audit log
+    log_action(
+        action="SWAP_STB",
+        entity="connection",
+        entity_id=str(data.connection_id),
+        old_value={"stb_no": old_stb},
+        new_value={
+            "stb_no": new_stb,
+            "mso": detected,
+            "portal_sync": portal_sync,
+        },
+        user=current_user,
+    )
+
+    return {
+        "ok": True,
+        "message": "STB swapped successfully",
+        "customer_id": data.customer_id,
+        "old_stb": old_stb,
+        "new_stb": new_stb,
+        "mso": detected,
+        "portal_sync": portal_sync,
+        "inventory": {
+            "old_stb_status": "faulty",
+            "new_stb_removed": new_stb_removed,
+        },
     }
