@@ -128,38 +128,76 @@ export default function Reports() {
   const unpaidTotalPages = unpaidQ.data?.total_pages ?? 1;
   const unpaidPending = unpaidCustomers.reduce((s, c) => s + Number(c.plan_amount || 0), 0);
 
-  function exportPaidCSV() {
-    if (!paidPayments.length) return;
-    downloadCSV(
-      `transactions-${from}_to_${to}.csv`,
-      paidPayments.map((p) => ({
-        ID: p.customer_id,
-        Name: p.customer_name,
-        STB: p.stb_no || '',
-        Area: p.area || '',
-        Amount: p.amount,
-        Mode: p.payment_mode,
-        Date: p.date,
-        CollectedBy: p.collector || '',
-        Source: p.source,
-      })),
-    );
+  const [exporting, setExporting] = useState(false);
+
+  async function fetchAllPages<T>(
+    fetchPage: (page: number) => Promise<{ data: { total?: number; total_pages?: number; [key: string]: unknown } }>,
+    dataKey: string,
+  ): Promise<T[]> {
+    const first = await fetchPage(1);
+    const totalPages = first.data.total_pages ?? 1;
+    const all: T[] = ((first.data[dataKey] as T[]) || []);
+    for (let p = 2; p <= totalPages; p++) {
+      const resp = await fetchPage(p);
+      all.push(...((resp.data[dataKey] as T[]) || []));
+    }
+    return all;
   }
 
-  function exportUnpaidCSV() {
-    if (!unpaidCustomers.length) return;
-    downloadCSV(
-      'unpaid-customers.csv',
-      unpaidCustomers.map((c) => ({
-        ID: c.customer_id,
-        Name: c.name,
-        STB: c.stb_no || '',
-        Phone: c.phone || '',
-        Area: c.area || '',
-        Plan: c.plan_name || '',
-        Amount: c.plan_amount || '',
-      })),
-    );
+  async function exportPaidCSV() {
+    setExporting(true);
+    try {
+      const allPayments = await fetchAllPages<PaymentRow>(
+        (p) => paymentsApi.list({ date_from: from, date_to: to, page: String(p), per_page: '500', ...(search ? { q: search } : {}) }),
+        'payments',
+      );
+      if (!allPayments.length) { alert('No transactions to export'); return; }
+      downloadCSV(
+        `transactions-${from}_to_${to}${search ? '_filtered' : ''}.csv`,
+        allPayments.map((p) => ({
+          ID: p.customer_id,
+          Name: p.customer_name,
+          STB: p.stb_no || '',
+          Area: p.area || '',
+          Amount: p.amount,
+          Mode: p.payment_mode,
+          Date: p.date,
+          CollectedBy: p.collector || '',
+          Source: p.source,
+        })),
+      );
+    } catch {
+      alert('Failed to export. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function exportUnpaidCSV() {
+    setExporting(true);
+    try {
+      const allUnpaid = await fetchAllPages<Record<string, unknown>>(
+        (p) => customersApi.list({ payment_filter: 'unpaid', status: '', per_page: '500', page: String(p), ...(search ? { q: search } : {}) }),
+        'customers',
+      );
+      if (!allUnpaid.length) { alert('No unpaid customers to export'); return; }
+      downloadCSV(
+        `unpaid-customers${search ? '_filtered' : ''}.csv`,
+        allUnpaid.map((c) => ({
+          ID: c.customer_id,
+          Name: c.name,
+          STB: c.stb_no || '',
+          Phone: c.phone || '',
+          Area: c.area || '',
+          Plan: c.plan_name || '',
+          Amount: c.plan_amount || '',
+        })),
+      );
+    } catch {
+      alert('Failed to export. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -239,17 +277,17 @@ export default function Reports() {
             </div>
             <button
               onClick={exportPaidCSV}
-              disabled={!paidPayments.length}
+              disabled={!paidPayments.length || exporting}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 'var(--radius-xs)',
                 border: 'none', background: '#0071e3', color: '#fff',
                 fontSize: '0.82rem', fontWeight: 600,
-                cursor: paidPayments.length ? 'pointer' : 'not-allowed',
-                opacity: paidPayments.length ? 1 : 0.5,
+                cursor: (!paidPayments.length || exporting) ? 'not-allowed' : 'pointer',
+                opacity: (!paidPayments.length || exporting) ? 0.5 : 1,
               }}
             >
-              <Download style={{ width: 14, height: 14 }} /> CSV
+              <Download style={{ width: 14, height: 14 }} /> {exporting ? 'Exporting...' : 'CSV'}
             </button>
           </div>
 
@@ -328,17 +366,17 @@ export default function Reports() {
             </div>
             <button
               onClick={exportUnpaidCSV}
-              disabled={!unpaidCustomers.length}
+              disabled={!unpaidCustomers.length || exporting}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 'var(--radius-xs)',
                 border: 'none', background: '#0071e3', color: '#fff',
                 fontSize: '0.82rem', fontWeight: 600,
-                cursor: unpaidCustomers.length ? 'pointer' : 'not-allowed',
-                opacity: unpaidCustomers.length ? 1 : 0.5,
+                cursor: (!unpaidCustomers.length || exporting) ? 'not-allowed' : 'pointer',
+                opacity: (!unpaidCustomers.length || exporting) ? 0.5 : 1,
               }}
             >
-              <Download style={{ width: 14, height: 14 }} /> CSV
+              <Download style={{ width: 14, height: 14 }} /> {exporting ? 'Exporting...' : 'CSV'}
             </button>
           </div>
 
