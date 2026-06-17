@@ -154,14 +154,16 @@ def create_payment(
 
             start_date = f"{start_year}-{start_month:02d}-01"
 
-            # Calculate expiry: last day of the Nth month from start month
-            expiry_month = start_month + (months - 1)
+            # Calculate expiry: 12th of (start_month + months)
+            # Billing cycle: 13th → 12th of next month
+            # 1 month payment → expiry = 12th of next month
+            # 3 month payment → expiry = 12th of 3 months from now
+            expiry_month = start_month + months
             expiry_year = start_year
             while expiry_month > 12:
                 expiry_month -= 12
                 expiry_year += 1
-            last_day = calendar.monthrange(expiry_year, expiry_month)[1]
-            expiry_date = f"{expiry_year}-{expiry_month:02d}-{last_day}"
+            expiry_date = f"{expiry_year}-{expiry_month:02d}-12"
 
             new_cp = CustomerPlan(
                 customer_id=data.customer_id,
