@@ -37,6 +37,7 @@ interface CustomerDetail {
   city: string;
   status: string;
   plan_amount?: number;
+  expiry_date?: string;
   stb_no?: string;
   connections?: Array<{
     id: number;
@@ -659,6 +660,11 @@ export default function CustomerDetailPage() {
             icon={IndianRupee}
             label="Plan Amount"
             value={customer.plan_amount ? `\u20B9${customer.plan_amount}/mo` : null}
+          />
+          <InfoRow
+            icon={Clock}
+            label="Expiry Date"
+            value={customer.expiry_date ? fmtDate(customer.expiry_date) : null}
           />
         </div>
 
