@@ -543,7 +543,7 @@ def all_payment_history(
             all_payments = [p for p in all_payments if
                 ql in (p.get("customer_name") or "").lower() or
                 ql in (p.get("customer_id") or "").lower() or
-                ql in (p.get("stb_no") or "") or
+                ql in (p.get("stb_no") or "").lower() or
                 ql in (p.get("customer_phone") or "")]
 
         total = len(all_payments)
