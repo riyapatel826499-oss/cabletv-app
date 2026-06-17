@@ -53,6 +53,7 @@ interface PaymentRow {
   date: string;
   collector: string;
   stb_no: string;
+  mso: string;
   deletable: boolean;
 }
 
@@ -158,6 +159,7 @@ export default function Reports() {
           ID: p.customer_id,
           Name: p.customer_name,
           STB: p.stb_no || '',
+          MSO: p.mso || '',
           Area: p.area || '',
           Amount: p.amount,
           Mode: p.payment_mode,
