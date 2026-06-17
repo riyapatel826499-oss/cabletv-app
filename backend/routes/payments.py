@@ -183,6 +183,18 @@ def create_payment(
                 .values(expiry_date=expiry_date, plan_name=plan["name"], plan_amount=plan["amount"])
             )
 
+    # Auto-reactivate customer and connection on payment
+    db.execute(
+        update(Customer)
+        .where(Customer.customer_id == data.customer_id)
+        .values(status="Active")
+    )
+    db.execute(
+        update(Connection)
+        .where(Connection.id == data.connection_id)
+        .values(status="Active")
+    )
+
     db.commit()
     invalidate_dashboard(op_id(current_user))  # dashboard/collection totals changed
 
