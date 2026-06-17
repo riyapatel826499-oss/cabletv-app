@@ -973,9 +973,10 @@ def get_customer(customer_id: str, current_user=Depends(get_current_user)):
         _of = _op_flt(current_user)
         _of_c = _op_flt(current_user, "c.")
         row = conn.execute(f"""
-            SELECT c.*, conn.stb_no, conn.id as conn_id, conn.can_id, conn.mso, conn.status as conn_status
+            SELECT c.*, conn.stb_no, conn.id as conn_id, conn.can_id, conn.mso, conn.status as conn_status,
+                   conn.expiry_date, conn.plan_name, conn.plan_amount, conn.activation_date
             FROM customers c
-            LEFT JOIN connections conn ON c.customer_id = conn.customer_id
+            LEFT JOIN connections conn ON c.customer_id = conn.customer_id AND conn.status = 'Active'
             WHERE c.customer_id = ?
             AND {_of_c}
         """, [customer_id]).fetchone()
