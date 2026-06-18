@@ -61,22 +61,43 @@ def add_to_inventory(data: STBAddRequest, operator_id: int = None, current_user=
                     [data.stb_no, data.status, data.notes, now, current_user["name"], _oid])
        conn.commit()
    return {"message": f"STB {data.stb_no} added to inventory", "status": data.status}
+@router.patch("/stb-inventory/{stb_id}")
+def update_inventory_status(stb_id: int, data: dict, operator_id: int = None, current_user=Depends(get_current_user)):
+  """Update STB inventory status (spare, faulty, available, with_mso, assigned)."""
+  if current_user["role"] not in ["master", "admin", "support"]:
+      raise HTTPException(status_code=403, detail="Only Admin or Support can update STB status")
+  allowed_status = ["spare", "faulty", "available", "with_mso", "assigned"]
+  new_status = data.get("status")
+  if new_status not in allowed_status:
+      raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {allowed_status}")
+  if current_user.get("role") == "master" and operator_id is not None:
+      flt = f"operator_id = {operator_id}"
+  else:
+      flt = _op_flt(current_user)
+  with get_conn() as conn:
+      row = conn.execute(f"SELECT * FROM stb_inventory WHERE id = ? AND {flt}", [stb_id]).fetchone()
+      if not row:
+          raise HTTPException(status_code=404, detail="STB not found in inventory")
+      conn.execute(f"UPDATE stb_inventory SET status = ? WHERE id = ? AND {flt}", [new_status, stb_id])
+      conn.commit()
+  return {"message": f"STB {row['stb_no']} status updated to {new_status}", "status": new_status}
+
 @router.delete("/stb-inventory/{stb_id}")
 def remove_from_inventory(stb_id: int, operator_id: int = None, current_user=Depends(get_current_user)):
-   """Remove an STB from inventory."""
-   if current_user["role"] not in ["admin", "support"]:
-       raise HTTPException(status_code=403, detail="Only Admin or Support can remove STBs")
-   if current_user.get("role") == "master" and operator_id is not None:
-       flt = f"operator_id = {operator_id}"
-   else:
-       flt = _op_flt(current_user)
-   with get_conn() as conn:
-       row = conn.execute(f"SELECT * FROM stb_inventory WHERE id = ? AND {flt}", [stb_id]).fetchone()
-       if not row:
-           raise HTTPException(status_code=404, detail="STB not found in inventory")
-       conn.execute(f"DELETE FROM stb_inventory WHERE id = ? AND {flt}", [stb_id])
-       conn.commit()
-   return {"message": f"STB {row['stb_no']} removed from inventory"}
+  """Remove an STB from inventory."""
+  if current_user["role"] not in ["admin", "support"]:
+      raise HTTPException(status_code=403, detail="Only Admin or Support can remove STBs")
+  if current_user.get("role") == "master" and operator_id is not None:
+      flt = f"operator_id = {operator_id}"
+  else:
+      flt = _op_flt(current_user)
+  with get_conn() as conn:
+      row = conn.execute(f"SELECT * FROM stb_inventory WHERE id = ? AND {flt}", [stb_id]).fetchone()
+      if not row:
+          raise HTTPException(status_code=404, detail="STB not found in inventory")
+      conn.execute(f"DELETE FROM stb_inventory WHERE id = ? AND {flt}", [stb_id])
+      conn.commit()
+  return {"message": f"STB {row['stb_no']} removed from inventory"}
 # ========== STB EXCHANGE ON CUSTOMER ==========
 @router.post("/customers/{customer_id}/connections/{connection_id}/exchange-stb")
 def exchange_stb(customer_id: str, connection_id: int, data: STBExchangeRequest, current_user=Depends(get_current_user)):
