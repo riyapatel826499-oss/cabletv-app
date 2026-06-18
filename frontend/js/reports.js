@@ -119,19 +119,25 @@ function agLoadPaid(page = 1) {
   const dateTo = document.getElementById('agPaidTo').value;
   const q = document.getElementById('agPaidSearch').value.trim();
   const mso = document.getElementById('agPaidMso').value;
+  const mode = document.getElementById('agPaidMode').value;
+  const areaVal = document.getElementById('agPaidArea').value;
+  const collVal = document.getElementById('agPaidCollector').value;
 
   let url = `/api/payments/all?page=${page}&per_page=${perPage}`;
   if (dateFrom) url += '&date_from=' + encodeURIComponent(dateFrom);
   if (dateTo) url += '&date_to=' + encodeURIComponent(dateTo);
   if (q) url += '&q=' + encodeURIComponent(q);
   if (mso) url += '&mso=' + encodeURIComponent(mso);
+  if (mode) url += '&payment_mode=' + encodeURIComponent(mode);
+  if (areaVal) url += '&area=' + encodeURIComponent(areaVal);
+  if (collVal) url += '&collected_by=' + encodeURIComponent(collVal);
 
   api(url).then(data => {
     const payments = data.payments || [];
     document.getElementById('agPaidCount').textContent = data.total || 0;
     document.getElementById('agPaidAmt').textContent = fmtRs(data.total_amount || 0);
 
-    // Populate area dropdown from results (always refresh)
+    // Populate area dropdown from results (always refresh, preserve selection)
     {
       const prevArea = document.getElementById('agPaidArea').value;
       const areas = [...new Set(payments.map(p => p.area).filter(Boolean))].sort();
@@ -153,16 +159,8 @@ function agLoadPaid(page = 1) {
       if (prevColl && sel.querySelector('option[value="' + prevColl + '"]')) sel.value = prevColl;
     }
 
-    // Apply client-side area and collector filters
-    const areaFilter = document.getElementById('agPaidArea').value;
-    const collFilter = document.getElementById('agPaidCollector').value;
-    let filtered = payments;
-    if (areaFilter) filtered = filtered.filter(p => p.area === areaFilter);
-    if (collFilter) filtered = filtered.filter(p => p.collector === collFilter);
-
-    // Update stats to reflect filtered results
-    document.getElementById('agPaidCount').textContent = filtered.length;
-    document.getElementById('agPaidAmt').textContent = fmtRs(filtered.reduce((s, p) => s + (p.amount || 0), 0));
+    // Stats already reflect server-side filtered results
+    const filtered = payments;
 
     const tbody = document.getElementById('agPaidBody');
     const canDelete = (_userRole === 'admin' || _userRole === 'master');
@@ -306,7 +304,9 @@ async function agExportPaid(format) {
   const dateTo = document.getElementById('agPaidTo').value;
   const q = document.getElementById('agPaidSearch').value.trim();
   const mso = document.getElementById('agPaidMso').value;
-  const areaFilter = document.getElementById('agPaidArea').value;
+  const mode = document.getElementById('agPaidMode').value;
+  const areaVal = document.getElementById('agPaidArea').value;
+  const collVal = document.getElementById('agPaidCollector').value;
 
   if (!dateFrom || !dateTo) { toast('Select date range first', 'error'); return; }
 
@@ -314,13 +314,14 @@ async function agExportPaid(format) {
   let url = `/api/payments/all?per_page=10000&export=true&date_from=${encodeURIComponent(dateFrom)}&date_to=${encodeURIComponent(dateTo)}`;
   if (q) url += '&q=' + encodeURIComponent(q);
   if (mso) url += '&mso=' + encodeURIComponent(mso);
+  if (mode) url += '&payment_mode=' + encodeURIComponent(mode);
+  if (areaVal) url += '&area=' + encodeURIComponent(areaVal);
+  if (collVal) url += '&collected_by=' + encodeURIComponent(collVal);
 
   try {
     const data = await api(url);
     if (!data || !data.payments || !data.payments.length) { toast('No payments to export', 'error'); return; }
-    let payments = data.payments;
-    // Apply client-side area filter too
-    if (areaFilter) payments = payments.filter(p => p.area === areaFilter);
+    const payments = data.payments;
 
     const headers = ['S.No','Customer ID','Customer Name','Phone','STB','MSO','Area','Plan','Amount','Payment Mode','Date & Time','Collected By','Source'];
     const rows = payments.map((p, i) => {

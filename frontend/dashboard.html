@@ -663,6 +663,7 @@ body.role-agent #page-customers > .pagination { display: none !important; }
     <select id="agPaidMso" class="form-control" onchange="agLoadPaid(1)"><option value="">All MSO</option><option value="GTPL">GTPL</option><option value="TACTV">TACTV</option><option value="SCV">SCV</option><option value="JAISD">JAISD</option></select>
     <select id="agPaidArea" class="form-control" onchange="agLoadPaid(1)"><option value="">All Areas</option></select>
     <select id="agPaidCollector" class="form-control" onchange="agLoadPaid(1)"><option value="">All Collectors</option></select>
+    <select id="agPaidMode" class="form-control" onchange="agLoadPaid(1)"><option value="">All Modes</option><option value="Cash">Cash</option><option value="GPay">GPay</option><option value="PhonePe">PhonePe</option><option value="UPI">UPI</option><option value="Card">Card</option><option value="Online">Online</option></select>
     <select id="agPaidPerPage" class="form-control" style="max-width:80px" onchange="agLoadPaid(1)">
       <option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="500" selected>500</option><option value="1000">1000</option>
     </select>
@@ -1219,7 +1220,7 @@ document.addEventListener('input',function(e){
 <script src="js/customer-crud.js?v=14"></script>
 <script src="js/employees.js?v=14"></script>
 <script src="js/payments.js?v=15"></script>
-<script src="js/reports.js?v=16"></script>
+<script src="js/reports.js?v=17"></script>
 <script src="js/settings.js?v=14"></script>
 <script src="js/auth-operators.js?v=14"></script>
 <script src="js/init.js?v=14"></script>

@@ -408,6 +408,9 @@ def all_payment_history(
     customer_id: Optional[str] = None,
     q: Optional[str] = None,
     mso: Optional[str] = None,
+    payment_mode: Optional[str] = None,
+    area: Optional[str] = None,
+    collected_by: Optional[str] = None,
     export: bool = Query(False),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -449,6 +452,15 @@ def all_payment_history(
         if mso:
             local_sql += " AND con.mso = :mso"
             local_params["mso"] = mso
+        if payment_mode:
+            local_sql += " AND LOWER(p.payment_mode) = LOWER(:pmode)"
+            local_params["pmode"] = payment_mode
+        if area:
+            local_sql += " AND LOWER(c.area) = LOWER(:area)"
+            local_params["area"] = area
+        if collected_by:
+            local_sql += " AND LOWER(u.name) = LOWER(:coll)"
+            local_params["coll"] = collected_by
         local_rows = db.execute(text(local_sql), local_params).fetchall()
 
         # ── Paypakka payments (text() bridge) ───────────────────────────────
@@ -476,6 +488,15 @@ def all_payment_history(
         if mso:
             pp_sql += " AND pp.customer_id IN (SELECT customer_id FROM connections WHERE mso = :mso)"
             pp_params["mso"] = mso
+        if payment_mode:
+            pp_sql += " AND LOWER(pp.payment_type) = LOWER(:pmode)"
+            pp_params["pmode"] = payment_mode
+        if area:
+            pp_sql += " AND LOWER(c.area) = LOWER(:area)"
+            pp_params["area"] = area
+        if collected_by:
+            pp_sql += " AND LOWER(e.emp_name) = LOWER(:coll)"
+            pp_params["coll"] = collected_by
         pp_rows = db.execute(text(pp_sql), pp_params).fetchall()
 
         # ── Merge into unified list ─────────────────────────────────────────
