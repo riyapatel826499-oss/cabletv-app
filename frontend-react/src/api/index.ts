@@ -62,6 +62,7 @@ export const dashboardApi = {
   today: () => api.get('/dashboard/today'),
   paymentModes: () => api.get('/dashboard/payment-modes'),
   master: () => api.get('/dashboard/master'),
+  insights: () => api.get('/dashboard/insights'),
 };
 
 // ── Plans ─────────────────────────────────────────────────────────────────

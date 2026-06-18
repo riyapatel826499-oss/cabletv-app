@@ -163,6 +163,56 @@ export interface DashboardToday {
   surrendered_this_month: number;
 }
 
+export interface MsoProfitability {
+  mso: string;
+  active_boxes: number;
+  monthly_revenue: number;
+  arpu: number;
+  cost_per_box: number;
+  total_cost: number;
+  profit: number;
+  margin_pct: number;
+}
+
+export interface UnpaidCustomer {
+  customer_id: string;
+  name: string;
+  phone: string;
+  area: string;
+  stb_no: string;
+  mso: string;
+  plan_amount: number;
+  gap_months: number;
+  pending_amount: number;
+}
+
+export interface AgingBuckets {
+  current: number;
+  current_amt: number;
+  b1_2: number;
+  b1_2_amt: number;
+  b3_5: number;
+  b3_5_amt: number;
+  b6plus: number;
+  b6plus_amt: number;
+}
+
+export interface DashboardInsights {
+  month: string;
+  month_target: number;
+  month_collected: number;
+  collection_pct: number;
+  today_collected: number;
+  today_count: number;
+  total_unpaid_count: number;
+  total_pending: number;
+  mso_profitability: MsoProfitability[];
+  top_unpaid: UnpaidCustomer[];
+  mrr_trend: { month: string; total: number }[];
+  aging: AgingBuckets;
+  stb_health: Record<string, number>;
+}
+
 export interface ServiceRequest {
   id: number;
   customer_id: string;
