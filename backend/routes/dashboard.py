@@ -551,6 +551,265 @@ def dashboard_today(
     return result
 
 
+@router.get("/insights")
+def dashboard_insights(
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Actionable dashboard insights: MSO profitability, top unpaid, MRR trend,
+    aging buckets, STB health, collection target."""
+    _oid = op_id(current_user)
+    _cache_key = f"dashboard_insights:{_oid}"
+    cached = get_cached(_cache_key, ttl=30)
+    if cached:
+        return cached
+
+    now = datetime.now()
+    current_month = get_current_month()
+    month_start, _ = get_month_range(now)
+    now_end = now.strftime("%Y-%m-%d 23:59:59")
+    today_start = now.strftime("%Y-%m-%d 00:00:00")
+    today_end = now.strftime("%Y-%m-%d 23:59:59")
+
+    op_flt = "1=1"
+    if _oid is not None:
+        op_flt = f"operator_id = {_oid}"
+
+    # ── 1. MSO PROFITABILITY ────────────────────────────────────────────
+    # Active connections per MSO with revenue (sum plan_amount) and cost
+    mso_rows = db.execute(
+        text(f"""SELECT COALESCE(conn.mso, 'Unknown') as mso,
+                  COUNT(*) as active_boxes,
+                  COALESCE(SUM(conn.plan_amount), 0) as monthly_revenue,
+                  AVG(conn.plan_amount) as arpu
+           FROM connections conn
+           WHERE conn.status = 'Active' AND {op_flt.replace('operator_id', 'conn.operator_id')}
+           GROUP BY COALESCE(conn.mso, 'Unknown')
+           ORDER BY monthly_revenue DESC"""),
+    ).fetchall()
+
+    # Get avg mso_cost per MSO from plans table
+    mso_cost_rows = db.execute(
+        text(f"""SELECT network, AVG(mso_cost) as avg_cost
+           FROM plans WHERE status = 'Active' AND {op_flt}
+           GROUP BY network"""),
+    ).fetchall()
+    mso_cost_map = {r.network: (r.avg_cost or 0) for r in mso_cost_rows}
+
+    mso_profitability = []
+    for r in mso_rows:
+        mso_name = r.mso
+        boxes = r.active_boxes or 0
+        revenue = float(r.monthly_revenue or 0)
+        arpu = float(r.arpu or 0)
+        # Match cost by MSO name variations
+        cost_per_box = mso_cost_map.get(mso_name, 0)
+        if cost_per_box == 0:
+            # Try matching network field for GTPL/TACTV/SCV
+            for k, v in mso_cost_map.items():
+                if k and mso_name and k.lower() in mso_name.lower():
+                    cost_per_box = v
+                    break
+        total_cost = cost_per_box * boxes
+        profit = revenue - total_cost
+        margin = round((profit / revenue * 100) if revenue > 0 else 0, 1)
+        mso_profitability.append({
+            "mso": mso_name,
+            "active_boxes": boxes,
+            "monthly_revenue": round(revenue, 0),
+            "arpu": round(arpu, 0),
+            "cost_per_box": round(cost_per_box, 0),
+            "total_cost": round(total_cost, 0),
+            "profit": round(profit, 0),
+            "margin_pct": margin,
+        })
+
+    # ── 2. TOP UNPAID CUSTOMERS (by pending amount) ─────────────────────
+    # Find active customers with active connections who haven't paid this month
+    top_unpaid_rows = db.execute(
+        text(f"""SELECT c.customer_id, c.name, c.phone, c.area,
+                  conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
+                  conn.expiry_date, conn.id as conn_id
+           FROM customers c
+           JOIN connections conn ON c.customer_id = conn.customer_id
+           WHERE c.status = 'Active' AND conn.status = 'Active'
+             AND {op_flt.replace('operator_id', 'c.operator_id')}
+             AND c.customer_id NOT IN (
+               SELECT customer_id FROM payments
+               WHERE (deleted IS NULL OR deleted = 0)
+                 AND collected_at >= :ms AND collected_at <= :ne
+             )
+           ORDER BY conn.plan_amount DESC NULLS LAST
+           LIMIT 20"""),
+        {"ms": month_start, "ne": now_end},
+    ).fetchall()
+
+    # Calculate gap_months and pending for each
+    top_unpaid = []
+    for r in top_unpaid_rows:
+        gap = 0
+        if r.expiry_date:
+            try:
+                exp_parts = str(r.expiry_date)[:10].split("-")
+                exp_dt = datetime(int(exp_parts[0]), int(exp_parts[1]), int(exp_parts[2]))
+                ref = now.replace(day=1)
+                gap = (ref.year - exp_dt.year) * 12 + (ref.month - exp_dt.month)
+                if gap < 0:
+                    gap = 0
+            except Exception:
+                gap = 0
+        pa = float(r.plan_amount or 0)
+        top_unpaid.append({
+            "customer_id": r.customer_id,
+            "name": r.name,
+            "phone": r.phone or "",
+            "area": r.area or "",
+            "stb_no": r.stb_no,
+            "mso": r.mso,
+            "plan_amount": pa,
+            "gap_months": gap,
+            "pending_amount": round(pa * (gap + 1), 0) if pa else 0,
+        })
+
+    total_pending = sum(c["pending_amount"] for c in top_unpaid)
+    total_unpaid_count = db.execute(
+        text(f"""SELECT COUNT(DISTINCT c.customer_id)
+           FROM customers c
+           JOIN connections conn ON c.customer_id = conn.customer_id
+           WHERE c.status = 'Active' AND conn.status = 'Active'
+             AND {op_flt.replace('operator_id', 'c.operator_id')}
+             AND c.customer_id NOT IN (
+               SELECT customer_id FROM payments
+               WHERE (deleted IS NULL OR deleted = 0)
+                 AND collected_at >= :ms AND collected_at <= :ne
+             )"""),
+        {"ms": month_start, "ne": now_end},
+    ).scalar() or 0
+
+    # ── 3. MRR TREND (last 6 months) ────────────────────────────────────
+    six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
+    trend_rows = db.execute(
+        text(f"""SELECT month, SUM(total) as total FROM (
+            SELECT TO_CHAR(collected_at::timestamp, 'YYYY-MM') as month, SUM(amount) as total
+            FROM payments
+            WHERE (deleted IS NULL OR deleted = 0) AND collected_at >= :sma AND {op_flt}
+            GROUP BY TO_CHAR(collected_at::timestamp, 'YYYY-MM')
+        ) GROUP BY month ORDER BY month DESC LIMIT 6"""),
+        {"sma": six_months_ago},
+    ).fetchall()
+    mrr_trend = [dict(r._mapping) for r in reversed(trend_rows)]
+
+    # ── 4. AGING BUCKETS ────────────────────────────────────────────────
+    # Based on gap_months of unpaid customers
+    aging_rows = db.execute(
+        text(f"""SELECT
+                  COUNT(*) FILTER (WHERE gap = 0) as current,
+                  COALESCE(SUM(pa) FILTER (WHERE gap = 0), 0) as current_amt,
+                  COUNT(*) FILTER (WHERE gap BETWEEN 1 AND 2) as bucket_1_2,
+                  COALESCE(SUM(pa) FILTER (WHERE gap BETWEEN 1 AND 2), 0) as bucket_1_2_amt,
+                  COUNT(*) FILTER (WHERE gap BETWEEN 3 AND 5) as bucket_3_5,
+                  COALESCE(SUM(pa) FILTER (WHERE gap BETWEEN 3 AND 5), 0) as bucket_3_5_amt,
+                  COUNT(*) FILTER (WHERE gap >= 6) as bucket_6plus,
+                  COALESCE(SUM(pa) FILTER (WHERE gap >= 6), 0) as bucket_6plus_amt
+           FROM (
+               SELECT conn.plan_amount as pa,
+                 CASE
+                   WHEN conn.expiry_date IS NULL THEN 0
+                   ELSE GREATEST(0,
+                     (EXTRACT(YEAR FROM CURRENT_DATE)::int - EXTRACT(YEAR FROM conn.expiry_date::date)::int) * 12
+                     + (EXTRACT(MONTH FROM CURRENT_DATE)::int - EXTRACT(MONTH FROM conn.expiry_date::date)::int)
+                   )
+                 END as gap
+               FROM customers c
+               JOIN connections conn ON c.customer_id = conn.customer_id
+               WHERE c.status = 'Active' AND conn.status = 'Active'
+                 AND {op_flt.replace('operator_id', 'c.operator_id')}
+                 AND c.customer_id NOT IN (
+                   SELECT customer_id FROM payments
+                   WHERE (deleted IS NULL OR deleted = 0)
+                     AND collected_at >= :ms AND collected_at <= :ne
+                 )
+           ) sub"""),
+        {"ms": month_start, "ne": now_end},
+    ).fetchone()
+
+    aging = dict(aging_rows._mapping) if aging_rows else {}
+
+    # ── 5. STB INVENTORY HEALTH ─────────────────────────────────────────
+    try:
+        stb_rows = db.execute(
+            text(f"""SELECT COALESCE(status, 'unknown') as status, COUNT(*) as cnt
+               FROM stb_inventory WHERE {op_flt}
+               GROUP BY status ORDER BY cnt DESC"""),
+        ).fetchall()
+        stb_health = {r.status: r.cnt for r in stb_rows}
+    except Exception:
+        stb_health = {}
+
+    # ── 6. COLLECTION TARGET ────────────────────────────────────────────
+    # Target = total expected monthly revenue from active connections
+    target_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(plan_amount), 0) as target
+           FROM connections WHERE status = 'Active' AND {op_flt}"""),
+    ).fetchone()
+    month_target = float(target_row.target or 0) if target_row else 0
+
+    # Today's collection
+    today_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(*) as cnt
+           FROM payments WHERE (deleted IS NULL OR deleted = 0)
+             AND collected_at >= :ts AND collected_at <= :te AND {op_flt}"""),
+        {"ts": today_start, "te": today_end},
+    ).fetchone()
+    today_collected = float(today_row.total or 0) if today_row else 0
+    today_count = today_row.cnt or 0 if today_row else 0
+
+    # Month collected so far
+    month_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) as total, COUNT(DISTINCT customer_id) as paid
+           FROM payments WHERE (deleted IS NULL OR deleted = 0)
+             AND collected_at >= :ms AND collected_at <= :ne AND {op_flt}"""),
+        {"ms": month_start, "ne": now_end},
+    ).fetchone()
+    month_collected = float(month_row.total or 0) if month_row else 0
+    month_paid = month_row.paid or 0 if month_row else 0
+
+    collection_pct = round((month_collected / month_target * 100) if month_target > 0 else 0, 1)
+
+    result = {
+        "month": current_month,
+        # Collection
+        "month_target": round(month_target, 0),
+        "month_collected": round(month_collected, 0),
+        "collection_pct": collection_pct,
+        "today_collected": round(today_collected, 0),
+        "today_count": today_count,
+        "total_unpaid_count": total_unpaid_count,
+        "total_pending": round(total_pending, 0),
+        # MSO
+        "mso_profitability": mso_profitability,
+        # Unpaid
+        "top_unpaid": top_unpaid,
+        # Trend
+        "mrr_trend": mrr_trend,
+        # Aging
+        "aging": {
+            "current": aging.get("current", 0),
+            "current_amt": float(aging.get("current_amt", 0)),
+            "b1_2": aging.get("bucket_1_2", 0),
+            "b1_2_amt": float(aging.get("bucket_1_2_amt", 0)),
+            "b3_5": aging.get("bucket_3_5", 0),
+            "b3_5_amt": float(aging.get("bucket_3_5_amt", 0)),
+            "b6plus": aging.get("bucket_6plus", 0),
+            "b6plus_amt": float(aging.get("bucket_6plus_amt", 0)),
+        },
+        # STB
+        "stb_health": stb_health,
+    }
+    set_cached(_cache_key, result)
+    return result
+
+
 @router.get("/master")
 def master_dashboard(
     current_user: dict = Depends(get_current_user),
