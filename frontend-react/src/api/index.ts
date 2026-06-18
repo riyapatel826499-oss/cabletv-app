@@ -143,6 +143,7 @@ export const stbApi = {
   listInventory: (params?: Record<string, string>) => api.get('/stb-inventory', { params }),
   available: (params?: Record<string, string>) => api.get('/stb-inventory/available', { params }),
   add: (data: { stb_no: string; status?: string; notes?: string }) => api.post('/stb-inventory', data),
+  update: (id: number, status: string) => api.patch(`/stb-inventory/${id}`, { status }),
   remove: (id: number) => api.delete(`/stb-inventory/${id}`),
   exchange: (customerId: string, connectionId: number, data: { new_stb_no: string; old_stb_status?: string; old_stb_notes?: string }) =>
     api.post(`/customers/${customerId}/connections/${connectionId}/exchange-stb`, data),

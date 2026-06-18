@@ -3,7 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { stbApi } from '../api';
 import { fmtDate } from '../lib/format';
-import { Package, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Package, Plus, Trash2, AlertCircle, Edit2 } from 'lucide-react';
 
 interface InventoryItem {
   id: number;
@@ -26,6 +26,14 @@ export default function Inventory() {
   const isLcoAdmin = ["master", "admin"].includes(role);
   const canAdd = ["master", "admin", "support"].includes(role);
   const canDelete = isLcoAdmin;
+  const canUpdate = isLcoAdmin;
+
+  const updateMut = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => (await stbApi.update(id, status)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stb-inventory'] });
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['stb-inventory', statusFilter],
@@ -137,25 +145,49 @@ export default function Inventory() {
                     <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.stb_no}</span>
                   </td>
                   <td>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 999, fontSize: '0.75rem',
-                      background: item.status === 'spare' ? '#34c75920' : item.status === 'faulty' ? '#ff9f0a20' : '#ff3b3020',
-                      color: item.status === 'spare' ? '#34c759' : item.status === 'faulty' ? '#ff9f0a' : '#ff3b30',
-                    }}>
-                      {item.status}
-                    </span>
+                    {canUpdate ? (
+                      <select
+                        value={item.status}
+                        onChange={e => updateMut.mutate({ id: item.id, status: e.target.value })}
+                        disabled={updateMut.isPending}
+                        style={{
+                          padding: '4px 8px', borderRadius: 6, fontSize: '0.75rem',
+                          background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {['spare', 'faulty', 'available', 'with_mso', 'assigned'].map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 999, fontSize: '0.75rem',
+                        background: item.status === 'spare' ? '#34c75920' : item.status === 'faulty' ? '#ff9f0a20' : item.status === 'available' ? '#0071e320' : item.status === 'with_mso' ? '#ff9f0a20' : '#ff3b3020',
+                        color: item.status === 'spare' ? '#34c759' : item.status === 'faulty' ? '#ff9f0a' : item.status === 'available' ? '#0071e3' : item.status === 'with_mso' ? '#ff9f0a' : '#ff3b30',
+                      }}>
+                        {item.status}
+                      </span>
+                    )}
                   </td>
                   <td style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{item.notes || '—'}</td>
                   <td style={{ fontSize: '0.85rem' }}>{fmtDate(item.added_at)}</td>
                   <td style={{ fontSize: '0.85rem' }}>{item.added_by}</td>
                   <td>
-                    <button
-                      onClick={() => setDeleteId(item.id)}
-                      style={{ background: 'none', border: 'none', color: '#ff3b30', cursor: 'pointer' }}
-                      title="Remove from inventory"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canUpdate && (
+                      <span title="Edit status" style={{ cursor: 'pointer', marginRight: 8 }}>
+                        <Edit2 size={16} style={{ color: '#0071e3' }} />
+                      </span>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => setDeleteId(item.id)}
+                        style={{ background: 'none', border: 'none', color: '#ff3b30', cursor: 'pointer' }}
+                        title="Remove from inventory"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
