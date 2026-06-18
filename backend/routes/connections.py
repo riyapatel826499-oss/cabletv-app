@@ -208,6 +208,18 @@ def add_connection(
         operator_id=_opid,
     )
     db.add(new_conn)
+
+    # Remove STB from inventory if it exists there (mark as assigned)
+    inv_stb = db.execute(
+        select(StbInventory).where(StbInventory.stb_no == data.stb_no)
+    ).scalar_one_or_none()
+    if inv_stb:
+        db.execute(
+            update(StbInventory)
+            .where(StbInventory.id == inv_stb.id)
+            .values(status="assigned")
+        )
+
     db.commit()
     return {"ok": True, "message": "Connection added"}
 
