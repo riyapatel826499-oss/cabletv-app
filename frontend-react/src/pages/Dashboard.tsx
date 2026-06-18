@@ -32,11 +32,25 @@ function ProgressRing({ pct, size = 120, stroke = 10 }: { pct: number; size?: nu
 }
 
 // ── Mini Stat Card ─────────────────────────────────────────────────────────
-function MiniStat({ icon: Icon, label, value, color, sub }: {
+function MiniStat({ icon: Icon, label, value, color, sub, onClick }: {
   icon: React.ElementType; label: string; value: string; color: string; sub?: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="glass-card animate-fade-in" style={{ padding: 16, flex: 1, minWidth: 140 }}>
+    <div
+      onClick={onClick}
+      className="glass-card animate-fade-in"
+      style={{
+        padding: 16, flex: 1, minWidth: 140,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+        ...(onClick ? { ['--tap' as any]: '1' } : {}),
+      }}
+      onTouchStart={onClick ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; } : undefined}
+      onTouchEnd={onClick ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; } : undefined}
+      onMouseDown={onClick ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; } : undefined}
+      onMouseUp={onClick ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; } : undefined}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <div style={{ padding: 8, borderRadius: 'var(--radius-sm)', background: `${color}15` }}>
           <Icon style={{ width: 18, height: 18, color }} />
@@ -151,14 +165,16 @@ export default function Dashboard() {
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
           {/* Collection Ring */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+            onClick={() => navigate('/reports')}>
             <ProgressRing pct={ins.collection_pct} />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Collection Progress</span>
           </div>
 
           {/* Today's stats */}
           <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4, cursor: 'pointer' }}
+              onClick={() => navigate('/payments')}>
               <IndianRupee style={{ width: 16, height: 16, color: '#34c759' }} />
               <span style={{ fontSize: '2rem', fontWeight: 700, color: '#34c759' }}>
                 {fmtRs(ins.today_collected)}
@@ -168,15 +184,15 @@ export default function Dashboard() {
               </span>
             </div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
-              <div>
+              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/reports')}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Month Target</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{fmtRs(ins.month_target)}</div>
               </div>
-              <div>
+              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/payments')}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Collected</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#34c759' }}>{fmtRs(ins.month_collected)}</div>
               </div>
-              <div>
+              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/unpaid')}>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ff9f0a' }}>{fmtRs(ins.month_target - ins.month_collected)}</div>
               </div>
@@ -197,17 +213,21 @@ export default function Dashboard() {
         {/* Quick Stats Row */}
         <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
           <MiniStat icon={AlertCircle} label="Unpaid Customers" value={String(ins.total_unpaid_count)} color="#ff9f0a"
-            sub={`₹${fmtRs(ins.total_pending)} pending`} />
-          <MiniStat icon={TrendingUp} label="New This Month" value={String(todayData.new_customers_this_month || 0)} color="#0071e3" />
-          <MiniStat icon={Wifi} label="Temp Disconnected" value={String(todayData.temp_disconnected || 0)} color="#ff3b30" />
-          <MiniStat icon={Clock} label="Yesterday" value={fmtRs(todayData.yesterday_collected || 0)} color="#5856d6" />
+            sub={`₹${fmtRs(ins.total_pending)} pending`} onClick={() => navigate('/unpaid')} />
+          <MiniStat icon={TrendingUp} label="New This Month" value={String(todayData.new_customers_this_month || 0)} color="#0071e3"
+            onClick={() => navigate('/customers')} />
+          <MiniStat icon={Wifi} label="Temp Disconnected" value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
+            onClick={() => navigate('/connections')} />
+          <MiniStat icon={Clock} label="Yesterday" value={fmtRs(todayData.yesterday_collected || 0)} color="#5856d6"
+            onClick={() => navigate('/payments')} />
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
           SECTION 2: DUE & OVERDUE — ACTIONABLE LIST
       ══════════════════════════════════════════════════════════════════ */}
-      <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
+      <div className="glass-card animate-fade-in" style={{ padding: 20, cursor: 'pointer' }}
+        onClick={(e) => { if ((e.target as HTMLElement).closest('a, button')) return; navigate('/unpaid'); }}>
         <SectionHeader
           icon={AlertCircle}
           title={`Due & Overdue (${ins.total_unpaid_count} customers)`}
@@ -315,7 +335,13 @@ export default function Dashboard() {
               <div key={i} style={{
                 flex: 1, minWidth: 200, padding: 16, borderRadius: 'var(--radius-sm)',
                 background: 'var(--bg-secondary, #f5f5f7)', borderLeft: `3px solid ${marginColor}`,
-              }}>
+                cursor: 'pointer',
+                transition: 'transform 0.12s ease',
+              }}
+              onClick={() => navigate('/connections')}
+              onTouchStart={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.98)'; }}
+              onTouchEnd={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
                   <span style={{ fontSize: '1rem', fontWeight: 700 }}>{m.mso}</span>
                   <span style={{ fontSize: '1.3rem', fontWeight: 700, color: marginColor }}>{m.margin_pct}%</span>
@@ -394,7 +420,8 @@ export default function Dashboard() {
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {buckets.map((b, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                    onClick={() => navigate('/unpaid')}>
                     <span style={{ width: 75, fontSize: '0.8rem', color: 'var(--text-light)', flexShrink: 0 }}>{b.label}</span>
                     <div style={{ flex: 1, height: 24, background: 'var(--bg-secondary, #f5f5f7)', borderRadius: 4, overflow: 'hidden' }}>
                       <div style={{
@@ -448,7 +475,13 @@ export default function Dashboard() {
                 <div key={status} style={{
                   flex: 1, minWidth: 110, padding: 12, borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-secondary, #f5f5f7)', textAlign: 'center',
-                }}>
+                  cursor: 'pointer',
+                  transition: 'transform 0.12s ease',
+                }}
+                onClick={() => navigate('/inventory')}
+                onTouchStart={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.95)'; }}
+                onTouchEnd={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+                >
                   <div style={{ fontSize: '1.8rem', fontWeight: 700, color }}>{count}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{labels[status] || status}</div>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', marginTop: 2 }}>{pct}%</div>
