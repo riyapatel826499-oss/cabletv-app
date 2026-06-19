@@ -734,6 +734,34 @@ def dashboard_insights(
             total_pending += pa * (gap + 1)
     total_pending = round(total_pending, 0)
 
+    # ── 3. AGING BUCKETS (computed in Python from all_unpaid_rows) ──────
+    aging = {"current": 0, "current_amt": 0, "bucket_1_2": 0, "bucket_1_2_amt": 0,
+             "bucket_3_5": 0, "bucket_3_5_amt": 0, "bucket_6plus": 0, "bucket_6plus_amt": 0}
+    for r in all_unpaid_rows:
+        gap = 0
+        if r.expiry_date:
+            try:
+                exp_parts = str(r.expiry_date)[:10].split("-")
+                exp_dt = datetime(int(exp_parts[0]), int(exp_parts[1]), int(exp_parts[2]))
+                gap = (now.year - exp_dt.year) * 12 + (now.month - exp_dt.month)
+                if gap < 0:
+                    gap = 0
+            except Exception:
+                gap = 0
+        pa = float(r.plan_amount or 0)
+        if gap == 0:
+            aging["current"] += 1
+            aging["current_amt"] += pa
+        elif gap <= 2:
+            aging["bucket_1_2"] += 1
+            aging["bucket_1_2_amt"] += pa
+        elif gap <= 5:
+            aging["bucket_3_5"] += 1
+            aging["bucket_3_5_amt"] += pa
+        else:
+            aging["bucket_6plus"] += 1
+            aging["bucket_6plus_amt"] += pa
+
     # ── 3. MRR TREND (last 6 months) ────────────────────────────────────
     six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
     trend_rows = db.execute(
@@ -747,46 +775,7 @@ def dashboard_insights(
     ).fetchall()
     mrr_trend = [dict(r._mapping) for r in reversed(trend_rows)]
 
-    # ── 4. AGING BUCKETS ────────────────────────────────────────────────
-    # Same unpaid logic as /customers/unpaid + expiry-based gap
-    aging_rows = db.execute(
-        text(f"""SELECT
-                  COUNT(*) FILTER (WHERE gap = 0) as current,
-                  COALESCE(SUM(pa) FILTER (WHERE gap = 0), 0) as current_amt,
-                  COUNT(*) FILTER (WHERE gap BETWEEN 1 AND 2) as bucket_1_2,
-                  COALESCE(SUM(pa) FILTER (WHERE gap BETWEEN 1 AND 2), 0) as bucket_1_2_amt,
-                  COUNT(*) FILTER (WHERE gap BETWEEN 3 AND 5) as bucket_3_5,
-                  COALESCE(SUM(pa) FILTER (WHERE gap BETWEEN 3 AND 5), 0) as bucket_3_5_amt,
-                  COUNT(*) FILTER (WHERE gap >= 6) as bucket_6plus,
-                  COALESCE(SUM(pa) FILTER (WHERE gap >= 6), 0) as bucket_6plus_amt
-           FROM (
-               SELECT conn.plan_amount as pa,
-                 CASE
-                   WHEN conn.expiry_date IS NULL OR conn.expiry_date = '' THEN 0
-                   ELSE GREATEST(0,
-                     (EXTRACT(YEAR FROM :rs::date)::int - EXTRACT(YEAR FROM conn.expiry_date::date)::int) * 12
-                     + (EXTRACT(MONTH FROM :rs::date)::int - EXTRACT(MONTH FROM conn.expiry_date::date)::int)
-                   )
-                 END as gap
-               FROM connections conn
-               WHERE conn.status = 'Active'
-                 AND {op_flt.replace('operator_id', 'conn.operator_id')}
-                 AND (
-                   (conn.expiry_date IS NOT NULL AND conn.expiry_date != '' AND conn.expiry_date < :rs)
-                   OR conn.customer_id NOT IN (
-                     SELECT customer_id FROM payments
-                     WHERE (deleted IS NULL OR deleted = 0)
-                       AND collected_at >= :ms AND collected_at <= :ne
-                     UNION
-                     SELECT customer_id FROM paypakka_payments
-                       WHERE paypakka_created_at >= :ms AND paypakka_created_at <= :ne
-                   )
-                 )
-           ) sub"""),
-        {"rs": ref_str, "ms": month_start, "ne": now_end},
-    ).fetchone()
-
-    aging = dict(aging_rows._mapping) if aging_rows else {}
+    aging_data = aging  # Already computed above
 
     # ── 5. STB INVENTORY HEALTH ─────────────────────────────────────────
     try:
