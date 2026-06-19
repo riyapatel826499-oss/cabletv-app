@@ -29,6 +29,7 @@ import {
   Plus as PlusIcon,
   Phone,
   Share,
+  ChevronRight,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
@@ -65,31 +66,82 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/inventory':           ['master', 'admin', 'support'],
   // Master only
   '/settings':            ['master', 'admin'],
-  '/audit':               ['master'],
-  '/employees':           ['master'],
+  '/audit':               ['master', 'admin'],
+  '/employees':           ['master', 'admin'],
   '/operators':           ['master'],
 };
 
-const navItems = [
+// ── Nav types ───────────────────────────────────────────────────────────────
+type NavItem = { to: string; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }> };
+type NavGroup = { id: string; label: string; icon: React.ComponentType<{ style?: React.CSSProperties }>; items: NavItem[] };
+
+// ── Standalone nav items (always visible at top, no collapse) ────────────────
+const standaloneNav: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/customers', label: 'Customers', icon: Users },
-  { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
-  { to: '/unpaid', label: 'Unpaid', icon: AlertCircle },
-  { to: '/not-renewed', label: 'Not Renewed', icon: UserX },
-  { to: '/payments/new', label: 'Record Payment', icon: CreditCard },
-  { to: '/my-collections', label: 'My Collections', icon: Wallet },
-  { to: '/payments', label: 'Payments', icon: CreditCard },
-  { to: '/plans', label: 'Plans', icon: Tv },
-  { to: '/reports', label: 'Reports', icon: FileBarChart },
-  { to: '/reminders', label: 'Reminders', icon: Bell },
-  { to: '/connections', label: 'Connections', icon: Wifi },
-  { to: '/service-requests', label: 'Service Requests', icon: Wrench },
-  { to: '/surrender', label: 'Surrenders', icon: PowerOff },
-  { to: '/inventory', label: 'Inventory', icon: Package },
-  { to: '/audit', label: 'Audit Log', icon: ScrollText },
-  { to: '/settings', label: 'Settings', icon: Settings },
-  { to: '/employees', label: 'Employees', icon: UserCog },
-  { to: '/operators', label: 'Operators', icon: Building2 },
+];
+
+// ── Collapsible nav groups ───────────────────────────────────────────────────
+const navGroups: NavGroup[] = [
+  {
+    id: 'customers',
+    label: 'Customers',
+    icon: Users,
+    items: [
+      { to: '/customers',   label: 'Customers',    icon: Users },
+      { to: '/add-customer',label: 'Add Customer', icon: UserPlus },
+      { to: '/unpaid',      label: 'Unpaid',       icon: AlertCircle },
+      { to: '/not-renewed', label: 'Not Renewed',  icon: UserX },
+    ],
+  },
+  {
+    id: 'payments',
+    label: 'Payments',
+    icon: CreditCard,
+    items: [
+      { to: '/payments/new',   label: 'Record Payment', icon: CreditCard },
+      { to: '/my-collections', label: 'My Collections', icon: Wallet },
+      { to: '/payments',       label: 'Payments',       icon: IndianRupee },
+    ],
+  },
+  {
+    id: 'operations',
+    label: 'Operations',
+    icon: Wrench,
+    items: [
+      { to: '/reminders',        label: 'Reminders',        icon: Bell },
+      { to: '/connections',      label: 'Connections',      icon: Wifi },
+      { to: '/service-requests', label: 'Service Requests', icon: Wrench },
+      { to: '/surrender',        label: 'Surrenders',       icon: PowerOff },
+    ],
+  },
+  {
+    id: 'catalog',
+    label: 'Plans & Inventory',
+    icon: Package,
+    items: [
+      { to: '/plans',     label: 'Plans',     icon: Tv },
+      { to: '/inventory', label: 'Inventory', icon: Package },
+    ],
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: FileBarChart,
+    items: [
+      { to: '/reports', label: 'Reports', icon: FileBarChart },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Administration',
+    icon: Settings,
+    items: [
+      { to: '/settings',  label: 'Settings',  icon: Settings },
+      { to: '/employees', label: 'Employees', icon: UserCog },
+      { to: '/operators', label: 'Operators', icon: Building2 },
+      { to: '/audit',     label: 'Audit Log', icon: ScrollText },
+    ],
+  },
 ];
 
 function getAllowedRoutes(role: string | undefined): Set<string> {
@@ -186,7 +238,36 @@ export default function Layout() {
 
   // Role-based nav filtering
   const allowedRoutes = getAllowedRoutes(user?.role);
-  const visibleNavItems = navItems.filter((item) => allowedRoutes.has(item.to));
+
+  // ── Collapsible group state ──────────────────────────────────────────────
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Detect which group contains the current route (for auto-expand)
+  const activeGroupId = navGroups.find(g =>
+    g.items.some(item => {
+      if (item.to === '/') return location.pathname === '/';
+      return location.pathname === item.to || location.pathname.startsWith(item.to + '/');
+    })
+  )?.id;
+
+  // Auto-expand: always show the active group's items
+  const isGroupExpanded = (gid: string) => expandedGroups.has(gid) || gid === activeGroupId;
+
+  const toggleGroup = (gid: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid);
+      else next.add(gid);
+      return next;
+    });
+  };
+
+  // Filter groups to only those with ≥1 visible item
+  const visibleGroups = navGroups
+    .map(g => ({ ...g, items: g.items.filter(item => allowedRoutes.has(item.to)) }))
+    .filter(g => g.items.length > 0);
+
+  const visibleStandalone = standaloneNav.filter(item => allowedRoutes.has(item.to));
 
   // ── Dark mode: auto by time (7PM–6AM), manual override persists ──
   function isDarkHour() {
@@ -330,7 +411,8 @@ export default function Layout() {
           <nav
             style={{ padding: '12px 0', flex: 1, overflowY: 'auto' }}
           >
-            {visibleNavItems.map(({ to, label, icon: Icon }) => (
+            {/* Standalone items (Dashboard) */}
+            {visibleStandalone.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -352,16 +434,14 @@ export default function Layout() {
                 })}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget;
-                  const isActive = el.style.background !== 'transparent';
-                  if (!isActive) {
+                  if (!el.style.background.includes('113')) {
                     el.style.background = 'rgba(255,255,255,0.08)';
                     el.style.color = 'rgba(255,255,255,0.95)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget;
-                  const isActive = el.style.background.includes('113') || el.style.background.includes('0.25');
-                  if (!isActive) {
+                  if (!el.style.background.includes('113')) {
                     el.style.background = 'transparent';
                     el.style.color = 'rgba(255,255,255,0.7)';
                   }
@@ -371,6 +451,96 @@ export default function Layout() {
                 {label}
               </NavLink>
             ))}
+
+            {/* Collapsible groups */}
+            {visibleGroups.map((group) => {
+              const expanded = isGroupExpanded(group.id);
+              const GroupIcon = group.icon;
+              return (
+                <div key={group.id}>
+                  {/* Section header */}
+                  <button
+                    onClick={() => toggleGroup(group.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '9px 20px',
+                      margin: '4px 8px 2px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                      color: expanded ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      width: 'calc(100% - 16px)',
+                      transition: 'var(--transition)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = expanded ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)';
+                    }}
+                  >
+                    <GroupIcon style={{ width: 16, height: 16 }} />
+                    {group.label}
+                    <ChevronRight
+                      style={{
+                        width: 14,
+                        height: 14,
+                        marginLeft: 'auto',
+                        transition: 'transform 0.2s ease',
+                        transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      }}
+                    />
+                  </button>
+
+                  {/* Children */}
+                  {expanded && group.items.map(({ to, label, icon: Icon }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      onClick={() => setSidebarOpen(false)}
+                      style={({ isActive }) => ({
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '9px 20px 9px 44px',
+                        margin: '1px 8px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.88rem',
+                        fontWeight: 500,
+                        transition: 'var(--transition)',
+                        background: isActive ? 'rgba(0,113,227,0.25)' : 'transparent',
+                        color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
+                        textDecoration: 'none',
+                      })}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget;
+                        if (!el.style.background.includes('113')) {
+                          el.style.background = 'rgba(255,255,255,0.08)';
+                          el.style.color = 'rgba(255,255,255,0.9)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget;
+                        if (!el.style.background.includes('113')) {
+                          el.style.background = 'transparent';
+                          el.style.color = 'rgba(255,255,255,0.65)';
+                        }
+                      }}
+                    >
+                      <Icon style={{ width: 16, height: 16 }} />
+                      {label}
+                    </NavLink>
+                  ))}
+                </div>
+              );
+            })}
           </nav>
 
           {/* Footer / User */}
