@@ -1061,8 +1061,10 @@ def priority_unpaid(
             "mso": r.mso or "",
             "plan_name": r.plan_name or "",
             "plan_amount": pa,
-            "gap_months": gap,
-            "pending_amount": round(pa * (gap + 1), 0) if pa else 0,
+            "gap_months": 0,
+            # Priority customers paid last month — they owe only THIS month's plan.
+            # Do NOT use expiry_date gap (stale/inaccurate); 1 month only.
+            "pending_amount": round(pa, 0) if pa else 0,
         })
 
     total_pending = sum(c["pending_amount"] for c in customers)
