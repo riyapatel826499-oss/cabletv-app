@@ -974,34 +974,20 @@ def priority_unpaid(
     last_month_end = f"{lm_year}-{lm_month:02d}-{lm_last_day} 23:59:59"
 
     # Build the "who paid last month" CTE — UNION payments + paypakka_payments
-    if _agent:
-        # Agent: only customers this agent collected from
-        paid_last_month = f"""
-            SELECT DISTINCT customer_id FROM payments
-            WHERE (deleted IS NULL OR deleted = 0)
-              AND collected_at >= '{last_month_start}' AND collected_at <= '{last_month_end}'
-              AND collected_by = {_uid}
-            UNION
-            SELECT DISTINCT customer_id FROM paypakka_payments
-            WHERE paypakka_created_at >= '{last_month_start}' AND paypakka_created_at <= '{last_month_end}'
-              AND operator_id = {_oid}
-        """
-        paid_this_month_collector = f"AND collected_by = {_uid}"
+    # All roles (admin, agent, support) see the FULL priority list — no per-agent filtering.
+    # Agents need the complete follow-up list to call/WhatsApp all priority customers.
+    op_filter = ""
+    if _oid is not None:
         op_filter = f"AND conn.operator_id = {_oid}"
-    else:
-        # Admin/master/support: all customers
-        op_filter = ""
-        if _oid is not None:
-            op_filter = f"AND conn.operator_id = {_oid}"
-        paid_last_month = f"""
-            SELECT DISTINCT customer_id FROM payments
-            WHERE (deleted IS NULL OR deleted = 0)
-              AND collected_at >= '{last_month_start}' AND collected_at <= '{last_month_end}'
-            UNION
-            SELECT DISTINCT customer_id FROM paypakka_payments
-            WHERE paypakka_created_at >= '{last_month_start}' AND paypakka_created_at <= '{last_month_end}'
-        """
-        paid_this_month_collector = ""
+    paid_last_month = f"""
+        SELECT DISTINCT customer_id FROM payments
+        WHERE (deleted IS NULL OR deleted = 0)
+          AND collected_at >= '{last_month_start}' AND collected_at <= '{last_month_end}'
+        UNION
+        SELECT DISTINCT customer_id FROM paypakka_payments
+        WHERE paypakka_created_at >= '{last_month_start}' AND paypakka_created_at <= '{last_month_end}'
+    """
+    paid_this_month_collector = ""
 
     offset = (page - 1) * per_page
 
