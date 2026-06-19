@@ -77,7 +77,8 @@ type NavGroup = { id: string; label: string; icon: React.ComponentType<{ style?:
 
 // ── Standalone nav items (always visible at top, no collapse) ────────────────
 const standaloneNav: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/',        label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/reports', label: 'Reports',   icon: FileBarChart },
 ];
 
 // ── Collapsible nav groups ───────────────────────────────────────────────────
@@ -87,10 +88,10 @@ const navGroups: NavGroup[] = [
     label: 'Customers',
     icon: Users,
     items: [
-      { to: '/customers',   label: 'Customers',    icon: Users },
-      { to: '/add-customer',label: 'Add Customer', icon: UserPlus },
-      { to: '/unpaid',      label: 'Unpaid',       icon: AlertCircle },
-      { to: '/not-renewed', label: 'Not Renewed',  icon: UserX },
+      { to: '/customers',    label: 'Customers',    icon: Users },
+      { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
+      { to: '/unpaid',       label: 'Unpaid',       icon: AlertCircle },
+      { to: '/not-renewed',  label: 'Not Renewed',  icon: UserX },
     ],
   },
   {
@@ -115,27 +116,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    id: 'catalog',
-    label: 'Plans & Inventory',
-    icon: Package,
+    id: 'admin',
+    label: 'Setup & Admin',
+    icon: Settings,
     items: [
       { to: '/plans',     label: 'Plans',     icon: Tv },
       { to: '/inventory', label: 'Inventory', icon: Package },
-    ],
-  },
-  {
-    id: 'reports',
-    label: 'Reports',
-    icon: FileBarChart,
-    items: [
-      { to: '/reports', label: 'Reports', icon: FileBarChart },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Administration',
-    icon: Settings,
-    items: [
       { to: '/settings',  label: 'Settings',  icon: Settings },
       { to: '/employees', label: 'Employees', icon: UserCog },
       { to: '/operators', label: 'Operators', icon: Building2 },
