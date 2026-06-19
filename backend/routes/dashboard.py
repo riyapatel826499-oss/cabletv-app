@@ -698,25 +698,41 @@ def dashboard_insights(
         {"rs": ref_str, "ms": month_start, "ne": now_end},
     ).scalar() or 0
 
-    # Total pending = sum of pending for ALL unpaid (not just top 20)
-    total_pending_row = db.execute(
-        text(f"""SELECT COALESCE(SUM(
-                 conn.plan_amount * (
-                   GREATEST(0,
-                     (EXTRACT(YEAR FROM :rs::date)::int - EXTRACT(YEAR FROM NULLIF(conn.expiry_date, '')::date)::int) * 12
-                     + (EXTRACT(MONTH FROM :rs::date)::int - EXTRACT(MONTH FROM NULLIF(conn.expiry_date, '')::date)::int)
-                   ) + 1
-                 )
-               ), 0) as total_pending
+    # Total pending = query all unpaid connections, compute in Python
+    all_unpaid_rows = db.execute(
+        text(f"""SELECT conn.plan_amount, conn.expiry_date
            FROM connections conn
            WHERE conn.status = 'Active'
              AND {op_flt.replace('operator_id', 'conn.operator_id')}
-             AND conn.expiry_date IS NOT NULL AND conn.expiry_date != ''
-             AND conn.expiry_date < :rs
-             AND conn.plan_amount IS NOT NULL AND conn.plan_amount > 0"""),
-        {"rs": ref_str},
-    ).fetchone()
-    total_pending = float(total_pending_row.total_pending or 0) if total_pending_row else 0
+             AND (
+               (conn.expiry_date IS NOT NULL AND conn.expiry_date != '' AND conn.expiry_date < :rs)
+               OR conn.customer_id NOT IN (
+                 SELECT customer_id FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ms AND collected_at <= :ne
+                 UNION
+                 SELECT customer_id FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms AND paypakka_created_at <= :ne
+               )
+             )"""),
+        {"rs": ref_str, "ms": month_start, "ne": now_end},
+    ).fetchall()
+    total_pending = 0.0
+    for r in all_unpaid_rows:
+        gap = 0
+        if r.expiry_date:
+            try:
+                exp_parts = str(r.expiry_date)[:10].split("-")
+                exp_dt = datetime(int(exp_parts[0]), int(exp_parts[1]), int(exp_parts[2]))
+                gap = (now.year - exp_dt.year) * 12 + (now.month - exp_dt.month)
+                if gap < 0:
+                    gap = 0
+            except Exception:
+                gap = 0
+        pa = float(r.plan_amount or 0)
+        if pa:
+            total_pending += pa * (gap + 1)
+    total_pending = round(total_pending, 0)
 
     # ── 3. MRR TREND (last 6 months) ────────────────────────────────────
     six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
