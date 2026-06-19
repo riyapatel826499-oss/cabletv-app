@@ -624,24 +624,32 @@ def dashboard_insights(
             "margin_pct": margin,
         })
 
-    # ── 2. TOP UNPAID CUSTOMERS (by pending amount) ─────────────────────
-    # Find active customers with active connections who haven't paid this month
+    # ── 2. TOP UNPAID CUSTOMERS (same logic as /customers/unpaid) ──────
+    # Active connections where: expiry < today OR not paid this month
+    # Also checks paypakka_payments (not just payments)
+    ref_str = now.strftime("%Y-%m-%d")
     top_unpaid_rows = db.execute(
         text(f"""SELECT c.customer_id, c.name, c.phone, c.area,
                   conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
                   conn.expiry_date, conn.id as conn_id
            FROM customers c
            JOIN connections conn ON c.customer_id = conn.customer_id
-           WHERE c.status = 'Active' AND conn.status = 'Active'
-             AND {op_flt.replace('operator_id', 'c.operator_id')}
-             AND c.customer_id NOT IN (
-               SELECT customer_id FROM payments
-               WHERE (deleted IS NULL OR deleted = 0)
-                 AND collected_at >= :ms AND collected_at <= :ne
+           WHERE conn.status = 'Active'
+             AND {op_flt.replace('operator_id', 'conn.operator_id')}
+             AND (
+               (conn.expiry_date IS NOT NULL AND conn.expiry_date != '' AND conn.expiry_date < :rs)
+               OR conn.customer_id NOT IN (
+                 SELECT customer_id FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ms AND collected_at <= :ne
+                 UNION
+                 SELECT customer_id FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms AND paypakka_created_at <= :ne
+               )
              )
-           ORDER BY conn.plan_amount DESC NULLS LAST
+           ORDER BY conn.expiry_date ASC NULLS LAST, conn.plan_amount DESC
            LIMIT 20"""),
-        {"ms": month_start, "ne": now_end},
+        {"rs": ref_str, "ms": month_start, "ne": now_end},
     ).fetchall()
 
     # Calculate gap_months and pending for each
@@ -652,8 +660,7 @@ def dashboard_insights(
             try:
                 exp_parts = str(r.expiry_date)[:10].split("-")
                 exp_dt = datetime(int(exp_parts[0]), int(exp_parts[1]), int(exp_parts[2]))
-                ref = now.replace(day=1)
-                gap = (ref.year - exp_dt.year) * 12 + (ref.month - exp_dt.month)
+                gap = (now.year - exp_dt.year) * 12 + (now.month - exp_dt.month)
                 if gap < 0:
                     gap = 0
             except Exception:
@@ -671,20 +678,45 @@ def dashboard_insights(
             "pending_amount": round(pa * (gap + 1), 0) if pa else 0,
         })
 
-    total_pending = sum(c["pending_amount"] for c in top_unpaid)
+    # Total unpaid count (same WHERE clause)
     total_unpaid_count = db.execute(
-        text(f"""SELECT COUNT(DISTINCT c.customer_id)
-           FROM customers c
-           JOIN connections conn ON c.customer_id = conn.customer_id
-           WHERE c.status = 'Active' AND conn.status = 'Active'
-             AND {op_flt.replace('operator_id', 'c.operator_id')}
-             AND c.customer_id NOT IN (
-               SELECT customer_id FROM payments
-               WHERE (deleted IS NULL OR deleted = 0)
-                 AND collected_at >= :ms AND collected_at <= :ne
+        text(f"""SELECT COUNT(DISTINCT conn.customer_id)
+           FROM connections conn
+           WHERE conn.status = 'Active'
+             AND {op_flt.replace('operator_id', 'conn.operator_id')}
+             AND (
+               (conn.expiry_date IS NOT NULL AND conn.expiry_date != '' AND conn.expiry_date < :rs)
+               OR conn.customer_id NOT IN (
+                 SELECT customer_id FROM payments
+                 WHERE (deleted IS NULL OR deleted = 0)
+                   AND collected_at >= :ms AND collected_at <= :ne
+                 UNION
+                 SELECT customer_id FROM paypakka_payments
+                   WHERE paypakka_created_at >= :ms AND paypakka_created_at <= :ne
+               )
              )"""),
-        {"ms": month_start, "ne": now_end},
+        {"rs": ref_str, "ms": month_start, "ne": now_end},
     ).scalar() or 0
+
+    # Total pending = sum of pending for ALL unpaid (not just top 20)
+    total_pending_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(
+                 conn.plan_amount * (
+                   GREATEST(0,
+                     (EXTRACT(YEAR FROM :rs::date)::int - EXTRACT(YEAR FROM NULLIF(conn.expiry_date, '')::date)::int) * 12
+                     + (EXTRACT(MONTH FROM :rs::date)::int - EXTRACT(MONTH FROM NULLIF(conn.expiry_date, '')::date)::int)
+                   ) + 1
+                 )
+               ), 0) as total_pending
+           FROM connections conn
+           WHERE conn.status = 'Active'
+             AND {op_flt.replace('operator_id', 'conn.operator_id')}
+             AND conn.expiry_date IS NOT NULL AND conn.expiry_date != ''
+             AND conn.expiry_date < :rs
+             AND conn.plan_amount IS NOT NULL AND conn.plan_amount > 0"""),
+        {"rs": ref_str},
+    ).fetchone()
+    total_pending = float(total_pending_row.total_pending or 0) if total_pending_row else 0
 
     # ── 3. MRR TREND (last 6 months) ────────────────────────────────────
     six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
@@ -700,7 +732,7 @@ def dashboard_insights(
     mrr_trend = [dict(r._mapping) for r in reversed(trend_rows)]
 
     # ── 4. AGING BUCKETS ────────────────────────────────────────────────
-    # Based on gap_months of unpaid customers
+    # Same unpaid logic as /customers/unpaid + expiry-based gap
     aging_rows = db.execute(
         text(f"""SELECT
                   COUNT(*) FILTER (WHERE gap = 0) as current,
@@ -714,23 +746,28 @@ def dashboard_insights(
            FROM (
                SELECT conn.plan_amount as pa,
                  CASE
-                   WHEN conn.expiry_date IS NULL THEN 0
+                   WHEN conn.expiry_date IS NULL OR conn.expiry_date = '' THEN 0
                    ELSE GREATEST(0,
-                     (EXTRACT(YEAR FROM CURRENT_DATE)::int - EXTRACT(YEAR FROM conn.expiry_date::date)::int) * 12
-                     + (EXTRACT(MONTH FROM CURRENT_DATE)::int - EXTRACT(MONTH FROM conn.expiry_date::date)::int)
+                     (EXTRACT(YEAR FROM :rs::date)::int - EXTRACT(YEAR FROM conn.expiry_date::date)::int) * 12
+                     + (EXTRACT(MONTH FROM :rs::date)::int - EXTRACT(MONTH FROM conn.expiry_date::date)::int)
                    )
                  END as gap
-               FROM customers c
-               JOIN connections conn ON c.customer_id = conn.customer_id
-               WHERE c.status = 'Active' AND conn.status = 'Active'
-                 AND {op_flt.replace('operator_id', 'c.operator_id')}
-                 AND c.customer_id NOT IN (
-                   SELECT customer_id FROM payments
-                   WHERE (deleted IS NULL OR deleted = 0)
-                     AND collected_at >= :ms AND collected_at <= :ne
+               FROM connections conn
+               WHERE conn.status = 'Active'
+                 AND {op_flt.replace('operator_id', 'conn.operator_id')}
+                 AND (
+                   (conn.expiry_date IS NOT NULL AND conn.expiry_date != '' AND conn.expiry_date < :rs)
+                   OR conn.customer_id NOT IN (
+                     SELECT customer_id FROM payments
+                     WHERE (deleted IS NULL OR deleted = 0)
+                       AND collected_at >= :ms AND collected_at <= :ne
+                     UNION
+                     SELECT customer_id FROM paypakka_payments
+                       WHERE paypakka_created_at >= :ms AND paypakka_created_at <= :ne
+                   )
                  )
            ) sub"""),
-        {"ms": month_start, "ne": now_end},
+        {"rs": ref_str, "ms": month_start, "ne": now_end},
     ).fetchone()
 
     aging = dict(aging_rows._mapping) if aging_rows else {}
