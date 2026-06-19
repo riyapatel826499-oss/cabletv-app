@@ -17,7 +17,8 @@ class STBExchangeRequest(BaseModel):
 # ========== INVENTORY MANAGEMENT ==========
 @router.get("/stb-inventory")
 def list_inventory(status: Optional[str] = None, operator_id: int = None, current_user=Depends(get_current_user)):
-   """List all spare/faulty STBs in inventory. Master can pass ?operator_id=X."""
+   """List all spare/faulty STBs in inventory. Excludes 'assigned' (in-use) STBs.
+   Master can pass ?operator_id=X."""
    if current_user.get("role") == "master" and operator_id is not None:
        flt = f"operator_id = {operator_id}"
    else:
@@ -28,6 +29,9 @@ def list_inventory(status: Optional[str] = None, operator_id: int = None, curren
        if status:
            query += " AND status = ?"
            params.append(status)
+       else:
+           # Exclude assigned STBs (they're with customers, not in inventory)
+           query += " AND status != 'assigned'"
        query += " ORDER BY added_at DESC"
        rows = conn.execute(query, params).fetchall()
    return {

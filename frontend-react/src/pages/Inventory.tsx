@@ -74,6 +74,23 @@ export default function Inventory() {
 
   const statusOptions = ['spare', 'faulty', 'with_mso'];
 
+  // ── Status colour mapping ──────────────────────────────────────────────────
+  const statusStyle = (status: string): { bg: string; color: string; label: string } => {
+    switch (status) {
+      case 'spare':
+      case 'available':
+        return { bg: '#34c75920', color: '#34c759', label: status === 'spare' ? 'Spare' : 'Available' };
+      case 'faulty':
+        return { bg: '#ff3b3020', color: '#ff3b30', label: 'Faulty' };
+      case 'with_mso':
+        return { bg: '#ff9f0a20', color: '#ff9f0a', label: 'With MSO' };
+      case 'assigned':
+        return { bg: '#8e8e9320', color: '#8e8e93', label: 'Assigned' };
+      default:
+        return { bg: '#8e8e9320', color: '#8e8e93', label: status };
+    }
+  };
+
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -101,20 +118,25 @@ export default function Inventory() {
       {/* Filter */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Status:</span>
-        {['', ...statusOptions].map(s => (
-          <button
-            key={s || 'all'}
-            onClick={() => setStatusFilter(s)}
-            style={{
-              padding: '6px 14px', borderRadius: 999, fontSize: '0.8rem',
-              border: statusFilter === s ? '1px solid #0071e3' : '1px solid var(--border)',
-              background: statusFilter === s ? '#0071e320' : 'transparent',
-              color: 'var(--text)', cursor: 'pointer',
-            }}
-          >
-            {s || 'All'}
-          </button>
-        ))}
+        {['', ...statusOptions].map(s => {
+          const sc = s ? statusStyle(s) : null;
+          const isActive = statusFilter === s;
+          return (
+            <button
+              key={s || 'all'}
+              onClick={() => setStatusFilter(s)}
+              style={{
+                padding: '6px 14px', borderRadius: 999, fontSize: '0.8rem', fontWeight: 500,
+                border: isActive ? `1px solid ${sc?.color || '#0071e3'}` : '1px solid var(--border)',
+                background: isActive ? (sc ? sc.bg : '#0071e320') : 'transparent',
+                color: isActive ? (sc?.color || '#0071e3') : 'var(--text)',
+                cursor: 'pointer',
+              }}
+            >
+              {s ? sc?.label : 'All'}
+            </button>
+          );
+        })}
       </div>
 
       {/* Table */}
@@ -151,22 +173,24 @@ export default function Inventory() {
                         onChange={e => updateMut.mutate({ id: item.id, status: e.target.value })}
                         disabled={updateMut.isPending}
                         style={{
-                          padding: '4px 8px', borderRadius: 6, fontSize: '0.75rem',
-                          background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text)',
-                          cursor: 'pointer',
+                          padding: '4px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                          background: statusStyle(item.status).bg,
+                          border: `1px solid ${statusStyle(item.status).color}40`,
+                          color: statusStyle(item.status).color,
+                          cursor: 'pointer', outline: 'none',
                         }}
                       >
-                        {['spare', 'faulty', 'available', 'with_mso', 'assigned'].map(s => (
-                          <option key={s} value={s}>{s}</option>
+                        {['spare', 'faulty', 'available', 'with_mso'].map(s => (
+                          <option key={s} value={s}>{statusStyle(s).label}</option>
                         ))}
                       </select>
                     ) : (
                       <span style={{
-                        padding: '2px 8px', borderRadius: 999, fontSize: '0.75rem',
-                        background: item.status === 'spare' ? '#34c75920' : item.status === 'faulty' ? '#ff9f0a20' : item.status === 'available' ? '#0071e320' : item.status === 'with_mso' ? '#ff9f0a20' : '#ff3b3020',
-                        color: item.status === 'spare' ? '#34c759' : item.status === 'faulty' ? '#ff9f0a' : item.status === 'available' ? '#0071e3' : item.status === 'with_mso' ? '#ff9f0a' : '#ff3b30',
+                        padding: '3px 10px', borderRadius: 999, fontSize: '0.75rem', fontWeight: 600,
+                        background: statusStyle(item.status).bg,
+                        color: statusStyle(item.status).color,
                       }}>
-                        {item.status}
+                        {statusStyle(item.status).label}
                       </span>
                     )}
                   </td>
@@ -219,7 +243,7 @@ export default function Inventory() {
                   onChange={e => setNewStb({ ...newStb, status: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)' }}
                 >
-                  {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  {statusOptions.map(s => <option key={s} value={s}>{statusStyle(s).label}</option>)}
                 </select>
               </div>
               <div>
