@@ -63,6 +63,7 @@ export const dashboardApi = {
   paymentModes: () => api.get('/dashboard/payment-modes'),
   master: () => api.get('/dashboard/master'),
   insights: () => api.get('/dashboard/insights'),
+  priorityUnpaid: (page = 1) => api.get('/dashboard/priority-unpaid', { params: { page } }),
 };
 
 // ── Plans ─────────────────────────────────────────────────────────────────

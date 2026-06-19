@@ -931,3 +931,164 @@ def master_dashboard(
         "revenue_trend": [dict(r._mapping) for r in trend_rows],
         "month": current_month,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PRIORITY UNPAID — "Follow Up Today"
+# Customers who paid LAST month but haven't paid THIS month.
+# These are the highest-conversion targets for a reminder call/WhatsApp.
+# ═══════════════════════════════════════════════════════════════════════════
+@router.get("/priority-unpaid")
+def priority_unpaid(
+    page: int = 1,
+    per_page: int = 50,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Customers who paid last month but haven't paid this month.
+    Works for admin/master/support (all customers) and agents (their own customers)."""
+    _agent = is_agent_role(current_user)
+    _uid = current_user.get("id")
+    _oid = op_id(current_user)
+    _cache_key = f"priority_unpaid:{'a'+str(_uid) if _agent else 'o'+str(_oid)}:{page}"
+    cached = get_cached(_cache_key, ttl=30)
+    if cached:
+        return cached
+
+    now = datetime.now()
+
+    # Calendar month boundaries
+    this_month_start = now.strftime("%Y-%m-01")
+    this_month_end = now.strftime("%Y-%m-%d 23:59:59")
+
+    if now.month == 1:
+        lm_year, lm_month = now.year - 1, 12
+    else:
+        lm_year, lm_month = now.year, now.month - 1
+    last_month_start = f"{lm_year}-{lm_month:02d}-01"
+    # Last day of previous month
+    if lm_month == 12:
+        lm_last_day = 31
+    else:
+        lm_last_day = (now.replace(year=lm_year, month=lm_month + 1, day=1) - timedelta(days=1)).day
+    last_month_end = f"{lm_year}-{lm_month:02d}-{lm_last_day} 23:59:59"
+
+    # Build the "who paid last month" CTE — UNION payments + paypakka_payments
+    if _agent:
+        # Agent: only customers this agent collected from
+        paid_last_month = f"""
+            SELECT DISTINCT customer_id FROM payments
+            WHERE (deleted IS NULL OR deleted = 0)
+              AND collected_at >= '{last_month_start}' AND collected_at <= '{last_month_end}'
+              AND collected_by = {_uid}
+            UNION
+            SELECT DISTINCT customer_id FROM paypakka_payments
+            WHERE paypakka_created_at >= '{last_month_start}' AND paypakka_created_at <= '{last_month_end}'
+              AND operator_id = {_oid}
+        """
+        paid_this_month_collector = f"AND collected_by = {_uid}"
+        op_filter = f"AND conn.operator_id = {_oid}"
+    else:
+        # Admin/master/support: all customers
+        op_filter = ""
+        if _oid is not None:
+            op_filter = f"AND conn.operator_id = {_oid}"
+        paid_last_month = f"""
+            SELECT DISTINCT customer_id FROM payments
+            WHERE (deleted IS NULL OR deleted = 0)
+              AND collected_at >= '{last_month_start}' AND collected_at <= '{last_month_end}'
+            UNION
+            SELECT DISTINCT customer_id FROM paypakka_payments
+            WHERE paypakka_created_at >= '{last_month_start}' AND paypakka_created_at <= '{last_month_end}'
+        """
+        paid_this_month_collector = ""
+
+    offset = (page - 1) * per_page
+
+    # Count total
+    count_sql = f"""
+        WITH paid_last AS ({paid_last_month}),
+        paid_this AS (
+            SELECT DISTINCT customer_id FROM payments
+            WHERE (deleted IS NULL OR deleted = 0)
+              AND collected_at >= '{this_month_start}' AND collected_at <= '{this_month_end}'
+              {paid_this_month_collector}
+            UNION
+            SELECT DISTINCT customer_id FROM paypakka_payments
+            WHERE paypakka_created_at >= '{this_month_start}' AND paypakka_created_at <= '{this_month_end}'
+        )
+        SELECT COUNT(DISTINCT conn.customer_id)
+        FROM connections conn
+        JOIN customers c ON c.customer_id = conn.customer_id
+        WHERE conn.status = 'Active'
+          {op_filter}
+          AND conn.customer_id IN (SELECT customer_id FROM paid_last)
+          AND conn.customer_id NOT IN (SELECT customer_id FROM paid_this)
+    """
+    total = db.execute(text(count_sql)).scalar() or 0
+
+    # Fetch list
+    list_sql = f"""
+        WITH paid_last AS ({paid_last_month}),
+        paid_this AS (
+            SELECT DISTINCT customer_id FROM payments
+            WHERE (deleted IS NULL OR deleted = 0)
+              AND collected_at >= '{this_month_start}' AND collected_at <= '{this_month_end}'
+              {paid_this_month_collector}
+            UNION
+            SELECT DISTINCT customer_id FROM paypakka_payments
+            WHERE paypakka_created_at >= '{this_month_start}' AND paypakka_created_at <= '{this_month_end}'
+        )
+        SELECT c.customer_id, c.name, c.phone, c.area,
+               conn.stb_no, conn.mso, conn.plan_name, conn.plan_amount,
+               conn.expiry_date
+        FROM connections conn
+        JOIN customers c ON c.customer_id = conn.customer_id
+        WHERE conn.status = 'Active'
+          {op_filter}
+          AND conn.customer_id IN (SELECT customer_id FROM paid_last)
+          AND conn.customer_id NOT IN (SELECT customer_id FROM paid_this)
+        ORDER BY conn.plan_amount DESC NULLS LAST, c.name
+        LIMIT {per_page} OFFSET {offset}
+    """
+    rows = db.execute(text(list_sql)).fetchall()
+
+    customers = []
+    for r in rows:
+        gap = 0
+        if r.expiry_date:
+            try:
+                exp_parts = str(r.expiry_date)[:10].split("-")
+                exp_dt = datetime(int(exp_parts[0]), int(exp_parts[1]), int(exp_parts[2]))
+                gap = (now.year - exp_dt.year) * 12 + (now.month - exp_dt.month)
+                if gap < 0:
+                    gap = 0
+            except Exception:
+                gap = 0
+        pa = float(r.plan_amount or 0)
+        customers.append({
+            "customer_id": r.customer_id,
+            "name": r.name,
+            "phone": r.phone or "",
+            "area": r.area or "",
+            "stb_no": r.stb_no or "",
+            "mso": r.mso or "",
+            "plan_name": r.plan_name or "",
+            "plan_amount": pa,
+            "gap_months": gap,
+            "pending_amount": round(pa * (gap + 1), 0) if pa else 0,
+        })
+
+    total_pending = sum(c["pending_amount"] for c in customers)
+
+    result = {
+        "customers": customers,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pending": round(total_pending, 0),
+        "last_month": f"{lm_month:02d}-{lm_year}",
+        "this_month": f"{now.month:02d}-{now.year}",
+    }
+    set_cached(_cache_key, result)
+    return result

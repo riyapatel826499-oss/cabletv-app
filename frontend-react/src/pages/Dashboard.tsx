@@ -119,6 +119,12 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  const { data: priorityData } = useQuery({
+    queryKey: ['priority-unpaid'],
+    queryFn: () => dashboardApi.priorityUnpaid(1).then(r => r.data),
+    refetchInterval: 30000,
+  });
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -222,6 +228,88 @@ export default function Dashboard() {
             onClick={() => navigate('/payments')} />
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION 1B: FOLLOW UP TODAY — PRIORITY COLLECTION TARGETS
+          Customers who paid last month but haven't paid this month
+      ══════════════════════════════════════════════════════════════════ */}
+      {priorityData && priorityData.customers && priorityData.customers.length > 0 && (
+        <div className="glass-card animate-fade-in" style={{ padding: 20, borderColor: '#ff9f0a40' }}>
+          <SectionHeader
+            icon={AlertCircle}
+            title={`Follow Up Today (${priorityData.total})`}
+            color="#ff9f0a"
+            action={
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                Paid {priorityData.last_month}, not {priorityData.this_month} · ₹{fmtRs(priorityData.total_pending)}
+              </span>
+            }
+          />
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: 10 }}>
+            These customers paid last month but haven't renewed. Call or WhatsApp them first.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {priorityData.customers.slice(0, 10).map((c: any, i: number) => {
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                  borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)',
+                  transition: 'background 0.15s',
+                }}>
+                  {/* Name + details */}
+                  <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/customers/${c.customer_id}`)}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.name}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', gap: 8 }}>
+                      <span>{c.area || '—'}</span>
+                      {c.mso && <span style={{ color: '#0071e3' }}>{c.mso}</span>}
+                    </div>
+                  </div>
+                  {/* Amount */}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}>
+                      ₹{fmtRs(c.pending_amount)}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
+                      ₹{Math.round(c.plan_amount)} plan
+                    </div>
+                  </div>
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    {c.phone && (
+                      <>
+                        <a href={`tel:${c.phone}`} style={{
+                          padding: 6, borderRadius: 'var(--radius-sm)', background: '#0071e315',
+                          display: 'flex', alignItems: 'center', cursor: 'pointer',
+                        }}>
+                          <Phone style={{ width: 16, height: 16, color: '#0071e3' }} />
+                        </a>
+                        <a href={waLink(c.phone, c.name, c.pending_amount)} target="_blank" rel="noreferrer" style={{
+                          padding: 6, borderRadius: 'var(--radius-sm)', background: '#25D36615',
+                          display: 'flex', alignItems: 'center', cursor: 'pointer',
+                        }}>
+                          <MessageCircle style={{ width: 16, height: 16, color: '#25D366' }} />
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {priorityData.total > 10 && (
+            <div style={{ textAlign: 'center', marginTop: 10 }}>
+              <button
+                onClick={() => navigate('/customers/not-renewed')}
+                style={{ background: 'none', border: 'none', color: '#0071e3', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                View All {priorityData.total} <ArrowRight style={{ width: 14, height: 14 }} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           SECTION 2: DUE & OVERDUE — ACTIONABLE LIST
