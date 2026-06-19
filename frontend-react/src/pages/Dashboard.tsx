@@ -2,34 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { dashboardApi } from '../api';
 import {
-  IndianRupee, TrendingUp, AlertCircle, Phone,
+  TrendingUp, AlertCircle, Phone,
   Zap, Wifi, Tv, Package, CheckCircle2, Clock, ArrowRight,
   MessageCircle, BarChart3,
 } from 'lucide-react';
 import type { DashboardInsights } from '../types';
 import { fmtRs } from '../lib/format';
-
-// ── Progress Ring ──────────────────────────────────────────────────────────
-function ProgressRing({ pct, size = 120, stroke = 10 }: { pct: number; size?: number; stroke?: number }) {
-  const radius = (size - stroke) / 2;
-  const circ = 2 * Math.PI * radius;
-  const offset = circ - (pct / 100) * circ;
-  const color = pct >= 80 ? '#34c759' : pct >= 50 ? '#ff9f0a' : '#ff3b30';
-  return (
-    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none"
-        stroke="rgba(0,0,0,0.08)" strokeWidth={stroke} />
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none"
-        stroke={color} strokeWidth={stroke} strokeLinecap="round"
-        strokeDasharray={circ} strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central"
-        style={{ fontSize: '1.5rem', fontWeight: 700, fill: color, transform: 'rotate(90deg)', transformOrigin: 'center' }}>
-        {pct}%
-      </text>
-    </svg>
-  );
-}
 
 // ── Mini Stat Card ─────────────────────────────────────────────────────────
 function MiniStat({ icon: Icon, label, value, color, sub, onClick }: {
@@ -144,6 +122,7 @@ export default function Dashboard() {
 
   const ins = insights;
   const todayData = today || {};
+  const collectionPct = ins.collection_pct || 0;
   const waPhone = (phone: string) => {
     const clean = (phone || '').replace(/\D/g, '');
     if (clean.length === 10) return `91${clean}`;
@@ -169,62 +148,103 @@ export default function Dashboard() {
           SECTION 1: COLLECTION OVERVIEW + ACTION TODAY
       ══════════════════════════════════════════════════════════════════ */}
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
-          {/* Collection Ring */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-            onClick={() => navigate('/reports')}>
-            <ProgressRing pct={ins.collection_pct} />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Collection Progress</span>
-          </div>
-
-          {/* Today's stats */}
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4, cursor: 'pointer' }}
-              onClick={() => navigate('/payments')}>
-              <IndianRupee style={{ width: 16, height: 16, color: '#34c759' }} />
-              <span style={{ fontSize: '2rem', fontWeight: 700, color: '#34c759' }}>
-                {fmtRs(ins.today_collected)}
-              </span>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-                collected today ({ins.today_count} payments)
-              </span>
+        {/* Collection Header: Month + Percentage */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Collection
             </div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
-              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/reports')}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Month Target</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{fmtRs(ins.month_target)}</div>
-              </div>
-              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/payments')}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Collected</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#34c759' }}>{fmtRs(ins.month_collected)}</div>
-              </div>
-              <div style={{ cursor: 'pointer' }} onClick={() => navigate('/unpaid')}>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#ff9f0a' }}>{fmtRs(ins.month_target - ins.month_collected)}</div>
-              </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+              ₹{fmtRs(ins.month_collected)}
+              <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-light)' }}> / ₹{fmtRs(ins.month_target)}</span>
             </div>
           </div>
+          {/* Percentage badge */}
+          <div style={{
+            padding: '6px 14px', borderRadius: 20,
+            background: collectionPct >= 80 ? '#34c75915' : collectionPct >= 50 ? '#ff9f0a15' : '#ff3b3015',
+            border: `1px solid ${collectionPct >= 80 ? '#34c75930' : collectionPct >= 50 ? '#ff9f0a30' : '#ff3b3030'}`,
+          }}>
+            <span style={{
+              fontSize: '1.2rem', fontWeight: 700,
+              color: collectionPct >= 80 ? '#34c759' : collectionPct >= 50 ? '#ff9f0a' : '#ff3b30',
+            }}>
+              {collectionPct.toFixed(1)}%
+            </span>
+          </div>
+        </div>
 
+        {/* Progress Bar */}
+        <div style={{
+          height: 24, borderRadius: 12, background: 'var(--bg-secondary, #f0f0f3)',
+          overflow: 'hidden', position: 'relative', cursor: 'pointer',
+        }} onClick={() => navigate('/reports')}>
+          <div style={{
+            height: '100%',
+            width: `${Math.min(collectionPct, 100)}%`,
+            borderRadius: 12,
+            background: collectionPct >= 80
+              ? 'linear-gradient(90deg, #30d158, #34c759)'
+              : 'linear-gradient(90deg, #ffb340, #ff9f0a)',
+            transition: 'width 0.8s ease',
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+            paddingRight: 10,
+          }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fff' }}>
+              ₹{fmtRs(ins.month_collected)}
+            </span>
+          </div>
+        </div>
+
+        {/* Collected / Pending / Today row */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <div style={{
+            flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+            background: '#34c75908', cursor: 'pointer',
+          }} onClick={() => navigate('/payments')}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Collected</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}>₹{fmtRs(ins.month_collected)}</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} payments today</div>
+          </div>
+          <div style={{
+            flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+            background: '#ff9f0a08', cursor: 'pointer',
+          }} onClick={() => navigate('/unpaid')}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}>₹{fmtRs(ins.month_target - ins.month_collected)}</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.total_unpaid_count} customers</div>
+          </div>
+          <div style={{
+            flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+            background: '#0071e308', cursor: 'pointer',
+          }} onClick={() => navigate('/payments')}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0071e3' }}>₹{fmtRs(ins.today_collected)}</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} collected</div>
+          </div>
           {/* MSO Deadline */}
-          <div style={{ padding: 14, borderRadius: 'var(--radius-sm)', background: `${deadlineColor}10`, border: `1px solid ${deadlineColor}30`, textAlign: 'center', minWidth: 130 }}>
-            <Zap style={{ width: 20, height: 20, color: deadlineColor, margin: '0 auto 4px' }} />
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>MSO Deadline</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: deadlineColor }}>
+          <div style={{
+            padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+            background: `${deadlineColor}10`, border: `1px solid ${deadlineColor}30`,
+            textAlign: 'center', cursor: 'pointer',
+          }} onClick={() => navigate('/reports')}>
+            <Zap style={{ width: 16, height: 16, color: deadlineColor, margin: '0 auto 2px' }} />
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>MSO Deadline</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: deadlineColor }}>
               {daysToDeadline > 0 ? `${daysToDeadline}d` : 'DUE!'}
             </div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>by 16th</div>
           </div>
         </div>
 
         {/* Quick Stats Row */}
-        <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-          <MiniStat icon={AlertCircle} label="Unpaid Customers" value={String(ins.total_unpaid_count)} color="#ff9f0a"
-            sub={`₹${fmtRs(ins.total_pending)} pending`} onClick={() => navigate('/unpaid')} />
+        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <MiniStat icon={AlertCircle} label="Unpaid" value={String(ins.total_unpaid_count)} color="#ff9f0a"
+            sub={`₹${fmtRs(ins.total_pending)}`} onClick={() => navigate('/unpaid')} />
           <MiniStat icon={TrendingUp} label="New This Month" value={String(todayData.new_customers_this_month || 0)} color="#0071e3"
             onClick={() => navigate('/customers')} />
-          <MiniStat icon={Wifi} label="Temp Disconnected" value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
+          <MiniStat icon={Wifi} label="Temp DC" value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
             onClick={() => navigate('/connections')} />
-          <MiniStat icon={Clock} label="Yesterday" value={fmtRs(todayData.yesterday_collected || 0)} color="#5856d6"
+          <MiniStat icon={Clock} label="Yesterday" value={`₹${fmtRs(todayData.yesterday_collected || 0)}`} color="#5856d6"
             onClick={() => navigate('/payments')} />
         </div>
       </div>
