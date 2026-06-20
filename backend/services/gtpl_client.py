@@ -433,6 +433,265 @@ def renew_stb(stb_no: str, months: int = 1) -> dict:
 
 
 # ─────────────────────────────────────────────
+#  OTP-based Renewal (for long-expired STBs)
+# ─────────────────────────────────────────────
+
+OTP_MOBILE = "7708551139"
+OTP_STATE_FILE = os.path.join(os.path.expanduser("~"), ".hermes", "scripts", "gtpl_otp_state.json")
+
+
+def _save_otp_state(stb_no, state):
+    """Save OTP session state (ViewState etc.) for later submit."""
+    import json
+    try:
+        data = {}
+        if os.path.exists(OTP_STATE_FILE):
+            with open(OTP_STATE_FILE) as f:
+                data = json.load(f)
+        data[stb_no] = state
+        with open(OTP_STATE_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        log.warning(f"Could not save OTP state: {e}")
+
+
+def _load_otp_state(stb_no):
+    """Load saved OTP session state."""
+    import json
+    try:
+        if os.path.exists(OTP_STATE_FILE):
+            with open(OTP_STATE_FILE) as f:
+                data = json.load(f)
+            return data.get(stb_no)
+    except Exception as e:
+        log.warning(f"Could not load OTP state: {e}")
+    return None
+
+
+def _clear_otp_state(stb_no):
+    """Clear OTP session state after use."""
+    import json
+    try:
+        if os.path.exists(OTP_STATE_FILE):
+            with open(OTP_STATE_FILE) as f:
+                data = json.load(f)
+            data.pop(stb_no, None)
+            with open(OTP_STATE_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def send_otp(stb_no, mobile=None):
+    """
+    Send OTP for renewal of a long-expired STB.
+    OTP goes to the specified mobile number (default: 7708551139).
+
+    Saves ViewState for later use by submit_otp().
+    """
+    if mobile is None:
+        mobile = OTP_MOBILE
+
+    if not ensure_session():
+        return {"success": False, "message": "GTPL login failed"}
+
+    url = "https://gtplsaathi.com/Renew.aspx"
+
+    try:
+        # Step 1: Search STB
+        html = _curl_get(url)
+        vs = _viewstate(html)
+        if not vs["__VIEWSTATE"]:
+            return {"success": False, "message": "Could not load Renew.aspx"}
+
+        payload = {**vs,
+                   "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                   "ctl00$ContentPlaceHolder1$txtAccount": "",
+                   "ctl00$ContentPlaceHolder1$btn_visible": "Search"}
+        _, body = _curl_post(url, payload, referer=url)
+        if not body or len(body) < 1000:
+            return {"success": False, "message": "STB search returned empty"}
+
+        if "Object moved" in body or len(body) < 5000:
+            return {"success": False, "message": f"STB {stb_no} not found"}
+
+        # Verify this box actually needs OTP
+        if "btn_SendOTP" not in body:
+            if "btn_Reconnect" in body:
+                return {"success": False,
+                        "message": f"STB {stb_no} doesn't need OTP — has direct Renew button"}
+            return {"success": False, "message": f"STB {stb_no}: No OTP or Renew button found"}
+
+        # Extract account
+        acct_match = re.search(
+            r'name="ctl00\$ContentPlaceHolder1\$txtAccount"[^>]*value="([^"]*)"', body)
+        txtAccount = acct_match.group(1) if acct_match else ""
+        if not txtAccount:
+            return {"success": False, "message": f"STB {stb_no} not found on GTPL portal"}
+
+        # Extract package name
+        pkg_match = re.search(
+            r'ContentPlaceHolder1_rptDC_chk_cn_0.*?<label[^>]*>([^<]+)</label>', body, re.S)
+        pkg_name = pkg_match.group(1).strip() if pkg_match else "Unknown"
+
+        vs2 = _viewstate(body)
+
+        # Step 2: Click Send OTP with mobile number
+        payload2 = {**vs2,
+                    "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                    "ctl00$ContentPlaceHolder1$txtAccount": txtAccount,
+                    "ctl00$ContentPlaceHolder1$txt_kycmobile": mobile,
+                    "ctl00$ContentPlaceHolder1$rptDC$ctl00$chk_cn": "on",
+                    "ctl00$ContentPlaceHolder1$btn_SendOTP": "Send OTP"}
+        _, body2 = _curl_post(url, payload2, referer=url)
+
+        if not body2 or "txt_otp" not in body2:
+            return {"success": False, "message": f"Send OTP failed — no OTP input field returned"}
+
+        if "OTP Sent" in body2 or "otp sent" in body2.lower():
+            # Save state for later submit
+            vs3 = _viewstate(body2)
+            _save_otp_state(stb_no, {
+                "viewstate": vs3["__VIEWSTATE"],
+                "viewstategenerator": vs3.get("__VIEWSTATEGENERATOR", ""),
+                "eventvalidation": vs3.get("__EVENTVALIDATION", ""),
+                "account": txtAccount,
+                "package": pkg_name,
+                "mobile": mobile,
+                "timestamp": time.time(),
+            })
+            return {"success": True,
+                    "message": f"OTP sent to {mobile} for STB {stb_no} ({pkg_name}). "
+                               f"Use submit_otp() within 5 minutes.",
+                    "package": pkg_name}
+        else:
+            snippet = body2[:300] if body2 else "empty"
+            return {"success": False, "message": f"OTP send may have failed: {snippet}"}
+
+    except Exception as e:
+        log.exception("GTPL send_otp error")
+        return {"success": False, "message": str(e)}
+
+
+def submit_otp(stb_no, otp_code, months=1):
+    """
+    Submit OTP to complete renewal of a long-expired STB.
+    Uses saved ViewState from send_otp().
+
+    otp_code: 4-6 digit OTP received on mobile
+    months: 1, 2, 3, 6, 12
+    """
+    validity_map = {1: "D30", 2: "D60", 3: "D90", 6: "D180", 12: "D360"}
+    if months not in validity_map:
+        return {"success": False, "message": f"Invalid months: {months}"}
+
+    validity = validity_map[months]
+
+    state = _load_otp_state(stb_no)
+    if not state:
+        return {"success": False,
+                "message": f"No pending OTP for STB {stb_no}. Call send_otp first, or OTP expired."}
+
+    # Check if state is fresh (within 10 minutes)
+    age = time.time() - state.get("timestamp", 0)
+    if age > 600:
+        _clear_otp_state(stb_no)
+        return {"success": False,
+                "message": f"OTP session expired ({int(age/60)} min old). Please resend OTP."}
+
+    if not ensure_session():
+        return {"success": False, "message": "GTPL login failed"}
+
+    url = "https://gtplsaathi.com/Renew.aspx"
+    txtAccount = state["account"]
+    pkg_name = state.get("package", "Unknown")
+    mobile = state.get("mobile", OTP_MOBILE)
+
+    try:
+        # Build ViewState from saved state
+        vs = {
+            "__VIEWSTATE": state["viewstate"],
+            "__VIEWSTATEGENERATOR": state["viewstategenerator"],
+            "__EVENTVALIDATION": state["eventvalidation"],
+        }
+
+        # Submit OTP + validity + btn_Reconnect
+        payload = {**vs,
+                   "__EVENTTARGET": "",
+                   "__EVENTARGUMENT": "",
+                   "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                   "ctl00$ContentPlaceHolder1$txtAccount": txtAccount,
+                   "ctl00$ContentPlaceHolder1$txt_kycmobile": mobile,
+                   "ctl00$ContentPlaceHolder1$rptDC$ctl00$report_validity": validity,
+                   "ctl00$ContentPlaceHolder1$rptDC$ctl00$chk_cn": "on",
+                   "ctl00$ContentPlaceHolder1$txt_otp": otp_code,
+                   "ctl00$ContentPlaceHolder1$btn_Reconnect": "Renew"}
+        _, body = _curl_post(url, payload, referer=url)
+
+        if body and "successfully" in body.lower():
+            _clear_otp_state(stb_no)
+            return {"success": True,
+                    "message": f"STB {stb_no} renewed via OTP for {months} month(s). "
+                               f"Package: {pkg_name}"}
+        elif body and ("invalid" in body.lower() or "wrong" in body.lower()
+                       or "expired" in body.lower() or "incorrect" in body.lower()):
+            return {"success": False,
+                    "message": f"OTP rejected — invalid/expired. Try resending OTP."}
+        else:
+            snippet = body[:200] if body else "empty"
+            return {"success": False, "message": f"OTP submit failed: {snippet}"}
+
+    except Exception as e:
+        log.exception("GTPL submit_otp error")
+        return {"success": False, "message": str(e)}
+
+
+def resend_otp(stb_no):
+    """Resend OTP for a pending OTP renewal."""
+    state = _load_otp_state(stb_no)
+    if not state:
+        return send_otp(stb_no)  # Fresh send if no state
+
+    if not ensure_session():
+        return {"success": False, "message": "GTPL login failed"}
+
+    url = "https://gtplsaathi.com/Renew.aspx"
+    txtAccount = state["account"]
+    mobile = state.get("mobile", OTP_MOBILE)
+
+    try:
+        vs = {
+            "__VIEWSTATE": state["viewstate"],
+            "__VIEWSTATEGENERATOR": state["viewstategenerator"],
+            "__EVENTVALIDATION": state["eventvalidation"],
+        }
+        payload = {**vs,
+                   "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                   "ctl00$ContentPlaceHolder1$txtAccount": txtAccount,
+                   "ctl00$ContentPlaceHolder1$txt_kycmobile": mobile,
+                   "ctl00$ContentPlaceHolder1$rptDC$ctl00$chk_cn": "on",
+                   "ctl00$ContentPlaceHolder1$btn_resend": "Resend OTP"}
+        _, body = _curl_post(url, payload, referer=url)
+
+        if body and "txt_otp" in body:
+            vs2 = _viewstate(body)
+            _save_otp_state(stb_no, {
+                "viewstate": vs2["__VIEWSTATE"],
+                "viewstategenerator": vs2.get("__VIEWSTATEGENERATOR", ""),
+                "eventvalidation": vs2.get("__EVENTVALIDATION", ""),
+                "account": txtAccount,
+                "package": state.get("package", "Unknown"),
+                "mobile": mobile,
+                "timestamp": time.time(),
+            })
+            return {"success": True, "message": f"OTP resent to {mobile} for STB {stb_no}"}
+        else:
+            return {"success": False, "message": "Resend OTP failed"}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+# ─────────────────────────────────────────────
 #  Package Change
 # ─────────────────────────────────────────────
 
