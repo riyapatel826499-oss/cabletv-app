@@ -317,6 +317,15 @@ def renew_stb(stb_no: str, months: int = 1) -> dict:
     """
     Renew STB subscription on GTPL.
     months: 1, 2, 3, 6, 12
+
+    Flow (3 steps):
+      1. Search STB on Renew.aspx
+      2. PostBack with validity selection (loads renewal amount)
+      3. Submit with btn_Reconnect
+
+    Note: Boxes expired for a very long time (e.g. due date >1 year ago)
+    will only have 'Send OTP' button — no btn_Reconnect. These need
+    manual OTP-based renewal and are reported as a failure.
     """
     validity_map = {1: "D30", 2: "D60", 3: "D90", 6: "D180", 12: "D360"}
     if months not in validity_map:
@@ -329,13 +338,12 @@ def renew_stb(stb_no: str, months: int = 1) -> dict:
     validity = validity_map[months]
 
     try:
-        # Step 1: GET fresh page
+        # Step 1: GET fresh page + Search STB
         html = _curl_get(url)
         vs = _viewstate(html)
         if not vs["__VIEWSTATE"]:
             return {"success": False, "message": "Could not load Renew.aspx"}
 
-        # Step 2: Search STB
         payload = {**vs,
                    "ctl00$ContentPlaceHolder1$txtserial": stb_no,
                    "ctl00$ContentPlaceHolder1$txtAccount": "",
@@ -344,43 +352,79 @@ def renew_stb(stb_no: str, months: int = 1) -> dict:
         if not body or len(body) < 1000:
             return {"success": False, "message": "STB search returned empty"}
 
-        # Check if STB was found
         if "Object moved" in body or len(body) < 5000:
             return {"success": False, "message": f"STB {stb_no} not found"}
 
-        # Extract account and contract info
+        # Extract account number
         acct_match = re.search(
             r'name="ctl00\$ContentPlaceHolder1\$txtAccount"[^>]*value="([^"]*)"', body)
         txtAccount = acct_match.group(1) if acct_match else ""
-
-        # Extract current plan radio value
-        radio_match = re.search(
-            r'name="ctl00\$ContentPlaceHolder1\$rptDC\$ctl00\$report_validity"[^>]*value="([^"]*)"',
-            body)
-        # Extract price shown
-        price_match = re.search(r'id="rptDC_lbl_price_0"[^>]*>([^<]+)', body)
-        price = price_match.group(1).strip() if price_match else "?"
+        if not txtAccount:
+            return {"success": False, "message": f"STB {stb_no} not found on GTPL portal"}
 
         # Extract package name
-        pkg_match = re.search(r'(?:TAMIL\s+\w+(?:\s+\w+)?)', body)
-        pkg_name = pkg_match.group(0) if pkg_match else "Unknown"
+        pkg_match = re.search(
+            r'ContentPlaceHolder1_rptDC_chk_cn_0.*?<label[^>]*>([^<]+)</label>', body, re.S)
+        pkg_name = pkg_match.group(1).strip() if pkg_match else "Unknown"
+
+        # Extract price
+        price_match = re.search(r'rptDC_lbl_price_0[^>]*>([^<]+)', body)
+        price = price_match.group(1).strip() if price_match else "?"
+
+        # Check if btn_Reconnect exists (recently expired) vs Send OTP (old expired)
+        if "btn_Reconnect" not in body:
+            if "btn_SendOTP" in body:
+                log.warning(f"STB {stb_no}: Only Send OTP available — needs manual OTP renewal")
+                return {"success": False,
+                        "otp_required": True,
+                        "message": f"STB {stb_no} requires OTP-based renewal (expired too long ago). "
+                                   f"Manual action needed."}
+            return {"success": False,
+                    "message": f"STB {stb_no}: No Renew button found on portal"}
 
         vs2 = _viewstate(body)
 
-        # Step 3: Submit renewal
+        # Step 2: PostBack — select validity period (loads renewal amount)
         payload2 = {**vs2,
+                    "__EVENTTARGET": "ctl00$ContentPlaceHolder1$rptDC$ctl00$report_validity",
+                    "__EVENTARGUMENT": "",
                     "ctl00$ContentPlaceHolder1$txtserial": stb_no,
                     "ctl00$ContentPlaceHolder1$txtAccount": txtAccount,
-                    f"ctl00$ContentPlaceHolder1$rptDC$ctl00$report_validity": validity,
-                    "ctl00$ContentPlaceHolder1$btn_Reconnect": "Renew"}
+                    "ctl00$ContentPlaceHolder1$rptDC$ctl00$report_validity": validity,
+                    "ctl00$ContentPlaceHolder1$rptDC$ctl00$chk_cn": "on"}
         _, body2 = _curl_post(url, payload2, referer=url)
+        if not body2 or len(body2) < 1000:
+            return {"success": False, "message": "Validity selection PostBack failed"}
 
-        if body2 and "successfully" in body2.lower():
-            return {"success": True,
-                    "message": f"STB {stb_no} renewed for {months} month(s). "
-                               f"Package: {pkg_name}, MRP: ₹{price}/mo"}
+        # Confirm btn_Reconnect still present after PostBack
+        if "btn_Reconnect" not in body2:
+            return {"success": False,
+                    "message": f"STB {stb_no}: Renew button disappeared after validity selection"}
+
+        # Extract renewal amount (now populated after PostBack)
+        amt_match = re.search(r'lbl_amount[^>]*>([^<]*)', body2)
+        renewal_amount = amt_match.group(1).strip() if amt_match and amt_match.group(1).strip() else ""
+
+        vs3 = _viewstate(body2)
+
+        # Step 3: Submit renewal with btn_Reconnect
+        payload3 = {**vs3,
+                    "__EVENTTARGET": "",
+                    "__EVENTARGUMENT": "",
+                    "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                    "ctl00$ContentPlaceHolder1$txtAccount": txtAccount,
+                    "ctl00$ContentPlaceHolder1$rptDC$ctl00$report_validity": validity,
+                    "ctl00$ContentPlaceHolder1$rptDC$ctl00$chk_cn": "on",
+                    "ctl00$ContentPlaceHolder1$btn_Reconnect": "Renew"}
+        _, body3 = _curl_post(url, payload3, referer=url)
+
+        if body3 and "successfully" in body3.lower():
+            msg = f"STB {stb_no} renewed for {months} month(s). Package: {pkg_name}"
+            if renewal_amount:
+                msg += f", Amount: ₹{renewal_amount}"
+            return {"success": True, "message": msg}
         else:
-            snippet = body2[:200] if body2 else "empty"
+            snippet = body3[:200] if body3 else "empty"
             return {"success": False, "message": f"Renewal failed: {snippet}"}
 
     except Exception as e:
