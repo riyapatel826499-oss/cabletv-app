@@ -160,24 +160,55 @@ class TACTVClient:
         return False
 
     async def get_stb_status(self, stb_no: str) -> dict:
-        """Get STB status from TACTV portal."""
+        """Get STB status from TACTV portal via dashboard search."""
         if not self._logged_in:
             logged_in = await self.login()
             if not logged_in:
                 return {"error": "Login failed", "stb": stb_no}
 
-        # Navigate to customer search or STB status page
-        # This needs to be explored after successful login
         try:
-            # Try to search by STB number
-            # The exact URL/form depends on the portal structure after login
-            # Placeholder — will be updated after exploring portal
+            # Search on dashboard (same as activate_stb step 1)
             await self._page.goto(
-                f"https://sms.tactv.in/index.php/customer/search/{stb_no}",
-                wait_until="networkidle", timeout=15000
+                "https://sms.tactv.in/index.php/welcome/index",
+                wait_until="networkidle", timeout=30000
             )
-            content = await self._page.content()
-            return {"stb": stb_no, "raw_content": content[:2000]}
+            await self._page.wait_for_timeout(1500)
+            await self._page.fill("#search_stb", stb_no)
+            await self._page.click("#SearchSTB")
+            await self._page.wait_for_timeout(4000)
+
+            # Extract status from search results
+            search_info = await self._page.evaluate(f"""() => {{
+                let cells = document.querySelectorAll('table tr td');
+                let result = {{status: 'not found', customer_id: null, name: null}};
+                for (let i = 0; i < cells.length; i++) {{
+                    if (cells[i].textContent.trim() === '{stb_no}') {{
+                        result.status = cells[i-1] ? cells[i-1].textContent.trim() : 'unknown';
+                        // Try to get customer name (usually a few cells before status)
+                        for (let j = Math.max(0, i-5); j < i; j++) {{
+                            let t = cells[j].textContent.trim();
+                            if (t && !/^\d+$/.test(t) && t.length > 3) {{
+                                result.name = t;
+                                break;
+                            }}
+                        }}
+                        // customer_id
+                        for (let j = i; j < Math.min(i + 10, cells.length); j++) {{
+                            let text = cells[j].textContent.trim();
+                            let m = text.match(/^(\\d+)\\(/);
+                            if (m) {{ result.customer_id = m[1]; break; }}
+                        }}
+                    }}
+                }}
+                return result;
+            }}""")
+
+            return {
+                "stb": stb_no,
+                "tactv_status": search_info.get("status", "not found"),
+                "name": search_info.get("name", ""),
+                "customer_id": search_info.get("customer_id"),
+            }
         except Exception as e:
             logger.error(f"STB status error: {e}")
             return {"error": str(e), "stb": stb_no}
