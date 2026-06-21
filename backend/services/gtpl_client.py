@@ -291,6 +291,26 @@ def _suspend_or_activate(stb_no: str, action: str) -> dict:
 
         if body4 and "successfully" in body4.lower():
             verb = "Suspended" if action == "SUSPEND" else "Activated"
+
+            # ── Post-activation verification for ACTIVATE actions ──────────
+            # Suspend.aspx "Activate" only toggles the suspend/active flag.
+            # For boxes whose subscription has EXPIRED (auto-disconnected on
+            # the 16th), this toggle runs "successfully" but does NOT restore
+            # actual signal. Only a RENEWAL (via Renew.aspx) can restore service.
+            # We verify by checking if Renew.aspx shows a btn_Reconnect.
+            if action == "ACTIVE":
+                needs_renewal = _check_needs_renewal(stb_no)
+                if needs_renewal:
+                    return {
+                        "success": False,
+                        "activated_flag": True,
+                        "needs_renewal": True,
+                        "message": (
+                            f"STB {stb_no}: Activation flag set, but subscription has expired. "
+                            f"Signal NOT restored. RENEWAL required (use Renew, not Activate)."
+                        ),
+                    }
+
             return {"success": True, "message": f"STB {stb_no} {verb} on GTPL successfully"}
         else:
             snippet = body4[:200] if body4 else "empty response"
@@ -299,6 +319,32 @@ def _suspend_or_activate(stb_no: str, action: str) -> dict:
     except Exception as e:
         log.exception("GTPL suspend/activate error")
         return {"success": False, "message": str(e)}
+
+
+def _check_needs_renewal(stb_no: str) -> bool:
+    """Check if an STB has an expired subscription that needs renewal.
+    Returns True if Renew.aspx shows a btn_Reconnect for this STB
+    (meaning the subscription has lapsed and signal is not active)."""
+    try:
+        url = "https://gtplsaathi.com/Renew.aspx"
+        html = _curl_get(url)
+        vs = _viewstate(html)
+        if not vs.get("__VIEWSTATE"):
+            return False
+
+        payload = {**vs,
+                   "ctl00$ContentPlaceHolder1$txtserial": stb_no,
+                   "ctl00$ContentPlaceHolder1$txtAccount": "",
+                   "ctl00$ContentPlaceHolder1$btn_visible": "Search"}
+        _, body = _curl_post(url, payload, referer=url)
+
+        if not body or len(body) < 5000:
+            return False
+
+        return "btn_Reconnect" in body
+    except Exception as e:
+        log.warning(f"Renewal check failed for {stb_no}: {e}")
+        return False
 
 
 def suspend_stb(stb_no: str) -> dict:
@@ -424,6 +470,19 @@ def renew_stb(stb_no: str, months: int = 1) -> dict:
                 msg += f", Amount: ₹{renewal_amount}"
             return {"success": True, "message": msg}
         else:
+            # Check for specific GTPL errors
+            if body3 and "insufficient wallet balance" in body3.lower():
+                bal_match = re.search(r'lbl_balance[^>]*>([^<]+)', body3)
+                balance = bal_match.group(1).strip() if bal_match else "unknown"
+                return {
+                    "success": False,
+                    "insufficient_balance": True,
+                    "message": (
+                        f"Insufficient Wallet Balance. "
+                        f"Need ₹{renewal_amount or price}, wallet has ₹{balance}. "
+                        f"Please recharge GTPL LCO wallet."
+                    ),
+                }
             snippet = body3[:200] if body3 else "empty"
             return {"success": False, "message": f"Renewal failed: {snippet}"}
 

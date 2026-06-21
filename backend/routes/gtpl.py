@@ -140,14 +140,62 @@ async def gtpl_suspend(data: StbRequest, current_user=Depends(require_role('admi
 
 @router.post("/activate")
 async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('admin', 'support')), db: Session = Depends(get_db)):
-    """Activate/reconnect STB on GTPL Saathi (restores signal)."""
+    """Activate/reconnect STB on GTPL Saathi (restores signal).
+
+    If the subscription has expired, activation alone won't restore signal.
+    The system will detect this and auto-renew (1 month) instead of falsely
+    reporting success.
+    """
     if not data.stb_no or not data.stb_no.startswith("338"):
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) can be managed via this portal")
     _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL activate: {data.stb_no} by {current_user['username']}")
     result = await _proxy("POST", "/activate", {"stb_no": data.stb_no})
-    # Create notification
+
     from routes.notifications import _create_notification
+
+    # If activation detected that subscription is expired → auto-renew
+    if result.get("needs_renewal"):
+        log.info(f"STB {data.stb_no}: subscription expired, auto-renewing 1 month...")
+        renew_result = await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": 1})
+        if renew_result.get("success"):
+            _create_notification(
+                db,
+                type="activation",
+                title=f"STB {data.stb_no} renewed on GTPL (auto)",
+                message=(
+                    f"Subscription expired — auto-renewed 1 month for STB {data.stb_no}. "
+                    f"Signal restored. {renew_result.get('message', '')}"
+                ),
+                status="success",
+                mso="GTPL",
+                stb_no=data.stb_no,
+                operator_id=current_user.get("operator_id", 1),
+            )
+            return {
+                "success": True,
+                "message": f"STB {data.stb_no} renewed (auto). Signal restored.",
+                "auto_renewed": True,
+                **renew_result,
+            }
+        else:
+            _create_notification(
+                db,
+                type="activation",
+                title=f"STB {data.stb_no}: Renewal needed",
+                message=(
+                    f"Activation flag set but subscription expired. "
+                    f"Auto-renewal failed: {renew_result.get('message', 'unknown')}. "
+                    f"Manual renewal required."
+                ),
+                status="error",
+                mso="GTPL",
+                stb_no=data.stb_no,
+                operator_id=current_user.get("operator_id", 1),
+            )
+            return renew_result
+
+    # Normal activation result
     _create_notification(
         db,
         type="activation",
