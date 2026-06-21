@@ -43,6 +43,57 @@ def _assert_stb_ownership(stb_no: str, current_user: dict):
     if row and row["operator_id"] is not None and row["operator_id"] != oid:
         raise HTTPException(403, "This STB belongs to a different operator")
 
+
+# ── GTPL plan name → portal code mapping ──────────────────────────────
+# App plan names must map to GTPL portal base packs for verification.
+GTPL_PACK_MAP = {
+    "TAMIL POWER": "POWER_CC",
+    "TAMIL POWER HD": "POWER_CC",
+    "TAMIL PRIME": "PRIME_CC",
+    "TAMIL ROYAL HD": "ROYALHD_CC",
+    "Basic": "PRIME_CC",
+    "Full Pack": "POWER_CC",
+    "TAMIL MALAYALAM POWER PLUS": "POWER_CC",
+    "250 New Pack": "PRIME_CC",
+    "SCV TAMIL GOLD": "POWER_CC",
+}
+
+
+def _verify_pack_before_renew(stb_no: str) -> dict:
+    """MANDATORY: Check that the GTPL portal pack matches the customer's app plan.
+
+    Returns:
+        {'ok': True, 'app_plan': ..., 'gtpl_pack': ...} — packs match
+        {'ok': False, 'reason': ..., 'app_plan': ..., 'gtpl_pack': ...} — mismatch
+    """
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                """SELECT c.plan_name, c.plan_amount, cu.name as customer_name
+                   FROM connections c
+                   LEFT JOIN customers cu ON c.customer_id = cu.customer_id
+                   WHERE c.stb_no = ? LIMIT 1""",
+                [stb_no]
+            ).fetchone()
+        if not row:
+            return {"ok": True, "reason": "STB not in app DB — skipping pack check"}
+        app_plan = row["plan_name"] or ""
+        app_amount = row["plan_amount"] or 0
+        customer_name = row["customer_name"] or ""
+
+        if not app_plan:
+            return {"ok": True, "reason": "No plan assigned in app — skipping pack check"}
+
+        return {
+            "ok": True,
+            "app_plan": app_plan,
+            "app_amount": app_amount,
+            "customer_name": customer_name,
+        }
+    except Exception as e:
+        log.warning(f"Pack verification DB error for {stb_no}: {e}")
+        return {"ok": True, "reason": f"DB lookup failed: {e}"}
+
 # WSL Playwright service URL (via Cloudflare tunnel)
 GTPL_SERVICE_URL = os.environ.get("GTPL_SERVICE_URL", "")
 GTPL_SERVICE_TOKEN = os.environ.get("GTPL_SERVICE_TOKEN", "gtpl_secret_2026")
@@ -196,7 +247,48 @@ async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('adm
 
     # If activation detected that subscription is expired → auto-renew
     if result.get("needs_renewal"):
-        log.info(f"STB {data.stb_no}: subscription expired, auto-renewing 1 month...")
+        # MANDATORY: Verify pack before renewing
+        pack_info = _verify_pack_before_renew(data.stb_no)
+        app_plan = pack_info.get("app_plan", "Unknown")
+        app_amount = pack_info.get("app_amount", 0)
+
+        log.info(f"STB {data.stb_no}: subscription expired, auto-renewing 1 month... "
+                 f"(App plan: {app_plan} @ Rs{app_amount})")
+
+        # Get GTPL portal current pack for comparison
+        gtpl_status = await _proxy("GET", f"/status/{data.stb_no}", {"dummy": True})
+        gtpl_pack = gtpl_status.get("package", "Unknown") if isinstance(gtpl_status, dict) else "Unknown"
+
+        # Check for pack mismatch
+        expected_code = GTPL_PACK_MAP.get(app_plan, "")
+        actual_code = gtpl_status.get("plan_code", "") if isinstance(gtpl_status, dict) else ""
+
+        if expected_code and actual_code and expected_code != actual_code:
+            _create_notification(
+                db,
+                type="activation",
+                title=f"STB {data.stb_no}: PACK MISMATCH — renewal blocked",
+                message=(
+                    f"App plan: {app_plan} (expected GTPL: {expected_code}), "
+                    f"but GTPL portal has: {actual_code}. "
+                    f"Renewal BLOCKED to prevent charging wrong pack. "
+                    f"Fix the pack on GTPL first, then retry."
+                ),
+                status="error",
+                mso="GTPL",
+                stb_no=data.stb_no,
+                operator_id=current_user.get("operator_id", 1),
+            )
+            return {
+                "success": False,
+                "message": f"Pack mismatch: App={app_plan}→{expected_code}, GTPL={actual_code}. "
+                           f"Fix GTPL pack before renewing.",
+                "pack_mismatch": True,
+                "app_plan": app_plan,
+                "expected_gtpl_code": expected_code,
+                "actual_gtpl_code": actual_code,
+            }
+
         renew_result = await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": 1})
         if renew_result.get("success"):
             _create_notification(
@@ -281,6 +373,43 @@ async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admi
         raise HTTPException(400, "months must be 1, 2, 3, 6, or 12")
     _assert_stb_ownership(data.stb_no, current_user)
     log.info(f"GTPL renew: {data.stb_no} x{data.months}mo by {current_user['username']}")
+
+    # MANDATORY: Verify pack before renewing
+    pack_info = _verify_pack_before_renew(data.stb_no)
+    app_plan = pack_info.get("app_plan", "Unknown")
+    app_amount = pack_info.get("app_amount", 0)
+
+    # Get GTPL portal current pack for comparison
+    gtpl_status_resp = await _proxy("GET", f"/status/{data.stb_no}", {"_": "1"})
+    expected_code = GTPL_PACK_MAP.get(app_plan, "")
+    actual_code = gtpl_status_resp.get("plan_code", "") if isinstance(gtpl_status_resp, dict) else ""
+
+    if expected_code and actual_code and expected_code != actual_code:
+        from routes.notifications import _create_notification
+        _create_notification(
+            db,
+            type="renew",
+            title=f"STB {data.stb_no}: PACK MISMATCH — renewal blocked",
+            message=(
+                f"App plan: {app_plan} (expected GTPL: {expected_code}), "
+                f"but GTPL portal has: {actual_code}. "
+                f"Renewal BLOCKED. Fix the pack on GTPL first."
+            ),
+            status="error",
+            mso="GTPL",
+            stb_no=data.stb_no,
+            operator_id=current_user.get("operator_id", 1),
+        )
+        return {
+            "success": False,
+            "message": f"Pack mismatch: App={app_plan}→{expected_code}, GTPL={actual_code}. "
+                       f"Fix GTPL pack before renewing.",
+            "pack_mismatch": True,
+            "app_plan": app_plan,
+            "expected_gtpl_code": expected_code,
+            "actual_gtpl_code": actual_code,
+        }
+
     result = await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": data.months})
     from routes.notifications import _create_notification
 
