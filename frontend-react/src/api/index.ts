@@ -159,6 +159,7 @@ export const gtplApi = {
   changePlan: (stbNo: string, planCode: string) => api.post('/gtpl/change-plan', { stb_no: stbNo, plan_code: planCode }),
   status: (stbNo: string) => api.get(`/gtpl/status/${stbNo}`),
   plans: () => api.get('/gtpl/plans'),
+  wallet: () => api.get('/gtpl/wallet'),
 };
 
 // ── Settings ──────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { dashboardApi } from '../api';
+import { dashboardApi, gtplApi } from '../api';
 import {
   TrendingUp, AlertCircle, Phone,
   Zap, Wifi, Tv, Package, CheckCircle2, Clock, ArrowRight,
@@ -103,6 +103,14 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  // GTPL wallet balance — refresh every 5 min
+  const { data: walletData } = useQuery({
+    queryKey: ['gtpl-wallet'],
+    queryFn: () => gtplApi.wallet().then(r => r.data),
+    refetchInterval: 300000,
+    retry: 1,
+  });
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -143,6 +151,29 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
+
+      {/* ═══ GTPL Wallet Balance Alert ════════════════════════════════════════ */}
+      {walletData?.success && walletData.low && (
+        <div className="glass-card animate-fade-in" style={{
+          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10,
+          background: 'rgba(255, 59, 48, 0.08)', border: '1px solid rgba(255, 59, 48, 0.3)',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <AlertCircle style={{ width: 20, height: 20, color: '#ff3b30', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 600, color: '#ff3b30' }}>GTPL Wallet Low</span>
+            <span style={{ color: 'var(--text-light)', marginLeft: 6 }}>
+              Balance: ₹{walletData.balance?.toFixed(2)} — renewals will fail. Recharge needed.
+            </span>
+          </div>
+        </div>
+      )}
+      {walletData?.success && !walletData.low && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-light)' }}>
+          <Zap style={{ width: 14, height: 14, color: '#34c759' }} />
+          GTPL Wallet: ₹{walletData.balance?.toFixed(2)}
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════
           SECTION 1: COLLECTION OVERVIEW + ACTION TODAY
