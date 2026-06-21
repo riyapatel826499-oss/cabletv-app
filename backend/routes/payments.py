@@ -307,6 +307,66 @@ def fix_collected_at(
     return {"remaining_null": count, "message": "Fixed payments with NULL collected_at"}
 
 
+@router.post("/payments/fix-expiry")
+def fix_connection_expiry(
+    connection_id: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Fix a connection's expiry_date based on its latest payment's month_year + months_paid.
+    Billing cycle: 13th → 12th. So month_year=05-2026, months=1 → expiry=2026-06-12.
+    """
+    from sqlalchemy import text as sql_text
+
+    # Get the latest payment for this connection
+    row = db.execute(sql_text("""
+        SELECT month_year, months_paid FROM payments
+        WHERE connection_id = :cid AND (deleted IS NULL OR deleted = 0)
+        ORDER BY id DESC LIMIT 1
+    """), {"cid": connection_id}).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No payments found for this connection")
+
+    my = row[0]  # "05-2026"
+    months = row[1] or 1
+
+    # Parse month_year (MM-YYYY)
+    parts = my.split("-")
+    start_month = int(parts[0])
+    start_year = int(parts[1])
+
+    # Calculate expiry: 12th of (start_month + months)
+    expiry_month = start_month + months
+    expiry_year = start_year
+    while expiry_month > 12:
+        expiry_month -= 12
+        expiry_year += 1
+    correct_expiry = f"{expiry_year}-{expiry_month:02d}-12"
+
+    # Get current expiry for comparison
+    curr = db.execute(sql_text(
+        "SELECT expiry_date, stb_no FROM connections WHERE id = :cid"
+    ), {"cid": connection_id}).fetchone()
+    old_expiry = curr[0] if curr else "?"
+    stb = curr[1] if curr else "?"
+
+    # Update
+    db.execute(sql_text(
+        "UPDATE connections SET expiry_date = :exp WHERE id = :cid"
+    ), {"exp": correct_expiry, "cid": connection_id})
+    db.commit()
+
+    invalidate_dashboard(op_id(current_user))
+    return {
+        "connection_id": connection_id,
+        "stb_no": stb,
+        "old_expiry": old_expiry,
+        "new_expiry": correct_expiry,
+        "based_on": f"month_year={my}, months_paid={months}",
+    }
+
+
 @router.post("/payments/bulk-update-dates")
 def bulk_update_dates(
     updates: list[dict],
