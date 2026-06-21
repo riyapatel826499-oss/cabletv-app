@@ -2413,18 +2413,16 @@ async function recordPayment(e) {
   const monthYear = monthVal.split('-').reverse().join('-');
 
   // Check if customer already paid for this month
+  // FIX: Query by month_year (billing month), NOT collected_at date range.
+  // Old code used collected_at range which caused false "Already Paid" when a
+  // previous month's payment was collected in the current month (late payment).
   if (!window._payDuplicateProceed) {
     try {
-      const now = new Date();
-      const from = monthVal + '-01';
-      const [yy, mm] = monthVal.split('-');
-      const lastDay = new Date(parseInt(yy), parseInt(mm), 0).getDate();
-      const to = monthVal + '-' + lastDay;
-      const data = await api('/api/payments/all?per_page=10&date_from=' + from + '&date_to=' + to + '&customer_id=' + custId);
-      const existing = (data.payments || []).filter(p => p.source === 'Local');
+      const data = await api('/api/payments/history?per_page=10&customer_id=' + custId + '&month_year=' + monthYear);
+      const existing = (data.payments || []);
       if (existing.length > 0) {
         const last = existing[0];
-        const lastDate = fmtDate(last.date);
+        const lastDate = fmtDate(last.collected_at);
         const lastAmt = fmtRs(last.amount);
         showDuplicateWarning(custId, monthYear, lastDate, lastAmt, existing.length);
         return;
