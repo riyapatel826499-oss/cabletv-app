@@ -63,6 +63,46 @@ GTPL_PLANS = {
 _headers = {"Authorization": f"Bearer {GTPL_SERVICE_TOKEN}"}
 _timeout = httpx.Timeout(120.0, connect=10.0)  # GTPL ops can take 60-90s
 
+# Admin phone for low-balance WhatsApp alerts
+ADMIN_PHONE = os.environ.get("ADMIN_PHONE", "919787225577")
+
+
+def _notify_low_wallet(db, balance: float, stb_no: str = None, operator_id: int = 1):
+    """Create app notification + WhatsApp alert when GTPL wallet is low."""
+    from routes.notifications import _create_notification
+
+    stb_ctx = f" (while activating STB {stb_no})" if stb_no else ""
+    msg = (
+        f"GTPL LCO wallet balance is LOW: Rs {balance:.2f}"
+        f"{stb_ctx}. Recharge needed — renewals will fail."
+    )
+
+    # 1. App notification
+    _create_notification(
+        db,
+        type="wallet_alert",
+        title="GTPL Wallet Low Balance",
+        message=msg,
+        status="error",
+        mso="GTPL",
+        stb_no=stb_no,
+        operator_id=operator_id,
+    )
+
+    # 2. WhatsApp alert to admin
+    try:
+        import json, urllib.request
+        wa_url = "http://localhost:3000/send"
+        payload = json.dumps({
+            "jid": f"{ADMIN_PHONE}@s.whatsapp.net",
+            "message": f"⚠️ GTPL Wallet Low Balance\n\nBalance: Rs {balance:.2f}\n{stb_ctx or 'Auto-renewals will fail until recharged.'}\n\nRecharge GTPL LCO wallet immediately."
+        }).encode()
+        req = urllib.request.Request(wa_url, data=payload,
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass  # WA bridge may be down — app notification is the primary channel
+
 
 async def _proxy(method: str, path: str, json_data: dict = None) -> dict:
     """Proxy request to WSL Playwright service."""
@@ -179,20 +219,43 @@ async def gtpl_activate(data: StbRequest, current_user=Depends(require_role('adm
                 **renew_result,
             }
         else:
-            _create_notification(
-                db,
-                type="activation",
-                title=f"STB {data.stb_no}: Renewal needed",
-                message=(
-                    f"Activation flag set but subscription expired. "
-                    f"Auto-renewal failed: {renew_result.get('message', 'unknown')}. "
-                    f"Manual renewal required."
-                ),
-                status="error",
-                mso="GTPL",
-                stb_no=data.stb_no,
-                operator_id=current_user.get("operator_id", 1),
-            )
+            # Auto-renewal failed — check if due to insufficient wallet balance
+            if renew_result.get("insufficient_balance"):
+                _notify_low_wallet(
+                    db,
+                    balance=0,  # exact balance unknown from proxy; message says it
+                    stb_no=data.stb_no,
+                    operator_id=current_user.get("operator_id", 1),
+                )
+                _create_notification(
+                    db,
+                    type="activation",
+                    title=f"STB {data.stb_no}: Activation FAILED — GTPL wallet low",
+                    message=(
+                        f"Subscription expired and auto-renewal failed: "
+                        f"{renew_result.get('message', 'Insufficient wallet balance')}. "
+                        f"Signal NOT restored. Recharge GTPL wallet and retry."
+                    ),
+                    status="error",
+                    mso="GTPL",
+                    stb_no=data.stb_no,
+                    operator_id=current_user.get("operator_id", 1),
+                )
+            else:
+                _create_notification(
+                    db,
+                    type="activation",
+                    title=f"STB {data.stb_no}: Renewal needed",
+                    message=(
+                        f"Activation flag set but subscription expired. "
+                        f"Auto-renewal failed: {renew_result.get('message', 'unknown')}. "
+                        f"Manual renewal required."
+                    ),
+                    status="error",
+                    mso="GTPL",
+                    stb_no=data.stb_no,
+                    operator_id=current_user.get("operator_id", 1),
+                )
             return renew_result
 
     # Normal activation result
@@ -220,11 +283,17 @@ async def gtpl_renew(data: RenewRequest, current_user=Depends(require_role('admi
     log.info(f"GTPL renew: {data.stb_no} x{data.months}mo by {current_user['username']}")
     result = await _proxy("POST", "/renew", {"stb_no": data.stb_no, "months": data.months})
     from routes.notifications import _create_notification
+
+    # Check for insufficient balance
+    if not result.get("success") and result.get("insufficient_balance"):
+        _notify_low_wallet(db, balance=0, stb_no=data.stb_no,
+                           operator_id=current_user.get("operator_id", 1))
+
     _create_notification(
         db,
         type="renew",
         title=f"STB {data.stb_no} renewed on GTPL",
-        message=f"{data.months} month(s) renewal for STB {data.stb_no} by {current_user.get('name', current_user['username'])}",
+        message=f"{data.months} month(s) renewal for STB {data.stb_no} by {current_user.get('name', current_user['username'])}. {result.get('message', '')}",
         status="success" if result.get("success") else "error",
         mso="GTPL",
         stb_no=data.stb_no,
@@ -250,6 +319,13 @@ async def gtpl_status(stb_no: str, current_user=Depends(require_role('admin', 's
         raise HTTPException(400, "Only GTPL STBs (338xxxxx) supported")
     _assert_stb_ownership(stb_no, current_user)
     return await _proxy("GET", f"/status/{stb_no}")
+
+
+@router.get("/wallet")
+async def gtpl_wallet(current_user=Depends(require_role('admin', 'support'))):
+    """Get current GTPL LCO wallet balance."""
+    result = await _proxy("GET", "/wallet", None)
+    return result
 
 
 @router.get("/plans")

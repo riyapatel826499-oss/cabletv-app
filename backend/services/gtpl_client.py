@@ -922,3 +922,40 @@ def get_stb_status(stb_no: str) -> dict:
     except Exception as e:
         log.exception("GTPL status check error")
         return {"success": False, "message": str(e)}
+
+
+# ─────────────────────────────────────────────
+#  Wallet Balance Check
+# ─────────────────────────────────────────────
+
+WALLET_LOW_THRESHOLD = 300.0  # Alert when balance drops below this
+
+
+def get_wallet_balance() -> dict:
+    """Get current GTPL LCO wallet balance.
+
+    Returns:
+        {'success': True, 'balance': float, 'low': bool}
+    """
+    try:
+        if not ensure_session():
+            return {"success": False, "message": "GTPL login failed"}
+
+        html = _curl_get("https://gtplsaathi.com/Renew.aspx")
+        if not html or len(html) < 5000:
+            return {"success": False, "message": "Could not load GTPL portal"}
+
+        m = re.search(r'lbl_balance[^>]*>([^<]+)', html)
+        if not m:
+            return {"success": False, "message": "Balance field not found"}
+
+        balance = float(m.group(1).strip())
+        return {
+            "success": True,
+            "balance": balance,
+            "low": balance < WALLET_LOW_THRESHOLD,
+            "threshold": WALLET_LOW_THRESHOLD,
+        }
+    except Exception as e:
+        log.exception("GTPL wallet balance check error")
+        return {"success": False, "message": str(e)}
