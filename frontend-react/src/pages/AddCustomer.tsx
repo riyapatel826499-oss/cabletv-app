@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { plansApi, customersApi } from '../api';
+import { plansApi, customersApi, stbApi } from '../api';
 import { fmtRs } from '../lib/format';
 import {
   UserPlus,
@@ -24,15 +24,6 @@ interface Plan {
 const MSOS = ['GTPL', 'TACTV', 'SCV'] as const;
 type MSO = (typeof MSOS)[number];
 
-// Detect MSO from STB number prefix.
-function detectMso(stb: string): MSO {
-  const s = stb.trim();
-  if (!s) return 'GTPL';
-  if (/^17[23]/.test(s)) return 'TACTV';
-  if (/^5000/.test(s)) return 'SCV';
-  return 'GTPL';
-}
-
 export default function AddCustomer() {
   const navigate = useNavigate();
 
@@ -50,9 +41,6 @@ export default function AddCustomer() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ customerId: string; name: string } | null>(null);
 
-  // Auto-detect MSO when STB is typed.
-  const detectedMso = useMemo(() => detectMso(stbNumber), [stbNumber]);
-
   // Plans filtered by selected MSO.
   const { data: plansData } = useQuery({
     queryKey: ['plans', mso],
@@ -60,6 +48,14 @@ export default function AddCustomer() {
       (await plansApi.list({ status: 'Active', network: mso })).data as { plans: Plan[] },
   });
   const plans = plansData?.plans ?? [];
+
+  // Fetch available (spare) STBs from inventory, filtered by selected MSO.
+  const { data: stbData } = useQuery({
+    queryKey: ['stb-available', mso],
+    queryFn: async () =>
+      (await stbApi.available({ network: mso })).data as { available: { id: number; stb_no: string }[]; total: number },
+  });
+  const availableStbs = stbData?.available ?? [];
 
   const createMut = useMutation({
     mutationFn: async (payload: Record<string, unknown>) =>
@@ -74,10 +70,6 @@ export default function AddCustomer() {
       setError(msg);
     },
   });
-
-  function applyDetectedMso() {
-    if (stbNumber.trim()) setMso(detectedMso);
-  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -312,17 +304,21 @@ export default function AddCustomer() {
               <label style={labelStyle}>
                 STB Number <span style={{ color: '#ff3b30' }}>*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={stbNumber}
                 onChange={(e) => setStbNumber(e.target.value)}
-                onBlur={applyDetectedMso}
-                style={inputStyle}
-                placeholder="e.g. 5000123456"
-              />
-              {stbNumber.trim() && (
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 4 }}>
-                  Detected MSO: <strong style={{ color: 'var(--text)' }}>{detectedMso}</strong>
+                style={{ ...inputStyle, cursor: 'pointer' }}
+              >
+                <option value="">Select an STB</option>
+                {availableStbs.map((s) => (
+                  <option key={s.id} value={s.stb_no}>
+                    {s.stb_no}
+                  </option>
+                ))}
+              </select>
+              {availableStbs.length === 0 && (
+                <p style={{ fontSize: '0.72rem', color: '#ff9f0a', marginTop: 4 }}>
+                  No spare STBs in inventory for {mso}. Add STBs to inventory first.
                 </p>
               )}
             </div>
@@ -332,6 +328,7 @@ export default function AddCustomer() {
                 value={mso}
                 onChange={(e) => {
                   setMso(e.target.value as MSO);
+                  setStbNumber('');
                   setPlanId('');
                 }}
                 style={{ ...inputStyle, cursor: 'pointer' }}
