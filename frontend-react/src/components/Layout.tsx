@@ -180,9 +180,10 @@ export default function Layout() {
 
   useEffect(() => {
     if (isStandalone) return; // already installed
-    const handler = (e: Event) => {
-      e.preventDefault(); // stop Chrome's default infobar
+    const handler = (e: any) => {
+      // Save the event but DON'T preventDefault — let Chrome show its native prompt too
       setDeferredPrompt(e);
+      // Show our custom banner as well (unless previously dismissed)
       const dismissed = localStorage.getItem('android-install-dismissed') === 'true';
       if (!dismissed) {
         setTimeout(() => setShowAndroidInstall(true), 2000);
