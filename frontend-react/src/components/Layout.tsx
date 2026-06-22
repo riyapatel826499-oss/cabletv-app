@@ -40,7 +40,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 // master = Prabhu (full), admin = operator admin (e.g. SSN Cables)
 // collection_agent / agent = collection-focused staff
 // service roles handled under collection_agent for now
-type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support' | 'collection_point';
+type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support' | 'service_agent' | 'collection_point';
 
 const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support'];
 const CP: Role[] = [...ALL_ROLES, 'collection_point'];
@@ -57,7 +57,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/unpaid':              ALL_ROLES,                           // Collection work
   '/not-renewed':         ALL_ROLES,
   // Admin+ only
-  '/add-customer':        ['master', 'admin'],
+  '/add-customer':        ['master', 'admin', 'support', 'service_agent'],
   '/payments':            ['master', 'admin'],
   '/plans':               ['master', 'admin'],
   '/reminders':           ['master', 'admin'],

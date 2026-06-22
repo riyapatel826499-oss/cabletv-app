@@ -69,7 +69,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/unpaid':              _ALL,
   '/not-renewed':         _ALL,
   // Admin+ only
-  '/add-customer':        ['master', 'admin'],
+  '/add-customer':        ['master', 'admin', 'support', 'service_agent'],
   '/payments':            ['master', 'admin'],
   '/plans':               ['master', 'admin'],
   '/reminders':           ['master', 'admin'],
