@@ -86,17 +86,20 @@ export default function AddCustomer() {
     if (!name.trim()) return setError('Name is required');
     if (!phone.trim()) return setError('Phone is required');
     if (!area.trim()) return setError('Area is required');
+    if (!stbNumber.trim()) return setError('STB Number is required');
+    if (!planId) return setError('Plan is required');
+    if (!connectionFee.trim()) return setError('Connection Fee is required');
 
     const payload: Record<string, unknown> = {
       name: name.trim(),
       phone: phone.trim(),
       area: area.trim(),
       address: address.trim() || undefined,
-      stb_number: stbNumber.trim() || undefined,
+      stb_number: stbNumber.trim(),
       activation_date: activationDate,
+      plan_id: Number(planId),
+      connection_fee: Number(connectionFee),
     };
-    if (planId) payload.plan_id = Number(planId);
-    if (connectionFee) payload.connection_fee = Number(connectionFee);
 
     createMut.mutate(payload);
   }
@@ -307,7 +310,7 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                STB Number <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                STB Number <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <input
                 type="text"
@@ -349,14 +352,14 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                Plan <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                Plan <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <select
                 value={planId}
                 onChange={(e) => setPlanId(e.target.value)}
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
-                <option value="">No plan</option>
+                <option value="">Select a plan</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} — {fmtRs(p.amount)}
@@ -383,7 +386,7 @@ export default function AddCustomer() {
           {/* Connection Fee */}
           <div>
             <label style={labelStyle}>
-              Connection Fee <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+              Connection Fee <span style={{ color: '#ff3b30' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <IndianRupee
