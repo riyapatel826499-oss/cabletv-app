@@ -655,7 +655,7 @@ export default function CustomerDetailPage() {
           <InfoRow icon={Phone} label="Phone" value={customer.phone} />
           {customer.phone2 && <InfoRow icon={Phone} label="Phone 2" value={customer.phone2} />}
           <InfoRow icon={MapPin} label="Area" value={customer.area} />
-          <InfoRow icon={MapPin} label="Address" value={customer.address} />
+          <InfoRow icon={MapPin} label="Address" value={customer.address || [customer.area, customer.city].filter(Boolean).join(', ') || null} />
           <InfoRow
             icon={IndianRupee}
             label="Plan Amount"

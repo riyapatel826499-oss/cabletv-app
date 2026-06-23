@@ -60,7 +60,8 @@ def _customer_to_dict(row):
         "status": row["status"],
     }
     # Add optional fields if available
-    for field in ["surrendered_date", "surrender_reason", "stb_no", "conn_status"]:
+    for field in ["surrendered_date", "surrender_reason", "stb_no", "conn_status",
+                  "plan_name", "plan_amount", "expiry_date", "activation_date", "mso"]:
         try:
             d[field] = row[field] if row[field] is not None else None
         except (IndexError, KeyError):
