@@ -260,13 +260,17 @@ export default function RecordPayment() {
     enabled: searchTerm.length >= 2 && !selectedCustomer,
   });
 
-  // Auto-select if prefill
+  // Auto-select if prefill — also load connections + plans + amounts
   useEffect(() => {
     if (prefill.customerId && !selectedCustomer) {
       customersApi.get(String(prefill.customerId)).then((res) => {
-        setSelectedCustomer(res.data as unknown as CustomerSearchResult);
+        const c = res.data as unknown as CustomerSearchResult;
+        setSelectedCustomer(c);
+        setSearchTerm(c.name);
+        loadCustomerDetail(c);
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill.customerId]);
 
   // When customer is selected, fetch full detail + connections + plans
