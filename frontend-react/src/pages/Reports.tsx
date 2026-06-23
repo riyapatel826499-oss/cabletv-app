@@ -12,7 +12,7 @@ import {
   Search,
   TrendingUp,
   Users,
-  IndianRupee,
+  Wallet,
   Trash2,
   X,
   AlertTriangle,
@@ -237,7 +237,7 @@ export default function Reports() {
           {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <StatCard icon={Users} label="Transactions" value={String(paidTotal)} color="#34c759" />
-            <StatCard icon={IndianRupee} label="Total Collected" value={fmtRs(paidTotalAmount)} color="#0071e3" />
+            <StatCard icon={Wallet} label="Total Collected" value={fmtRs(paidTotalAmount)} color="#0071e3" />
             <StatCard icon={TrendingUp} label="Avg Amount" value={paidTotal > 0 ? fmtRs(Math.round(paidTotalAmount / paidTotal)) : '--'} color="#ff9f0a" />
           </div>
 
@@ -354,7 +354,7 @@ export default function Reports() {
           {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <StatCard icon={Users} label="Unpaid Customers" value={String(unpaidTotal)} color="#ff3b30" />
-            <StatCard icon={IndianRupee} label="Pending Amount" value={fmtRs(unpaidPending)} color="#ff9f0a" />
+            <StatCard icon={Wallet} label="Pending Amount" value={fmtRs(unpaidPending)} color="#ff9f0a" />
           </div>
 
           {/* Search + Export */}

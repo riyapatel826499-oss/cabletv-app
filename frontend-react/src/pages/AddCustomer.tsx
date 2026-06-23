@@ -10,9 +10,7 @@ import {
   AlertCircle,
   ArrowLeft,
   Tv,
-  IndianRupee,
 } from 'lucide-react';
-
 interface Plan {
   id: number;
   name: string;
@@ -386,7 +384,7 @@ export default function AddCustomer() {
               Connection Fee <span style={{ color: '#ff3b30' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
-              <IndianRupee
+              <span
                 style={{
                   position: 'absolute',
                   left: 12,
@@ -395,8 +393,11 @@ export default function AddCustomer() {
                   width: 18,
                   height: 18,
                   color: 'var(--text-light)',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  pointerEvents: 'none',
                 }}
-              />
+              >₹</span>
               <input
                 type="number"
                 value={connectionFee}

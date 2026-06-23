@@ -24,7 +24,7 @@ import {
   PowerOff,
   Package,
   Wallet,
-  IndianRupee,
+  Receipt,
   Minus,
   Plus as PlusIcon,
   Phone,
@@ -101,7 +101,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/payments/new',   label: 'Record Payment', icon: CreditCard },
       { to: '/my-collections', label: 'My Collections', icon: Wallet },
-      { to: '/payments',       label: 'Payments',       icon: IndianRupee },
+      { to: '/payments',       label: 'Payments',       icon: Receipt },
     ],
   },
   {
@@ -846,7 +846,7 @@ export default function Layout() {
                 : '0 6px 20px rgba(52, 199, 89, 0.4)';
             }}
           >
-            <IndianRupee style={{ width: 20, height: 20 }} />
+            <Receipt style={{ width: 20, height: 20 }} />
             Collect
           </button>
         )}

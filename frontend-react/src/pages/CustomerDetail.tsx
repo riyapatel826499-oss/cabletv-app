@@ -8,7 +8,7 @@ import {
   Phone,
   MapPin,
   Wifi,
-  IndianRupee,
+  Tag,
   Clock,
   Plus,
   Pencil,
@@ -658,9 +658,9 @@ export default function CustomerDetailPage() {
           <InfoRow icon={MapPin} label="Area" value={customer.area} />
           <InfoRow icon={MapPin} label="Address" value={customer.address || [customer.area, customer.city].filter(Boolean).join(', ') || null} />
           <InfoRow
-            icon={IndianRupee}
+            icon={Tag}
             label="Plan Amount"
-            value={customer.plan_amount ? `\u20B9${customer.plan_amount}/mo` : null}
+            value={customer.plan_amount ? fmtRs(customer.plan_amount) + '/mo' : null}
           />
           <InfoRow
             icon={Clock}

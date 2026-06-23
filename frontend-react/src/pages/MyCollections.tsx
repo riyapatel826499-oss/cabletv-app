@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
-import { IndianRupee, Wallet, TrendingUp, Download } from 'lucide-react';
+import { Wallet, TrendingUp, Download } from 'lucide-react';
 
 export default function MyCollections() {
   const [fromDate, setFromDate] = useState('');
@@ -82,7 +82,7 @@ export default function MyCollections() {
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ padding: 10, borderRadius: 'var(--radius-xs)', background: 'rgba(52,199,89,0.1)' }}>
-              <IndianRupee style={{ width: 22, height: 22, color: '#34c759' }} />
+              <Wallet style={{ width: 22, height: 22, color: '#34c759' }} />
             </div>
             <div>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>

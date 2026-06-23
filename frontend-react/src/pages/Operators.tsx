@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { operatorsApi } from '../api';
 import { fmtRs } from '../lib/format';
 import {
-  Building2, Plus, Users, Wifi, IndianRupee, X,
+  Building2, Plus, Users, Wifi, Wallet, X,
   KeyRound, Ban, Search,
 } from 'lucide-react';
 
@@ -142,7 +142,7 @@ export default function Operators() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
                   <Stat icon={Users} label="Customers" value={op.customer_count ?? 0} />
                   <Stat icon={Wifi} label="Connections" value={op.connection_count ?? 0} />
-                  <Stat icon={IndianRupee} label="This Month" value={fmtRs(op.month_collection ?? 0)} />
+                  <Stat icon={Wallet} label="This Month" value={fmtRs(op.month_collection ?? 0)} />
                   <Stat icon={Building2} label="Staff" value={op.staff_count ?? 0} />
                 </div>
 

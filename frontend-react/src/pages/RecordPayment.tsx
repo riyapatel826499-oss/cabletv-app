@@ -5,7 +5,7 @@ import StbCopy from '../components/StbCopy';
 import { customersApi, paymentsApi, plansApi, settingsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
-import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, IndianRupee, Info } from 'lucide-react';
+import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, Receipt, Info } from 'lucide-react';
 
 type CustomerSearchResult = CustomerListItem;
 
@@ -752,7 +752,7 @@ export default function RecordPayment() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: (payCalc.discount > 0 || discountAmt > 0) ? 6 : 0, borderTop: (payCalc.discount > 0 || discountAmt > 0) ? '0.5px solid var(--border)' : 'none' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Amount to Pay</span>
                     <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.3rem', fontWeight: 700, color: '#0071e3' }}>
-                      <IndianRupee style={{ width: 18, height: 18 }} />{finalAmount}
+                      {fmtRs(finalAmount)}
                     </span>
                   </div>
                 </div>
@@ -846,7 +846,7 @@ export default function RecordPayment() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 12px',
                 }}>
-                  <IndianRupee style={{ width: 24, height: 24, color: '#0071e3' }} />
+                  <Receipt style={{ width: 24, height: 24, color: '#0071e3' }} />
                 </div>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>Confirm Payment</h3>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 4 }}>
@@ -905,7 +905,7 @@ export default function RecordPayment() {
                 }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Amount</span>
                   <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.4rem', fontWeight: 700, color: '#0071e3' }}>
-                    <IndianRupee style={{ width: 20, height: 20 }} />{finalAmount}
+                    {fmtRs(finalAmount)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>

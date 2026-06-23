@@ -6,7 +6,6 @@ import { fmtRs, fmtDate } from '../lib/format';
 import StbCopy from '../components/StbCopy';
 import {
   UserX,
-  IndianRupee,
   Search,
   Download,
   AlertCircle,
@@ -203,7 +202,7 @@ export default function NotRenewed() {
         </div>
         <div className="glass-card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,59,48,0.1)' }}>
-            <IndianRupee style={{ width: 22, height: 22, color: '#ff3b30' }} />
+            <UserX style={{ width: 22, height: 22, color: '#ff3b30' }} />
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>

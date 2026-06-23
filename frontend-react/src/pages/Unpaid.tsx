@@ -3,7 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { customersApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Search, Users, IndianRupee, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
 
 interface UnpaidCustomer {
@@ -86,7 +86,7 @@ export default function Unpaid() {
         </div>
         <div className="glass-card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ padding: 12, borderRadius: 10, background: 'rgba(255,159,10,0.1)' }}>
-            <IndianRupee style={{ width: 22, height: 22, color: '#ff9f0a' }} />
+            <AlertCircle style={{ width: 22, height: 22, color: '#ff9f0a' }} />
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Amount</p>
