@@ -4,6 +4,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { customersApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { Search, ChevronLeft, ChevronRight, Users } from 'lucide-react';
+import StbCopy from '../components/StbCopy';
 
 const PER_PAGE = 20;
 
@@ -140,9 +141,9 @@ export default function Customers() {
                     <td style={{ fontWeight: 500 }}>
                       {c.name}
                       {c.stb_no && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'block', marginTop: 2 }}>
-                          STB: {c.stb_no}
-                        </span>
+                        <div style={{ marginTop: 3 }}>
+                          <StbCopy stb={c.stb_no} />
+                        </div>
                       )}
                     </td>
                     <td style={{ color: 'var(--text-light)' }}>{c.phone || '--'}</td>

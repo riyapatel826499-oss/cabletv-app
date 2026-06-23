@@ -4,6 +4,7 @@ import { customersApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Search, Users, IndianRupee, ChevronLeft, ChevronRight } from 'lucide-react';
+import StbCopy from '../components/StbCopy';
 
 interface UnpaidCustomer {
   customer_id: string;
@@ -192,7 +193,7 @@ export default function Unpaid() {
                       </span>
                     </td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.phone || '--'}</td>
-                    <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.stb_no || '--'}</td>
+                    <td style={{ fontSize: '0.82rem' }}>{c.stb_no ? <StbCopy stb={c.stb_no} prefix="" /> : '--'}</td>
                     <td>{c.area || '--'}</td>
                     <td>
                       {c.plan_name ? (

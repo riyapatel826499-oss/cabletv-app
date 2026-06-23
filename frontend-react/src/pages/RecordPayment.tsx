@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import StbCopy from '../components/StbCopy';
 import { customersApi, paymentsApi, plansApi, settingsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
@@ -540,8 +541,8 @@ export default function RecordPayment() {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                       <div>
                         <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>{c.name}</p>
-                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                          {c.phone || 'No phone'} {c.stb_no ? `| STB: ${c.stb_no}` : ''}
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>{c.phone || 'No phone'}</span> {c.stb_no && <StbCopy stb={c.stb_no} />}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
@@ -622,7 +623,7 @@ export default function RecordPayment() {
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)' }}>
                     <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>STB No</p>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.stb_no || '—'}</p>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.stb_no ? <StbCopy stb={conn.stb_no} prefix="" /> : '—'}</p>
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)' }}>
                     <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>MSO</p>
@@ -866,7 +867,7 @@ export default function RecordPayment() {
                 {conn?.stb_no && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>STB No</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{conn.stb_no}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{conn.stb_no ? <StbCopy stb={conn.stb_no} prefix="" /> : '—'}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>

@@ -25,6 +25,7 @@ import {
   ArrowLeftRight,
   RotateCcw,
 } from 'lucide-react';
+import StbCopy from '../components/StbCopy';
 
 interface CustomerDetail {
   id: number;
@@ -693,8 +694,8 @@ export default function CustomerDetailPage() {
                     <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
                       {conn.type || conn.package_name || 'Connection'}
                     </p>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                      {conn.stb_no} &middot; {conn.status}
+                    <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <StbCopy stb={conn.stb_no} prefix="" /> <span>&middot; {conn.status}</span>
                     </p>
                   </div>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>

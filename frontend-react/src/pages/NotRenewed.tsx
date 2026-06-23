@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
+import StbCopy from '../components/StbCopy';
 import {
   UserX,
   IndianRupee,
@@ -297,7 +298,7 @@ export default function NotRenewed() {
                       </span>
                     </td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.phone || '--'}</td>
-                    <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.stb_no || '--'}</td>
+                    <td style={{ fontSize: '0.82rem' }}>{c.stb_no ? <StbCopy stb={c.stb_no} prefix="" /> : '--'}</td>
                     <td style={{ fontSize: '0.85rem' }}>{c.area || '--'}</td>
                     <td style={{ fontSize: '0.85rem' }}>{c.plan_name || '--'}</td>
                     <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>

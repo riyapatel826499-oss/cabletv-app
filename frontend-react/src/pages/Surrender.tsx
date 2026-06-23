@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { surrenderApi } from '../api';
 import { fmtDate } from '../lib/format';
+import StbCopy from '../components/StbCopy';
 import {
   CheckCircle2,
   XCircle,
@@ -324,8 +325,8 @@ export default function Surrender() {
                     <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)' }}>
                       {String(r.customer_name || 'Unknown')}
                     </p>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                      ID: {String(r.customer_id || '--')} · STB: {String(r.stb_no || '--')}
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      ID: {String(r.customer_id || '--')} {(r as any).stb_no ? <StbCopy stb={String((r as any).stb_no)} /> : null}
                     </p>
                   </div>
 

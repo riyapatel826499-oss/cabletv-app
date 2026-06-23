@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi, paymentsApi } from '../api';
 import { fmtRs, fmtDateTime } from '../lib/format';
+import StbCopy from '../components/StbCopy';
 import { useAuth } from '../hooks/useAuth';
 import {
   FileBarChart,
@@ -306,7 +307,9 @@ export default function Reports() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem' }}>{p.customer_name || '--'}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1 }}>{p.customer_id}{p.stb_no ? ` . STB ${p.stb_no}` : ''}</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span>{p.customer_id}</span>{(p as any).stb_no ? <><span>.</span><StbCopy stb={(p as any).stb_no} prefix="STB " /></> : null}
+                      </p>
                     </div>
                     <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#34c759', whiteSpace: 'nowrap' }}>{fmtRs(p.amount)}</p>
                   </div>
@@ -405,7 +408,9 @@ export default function Reports() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem' }}>{String(c.name || '--')}</p>
-                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1 }}>{String(c.customer_id || '')}{c.stb_no ? ` . STB ${c.stb_no}` : ''}</p>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                          <span>{String(c.customer_id || '')}</span>{(c as any).stb_no ? <><span>.</span><StbCopy stb={String((c as any).stb_no)} prefix="STB " /></> : null}
+                        </p>
                       </div>
                       <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ff3b30', whiteSpace: 'nowrap' }}>{fmtRs(Number(c.plan_amount) || 0)}</p>
                     </div>

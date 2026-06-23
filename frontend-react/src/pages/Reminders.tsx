@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { remindersApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
+import StbCopy from '../components/StbCopy';
 import {
   Bell,
   Send,
@@ -425,9 +426,9 @@ export default function Reminders() {
                           {c.name || '--'}
                         </span>
                         {c.stb_no && (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block', marginTop: 2 }}>
-                            STB: {c.stb_no}
-                          </span>
+                          <div style={{ marginTop: 2 }}>
+                            <StbCopy stb={c.stb_no} />
+                          </div>
                         )}
                       </td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.phone || '--'}</td>

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { stbApi } from '../api';
 import { fmtDate } from '../lib/format';
 import { Package, Plus, Trash2, AlertCircle, Edit2 } from 'lucide-react';
+import StbCopy from '../components/StbCopy';
 
 interface InventoryItem {
   id: number;
@@ -164,7 +165,7 @@ export default function Inventory() {
               {inventory.map(item => (
                 <tr key={item.id}>
                   <td>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.stb_no}</span>
+                    <StbCopy stb={item.stb_no} prefix="" />
                   </td>
                   <td>
                     {canUpdate ? (
