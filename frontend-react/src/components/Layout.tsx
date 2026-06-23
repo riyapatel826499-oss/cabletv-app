@@ -159,15 +159,31 @@ export default function Layout() {
   const [showFontControl, setShowFontControl] = useState(false);
   const fontRef = useRef<HTMLDivElement>(null);
 
-  // ── PWA: show toast when new version is available ──
+  // ── PWA: auto-update on new version ──
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegisteredSW(url) {
+    onRegisteredSW(url, registration) {
       console.log('SW registered:', url);
+      // Check for updates every 10 minutes
+      if (registration) {
+        setInterval(() => registration.update().catch(() => {}), 10 * 60 * 1000);
+      }
     },
   });
+
+  // Auto-reload when new SW takes over (so user always gets latest code)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+    }
+  }, []);
 
   // ── Standalone (PWA) detection ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
