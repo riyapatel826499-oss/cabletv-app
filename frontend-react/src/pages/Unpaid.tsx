@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { customersApi } from '../api';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtDate } from '../lib/format';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
+import Rs from '../components/Rs';
 
 interface UnpaidCustomer {
   customer_id: string;
@@ -90,7 +91,7 @@ export default function Unpaid() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Amount</p>
-            <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff9f0a', marginTop: 2 }}>{fmtRs(totalPending)}</p>
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff9f0a', marginTop: 2 }}><Rs amount={totalPending} /></p>
           </div>
         </div>
       </div>
@@ -213,7 +214,7 @@ export default function Unpaid() {
                       ) : '--'}
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 600, color: '#ff3b30' }}>
-                      {c.pending_amount ? fmtRs(c.pending_amount) : '--'}
+                      {c.pending_amount ? <Rs amount={c.pending_amount} /> : '--'}
                     </td>
                   </tr>
                 ))}

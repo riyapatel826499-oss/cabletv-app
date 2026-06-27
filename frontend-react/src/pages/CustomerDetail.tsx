@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi, paymentsApi, gtplApi, surrenderApi, stbApi, connectionsApi } from '../api';
 import { fmtRs, fmtDate } from '../lib/format';
+import Rs from '../components/Rs';
 import {
   ArrowLeft,
   Phone,
@@ -660,7 +661,7 @@ export default function CustomerDetailPage() {
           <InfoRow
             icon={Tag}
             label="Plan Amount"
-            value={customer.plan_amount ? fmtRs(customer.plan_amount) + '/mo' : null}
+            value={customer.plan_amount ? '₹' + fmtRs(customer.plan_amount) + '/mo' : null}
           />
           <InfoRow
             icon={Clock}
@@ -1063,7 +1064,7 @@ export default function CustomerDetailPage() {
                   <tbody>
                     {customer.payments.slice(0, 25).map((p) => (
                       <tr key={p.id}>
-                        <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(p.amount)}</td>
+                        <td style={{ fontWeight: 600, color: '#34c759' }}><Rs amount={p.amount} /></td>
                         <td>
                           <span
                             style={{

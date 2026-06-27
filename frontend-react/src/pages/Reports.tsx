@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersApi, paymentsApi } from '../api';
 import { fmtRs, fmtDateTime } from '../lib/format';
 import StbCopy from '../components/StbCopy';
+import Rs from '../components/Rs';
 import { useAuth } from '../hooks/useAuth';
 import {
   FileBarChart,
@@ -162,7 +163,7 @@ export default function Reports() {
           STB: p.stb_no || '',
           MSO: p.mso || '',
           Area: p.area || '',
-          Amount: p.amount,
+          Amount: '₹' + fmtRs(p.amount),
           Mode: p.payment_mode,
           Date: p.date,
           CollectedBy: p.collector || '',
@@ -193,7 +194,7 @@ export default function Reports() {
           Phone: c.phone || '',
           Area: c.area || '',
           Plan: c.plan_name || '',
-          Amount: c.plan_amount || '',
+          Amount: c.plan_amount ? '₹' + fmtRs(c.plan_amount) : '',
         })),
       );
     } catch {
@@ -237,8 +238,8 @@ export default function Reports() {
           {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <StatCard icon={Users} label="Transactions" value={String(paidTotal)} color="#34c759" />
-            <StatCard icon={Wallet} label="Total Collected" value={fmtRs(paidTotalAmount)} color="#0071e3" />
-            <StatCard icon={TrendingUp} label="Avg Amount" value={paidTotal > 0 ? fmtRs(Math.round(paidTotalAmount / paidTotal)) : '--'} color="#ff9f0a" />
+            <StatCard icon={Wallet} label="Total Collected" value={<Rs amount={paidTotalAmount} />} color="#0071e3" />
+            <StatCard icon={TrendingUp} label="Avg Amount" value={paidTotal > 0 ? <Rs amount={Math.round(paidTotalAmount / paidTotal)} /> : '--'} color="#ff9f0a" />
           </div>
 
           {/* Filters */}
@@ -311,7 +312,7 @@ export default function Reports() {
                         <span>{p.customer_id}</span>{(p as any).stb_no ? <><span>.</span><StbCopy stb={(p as any).stb_no} prefix="STB " /></> : null}
                       </p>
                     </div>
-                    <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#34c759', whiteSpace: 'nowrap' }}>{fmtRs(p.amount)}</p>
+                    <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#34c759', whiteSpace: 'nowrap' }}><Rs amount={p.amount} /></p>
                   </div>
                   {/* Bottom row: badges + meta */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
@@ -354,7 +355,7 @@ export default function Reports() {
           {/* Stat Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <StatCard icon={Users} label="Unpaid Customers" value={String(unpaidTotal)} color="#ff3b30" />
-            <StatCard icon={Wallet} label="Pending Amount" value={fmtRs(unpaidPending)} color="#ff9f0a" />
+            <StatCard icon={Wallet} label="Pending Amount" value={<Rs amount={unpaidPending} />} color="#ff9f0a" />
           </div>
 
           {/* Search + Export */}
@@ -412,7 +413,7 @@ export default function Reports() {
                           <span>{String(c.customer_id || '')}</span>{(c as any).stb_no ? <><span>.</span><StbCopy stb={String((c as any).stb_no)} prefix="STB " /></> : null}
                         </p>
                       </div>
-                      <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ff3b30', whiteSpace: 'nowrap' }}>{fmtRs(Number(c.plan_amount) || 0)}</p>
+                      <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#ff3b30', whiteSpace: 'nowrap' }}><Rs amount={Number(c.plan_amount) || 0} /></p>
                     </div>
                     {/* Bottom row: meta */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
@@ -458,7 +459,7 @@ export default function Reports() {
                     <CheckCircle2 style={{ width: 28, height: 28, color: '#34c759' }} />
                   </div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Transaction Deleted</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{deleteTarget.customer_name} - {fmtRs(deleteTarget.amount)}</p>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{deleteTarget.customer_name} - <Rs amount={deleteTarget.amount} /></p>
                 </div>
                 <div className="glass-card" style={{ padding: 16, marginBottom: 20, background: 'rgba(0,113,227,0.04)' }}>
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 6 }}>Expiry date updated automatically:</p>
@@ -503,7 +504,7 @@ export default function Reports() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Amount</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#34c759' }}>{fmtRs(deleteTarget.amount)}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#34c759' }}><Rs amount={deleteTarget.amount} /></span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Date</span>
@@ -585,7 +586,7 @@ function TabButton({ active, onClick, icon: Icon, label, color }: { active: bool
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string; color: string }) {
+function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: React.ReactNode; color: string }) {
   return (
     <div className="glass-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ padding: 10, borderRadius: 'var(--radius-xs)', background: `${color}1a` }}>

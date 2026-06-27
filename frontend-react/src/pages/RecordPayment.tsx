@@ -6,6 +6,7 @@ import { customersApi, paymentsApi, plansApi, settingsApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { fmtRs } from '../lib/format';
 import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, Receipt, Info } from 'lucide-react';
+import Rs from '../components/Rs';
 
 type CustomerSearchResult = CustomerListItem;
 
@@ -84,7 +85,7 @@ function calcPayAmount(
     // Yearly: 12 months, pay for 11
     discount = fullAmt;
     netAmt = fullAmt * 11;
-    note = `Yearly Pack: 12 months, pay for 11 — 1 month FREE! (${fmtRs(fullAmt)} saved)`;
+    note = `Yearly Pack: 12 months, pay for 11 — 1 month FREE! (₹${fmtRs(fullAmt)} saved)`;
   } else if (isDisconnected && payDay <= 12) {
     // Reconnecting between 1st-12th: prorata remaining days + 1 full month
     const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
@@ -93,7 +94,7 @@ function calcPayAmount(
     const roundedProrata = Math.round(prorataAmt / 10) * 10;
     netAmt = roundedProrata + fullAmt;
     fullDisplay = netAmt;
-    note = `Reconnect: ${prorataDays} days prorata (${fmtRs(roundedProrata)}) + 1 full month (${fmtRs(fullAmt)}) = ${fmtRs(netAmt)}`;
+    note = `Reconnect: ${prorataDays} days prorata (₹${fmtRs(roundedProrata)}) + 1 full month (₹${fmtRs(fullAmt)}) = ₹${fmtRs(netAmt)}`;
   } else if (payDay > 20 && months >= 1) {
     // After 20th: current month prorata
     const selDate = new Date(monthVal + '-01');
@@ -114,7 +115,7 @@ function calcPayAmount(
       netAmt = roundedAmt;
       fullDisplay = fullAmt;
       const targetStr = targetDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-      note = `Prorata: ${remainingDays} days (today → ${targetStr}) × ${fmtRs(fullAmt)} ÷ ${daysInMonth} = ${fmtRs(roundedAmt)}`;
+      note = `Prorata: ${remainingDays} days (today → ${targetStr}) × ₹${fmtRs(fullAmt)} ÷ ${daysInMonth} = ₹${fmtRs(roundedAmt)}`;
     } else if (isCurrentMonth && months > 1) {
       // Gap payment: past months full + current month prorata
       const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
@@ -128,7 +129,7 @@ function calcPayAmount(
       netAmt = fullAmt * fullMonths + roundedProrata;
       fullDisplay = fullAmt * months;
       discount = fullDisplay - netAmt;
-      note = `${fullMonths} month(s) full (${fmtRs(fullAmt * fullMonths)}) + current month prorata ${remainingDays} days (${fmtRs(roundedProrata)}) = ${fmtRs(netAmt)}`;
+      note = `${fullMonths} month(s) full (₹${fmtRs(fullAmt * fullMonths)}) + current month prorata ${remainingDays} days (₹${fmtRs(roundedProrata)}) = ₹${fmtRs(netAmt)}`;
     }
   } else if (months === 1) {
     const selDate = new Date(monthVal + '-01');
@@ -137,7 +138,7 @@ function calcPayAmount(
     const isFutureMonth = selYear > payYear || (selYear === payYear && selMonth > payMonth);
 
     if (isDisconnected && payDay > 12 && payDay <= 20) {
-      note = `Reconnect: Full month (${fmtRs(fullAmt)}). Billing cycle 13th–12th.`;
+      note = `Reconnect: Full month (₹${fmtRs(fullAmt)}). Billing cycle 13th–12th.`;
     } else if (isFutureMonth) {
       const monthName = selDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
       note = `Full month payment for ${monthName}`;
@@ -466,7 +467,7 @@ export default function RecordPayment() {
           <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>Payment Recorded!</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
-            {selectedPlan && payCalc ? `${fmtRs(finalAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
+            {selectedPlan && payCalc ? `₹${fmtRs(finalAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
           </p>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to dashboard...</p>
         </div>
@@ -546,7 +547,7 @@ export default function RecordPayment() {
                         </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        {c.plan_amount && <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}>{fmtRs(c.plan_amount)}</p>}
+                        {c.plan_amount && <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}><Rs amount={c.plan_amount} /></p>}
                         <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>{ps.label}</p>
                         {ps.label === 'Active | Unpaid' && <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>Due by {cutoffDate}th</p>}
                       </div>
@@ -665,7 +666,7 @@ export default function RecordPayment() {
                 className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
                 <option value="">Select plan</option>
                 {plans.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} — {fmtRs(p.amount)}</option>
+                  <option key={p.id} value={p.id}>{p.name} — ₹{fmtRs(p.amount)}</option>
                 ))}
               </select>
             </div>
@@ -733,11 +734,11 @@ export default function RecordPayment() {
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
                         <span style={{ color: 'var(--text-light)' }}>Full Amount</span>
-                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>{fmtRs(payCalc.fullDisplay)}</span>
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}><Rs amount={payCalc.fullDisplay} /></span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
                         <span style={{ color: 'var(--text-light)' }}>Prorata Discount</span>
-                        <span style={{ color: '#34c759', fontWeight: 500 }}>- {fmtRs(payCalc.discount)}</span>
+                        <span style={{ color: '#34c759', fontWeight: 500 }}>- <Rs amount={payCalc.discount} /></span>
                       </div>
                     </>
                   )}
@@ -746,13 +747,13 @@ export default function RecordPayment() {
                       <span style={{ color: 'var(--text-light)' }}>
                         Discount ({discountReason})
                       </span>
-                      <span style={{ color: '#ff9f0a', fontWeight: 500 }}>- {fmtRs(discountAmt)}</span>
+                      <span style={{ color: '#ff9f0a', fontWeight: 500 }}>- <Rs amount={discountAmt} /></span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: (payCalc.discount > 0 || discountAmt > 0) ? 6 : 0, borderTop: (payCalc.discount > 0 || discountAmt > 0) ? '0.5px solid var(--border)' : 'none' }}>
                     <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Amount to Pay</span>
                     <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.3rem', fontWeight: 700, color: '#0071e3' }}>
-                      {fmtRs(finalAmount)}
+                      <Rs amount={finalAmount} />
                     </span>
                   </div>
                 </div>
@@ -815,7 +816,7 @@ export default function RecordPayment() {
             {submitting ? (
               <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Processing...</>
             ) : payCalc ? (
-              `Pay ${fmtRs(finalAmount)}`
+              `Pay ₹${fmtRs(finalAmount)}`
             ) : 'Pay'}
           </button>
         </div>
@@ -891,7 +892,7 @@ export default function RecordPayment() {
                 {discountAmt > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Discount ({discountReason})</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#ff9f0a' }}>- {fmtRs(discountAmt)}</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#ff9f0a' }}>- <Rs amount={discountAmt} /></span>
                   </div>
                 )}
               </div>
@@ -905,7 +906,7 @@ export default function RecordPayment() {
                 }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Amount</span>
                   <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.4rem', fontWeight: 700, color: '#0071e3' }}>
-                    {fmtRs(finalAmount)}
+                    <Rs amount={finalAmount} />
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
@@ -925,7 +926,7 @@ export default function RecordPayment() {
                       fontSize: '0.88rem', fontWeight: 600, border: 'none',
                       cursor: 'pointer', boxShadow: '0 2px 8px rgba(52,199,89,0.3)',
                     }}>
-                    Confirm & Pay {fmtRs(finalAmount)}
+                    Confirm & Pay <Rs amount={finalAmount} />
                   </button>
                 </div>
               </div>

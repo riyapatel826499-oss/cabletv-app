@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { customersApi } from '../api';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtDate } from '../lib/format';
 import StbCopy from '../components/StbCopy';
+import Rs from '../components/Rs';
 import {
   UserX,
   Search,
@@ -209,7 +210,7 @@ export default function NotRenewed() {
               Lost Revenue
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff3b30', marginTop: 2 }}>
-              {fmtRs(totalAmount)}
+              <Rs amount={totalAmount} />
             </p>
           </div>
         </div>
@@ -304,7 +305,7 @@ export default function NotRenewed() {
                       {c.expiry_date ? fmtDate(c.expiry_date) : '--'}
                     </td>
                     <td style={{ textAlign: 'right', fontWeight: 600, color: '#ff3b30' }}>
-                      {c.plan_amount ? fmtRs(c.plan_amount) : '--'}
+                      {c.plan_amount ? <Rs amount={c.plan_amount} /> : '--'}
                     </td>
                   </tr>
                 ))}

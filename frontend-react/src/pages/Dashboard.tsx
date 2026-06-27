@@ -7,11 +7,11 @@ import {
   MessageCircle, BarChart3,
 } from 'lucide-react';
 import type { DashboardInsights } from '../types';
-import { fmtRs } from '../lib/format';
+import Rs from '../components/Rs';
 
 // ── Mini Stat Card ─────────────────────────────────────────────────────────
 function MiniStat({ icon: Icon, label, value, color, sub, onClick }: {
-  icon: React.ElementType; label: string; value: string; color: string; sub?: string;
+  icon: React.ElementType; label: string; value: React.ReactNode; color: string; sub?: React.ReactNode;
   onClick?: () => void;
 }) {
   return (
@@ -186,8 +186,8 @@ export default function Dashboard() {
               {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Collection
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-              {fmtRs(ins.month_collected)}
-              <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-light)' }}> / {fmtRs(ins.month_target)}</span>
+              <Rs amount={ins.month_collected} />
+              <span style={{ fontSize: '0.9rem', fontWeight: 400, color: 'var(--text-light)' }}> / <Rs amount={ins.month_target} /></span>
             </div>
           </div>
           {/* Percentage badge */}
@@ -222,7 +222,7 @@ export default function Dashboard() {
             paddingRight: 10,
           }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fff' }}>
-              {fmtRs(ins.month_collected)}
+              <Rs amount={ins.month_collected} />
             </span>
           </div>
         </div>
@@ -234,7 +234,7 @@ export default function Dashboard() {
             background: '#34c75908', cursor: 'pointer',
           }} onClick={() => navigate('/payments')}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Collected</div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}>{fmtRs(ins.month_collected)}</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}><Rs amount={ins.month_collected} /></div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} payments today</div>
           </div>
           <div style={{
@@ -242,7 +242,7 @@ export default function Dashboard() {
             background: '#ff9f0a08', cursor: 'pointer',
           }} onClick={() => navigate('/unpaid')}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}>{fmtRs(ins.month_target - ins.month_collected)}</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}><Rs amount={ins.month_target - ins.month_collected} /></div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.total_unpaid_count} customers</div>
           </div>
           <div style={{
@@ -250,7 +250,7 @@ export default function Dashboard() {
             background: '#0071e308', cursor: 'pointer',
           }} onClick={() => navigate('/payments')}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0071e3' }}>{fmtRs(ins.today_collected)}</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0071e3' }}><Rs amount={ins.today_collected} /></div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} collected</div>
           </div>
           {/* MSO Deadline */}
@@ -270,12 +270,12 @@ export default function Dashboard() {
         {/* Quick Stats Row */}
         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
           <MiniStat icon={AlertCircle} label="Unpaid" value={String(ins.total_unpaid_count)} color="#ff9f0a"
-            sub={fmtRs(ins.total_pending)} onClick={() => navigate('/unpaid')} />
+            sub={<Rs amount={ins.total_pending} />} onClick={() => navigate('/unpaid')} />
           <MiniStat icon={TrendingUp} label="New This Month" value={String(todayData.new_customers_this_month || 0)} color="#0071e3"
             onClick={() => navigate('/customers')} />
           <MiniStat icon={Wifi} label="Temp DC" value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
             onClick={() => navigate('/connections')} />
-          <MiniStat icon={Clock} label="Yesterday" value={fmtRs(todayData.yesterday_collected || 0)} color="#5856d6"
+          <MiniStat icon={Clock} label="Yesterday" value={<Rs amount={todayData.yesterday_collected || 0} />} color="#5856d6"
             onClick={() => navigate('/payments')} />
         </div>
       </div>
@@ -292,7 +292,7 @@ export default function Dashboard() {
             color="#ff9f0a"
             action={
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                Paid {priorityData.last_month}, not {priorityData.this_month} · {fmtRs(priorityData.total_pending)}
+                Paid {priorityData.last_month}, not {priorityData.this_month} · <Rs amount={priorityData.total_pending} />
               </span>
             }
           />
@@ -320,10 +320,10 @@ export default function Dashboard() {
                   {/* Amount */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}>
-                      {fmtRs(c.pending_amount)}
+                      <Rs amount={c.pending_amount} />
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-                      {fmtRs(c.plan_amount)} plan
+                      <Rs amount={c.plan_amount} /> plan
                     </div>
                   </div>
                   {/* Action buttons */}
@@ -418,10 +418,10 @@ export default function Dashboard() {
                   {/* Amount */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff3b30' }}>
-                      {fmtRs(c.pending_amount)}
+                      <Rs amount={c.pending_amount} />
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-                      {c.gap_months > 0 ? `${c.gap_months + 1}m @ ${fmtRs(c.plan_amount)}` : `${fmtRs(c.plan_amount)} plan`}
+                      {c.gap_months > 0 ? <>{c.gap_months + 1}m @ <Rs amount={c.plan_amount} /></> : <><Rs amount={c.plan_amount} /> plan</>}
                     </div>
                   </div>
 
@@ -492,24 +492,24 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>ARPU</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{fmtRs(m.arpu)}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}><Rs amount={m.arpu} /></div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>Revenue</div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#34c759' }}>{fmtRs(m.monthly_revenue)}</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#34c759' }}><Rs amount={m.monthly_revenue} /></div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>MSO Cost</div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ff3b30' }}>{fmtRs(m.total_cost)}</div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ff3b30' }}><Rs amount={m.total_cost} /></div>
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>Net Profit</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: marginColor }}>{fmtRs(m.profit)}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: marginColor }}><Rs amount={m.profit} /></div>
                   </div>
                 </div>
                 {m.cost_per_box > 0 && (
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 6 }}>
-                    {fmtRs(m.cost_per_box)}/box MSO cost
+                    <Rs amount={m.cost_per_box} />/box MSO cost
                   </div>
                 )}
               </div>
@@ -534,7 +534,7 @@ export default function Dashboard() {
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
                       {t.month.split('-')[1]}/{t.month.split('-')[0].slice(2)}
                     </div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{fmtRs(Number(t.total))}</div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600 }}><Rs amount={Number(t.total)} /></div>
                   </div>
                 ))}
               </div>
@@ -570,7 +570,7 @@ export default function Dashboard() {
                     </div>
                     <span style={{ width: 28, textAlign: 'right', fontSize: '0.85rem', fontWeight: 600, flexShrink: 0 }}>{b.count}</span>
                     <span style={{ width: 60, textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-light)', flexShrink: 0 }}>
-                      {fmtRs(b.amt)}
+                      <Rs amount={b.amt} />
                     </span>
                   </div>
                 ))}

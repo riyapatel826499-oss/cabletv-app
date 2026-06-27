@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtDate } from '../lib/format';
 import { Wallet, TrendingUp, Download } from 'lucide-react';
+import Rs from '../components/Rs';
 
 export default function MyCollections() {
   const [fromDate, setFromDate] = useState('');
@@ -88,7 +89,7 @@ export default function MyCollections() {
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Total Collected
               </p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34c759' }}>{fmtRs(totalCollected)}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34c759' }}><Rs amount={totalCollected} /></p>
             </div>
           </div>
         </div>
@@ -116,7 +117,7 @@ export default function MyCollections() {
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Avg per Payment
               </p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>{fmtRs(avgCollection)}</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}><Rs amount={avgCollection} /></p>
             </div>
           </div>
         </div>
@@ -205,7 +206,7 @@ export default function MyCollections() {
                     <td style={{ fontWeight: 500 }}>{String(p.customer_name || '--')}</td>
                     <td style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>{String(p.area || '--')}</td>
                     <td style={{ fontWeight: 600, color: '#34c759' }}>
-                      {fmtRs(Number(p.amount) || 0)}
+                      <Rs amount={Number(p.amount) || 0} />
                     </td>
                     <td>
                       <span

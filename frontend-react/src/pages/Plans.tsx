@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { plansApi } from '../api';
-import { fmtRs } from '../lib/format';
 import { Tv, Plus, Pencil, Trash2, X, AlertCircle } from 'lucide-react';
+import Rs from '../components/Rs';
 
 interface Plan {
   id: number;
@@ -131,8 +131,8 @@ export default function Plans() {
                         {p.network}
                       </span>
                     </td>
-                    <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(p.amount)}</td>
-                    <td style={{ color: 'var(--text-light)' }}>{p.mso_cost ? fmtRs(p.mso_cost) : '--'}</td>
+                    <td style={{ fontWeight: 600, color: '#34c759' }}><Rs amount={p.amount} /></td>
+                    <td style={{ color: 'var(--text-light)' }}>{p.mso_cost ? <Rs amount={p.mso_cost} /> : '--'}</td>
                     <td style={{ color: 'var(--text-light)' }}>{p.validity_days || 30} days</td>
                     <td>{p.active_customers ?? 0}</td>
                     <td style={{ textAlign: 'right' }}>

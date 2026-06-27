@@ -357,7 +357,7 @@ export default function AddCustomer() {
                 <option value="">Select a plan</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — {fmtRs(p.amount)}
+                    {p.name} — ₹{fmtRs(p.amount)}
                   </option>
                 ))}
               </select>

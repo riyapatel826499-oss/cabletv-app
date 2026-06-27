@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { paymentsApi } from '../api';
 import type { Payment } from '../types';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtDate } from '../lib/format';
 import { Search, ChevronLeft, ChevronRight, CreditCard, Plus } from 'lucide-react';
+import Rs from '../components/Rs';
 
 const PER_PAGE = 25;
 
@@ -67,7 +68,7 @@ export default function Payments() {
             Payments
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {total} payments this period &middot; {fmtRs(totalAmount)} collected
+            {total} payments this period &middot; <Rs amount={totalAmount} /> collected
           </p>
         </div>
         <Link
@@ -158,7 +159,7 @@ export default function Payments() {
                 {payments.map((p, i) => (
                   <tr key={i}>
                     <td style={{ fontWeight: 500 }}>{p.customer_name || '--'}</td>
-                    <td style={{ fontWeight: 600, color: '#34c759' }}>{fmtRs(Number(p.amount) || 0)}</td>
+                    <td style={{ fontWeight: 600, color: '#34c759' }}><Rs amount={Number(p.amount) || 0} /></td>
                     <td>
                       <span
                         style={{

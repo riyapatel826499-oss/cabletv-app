@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { remindersApi } from '../api';
-import { fmtRs, fmtDate } from '../lib/format';
+import { fmtDate } from '../lib/format';
 import StbCopy from '../components/StbCopy';
+import Rs from '../components/Rs';
 import {
   Bell,
   Send,
@@ -434,7 +435,7 @@ export default function Reminders() {
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{c.phone || '--'}</td>
                       <td style={{ fontSize: '0.85rem' }}>{c.area || '--'}</td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text)' }}>
-                        {c.plan_amount ? fmtRs(c.plan_amount) : '--'}
+                        {c.plan_amount ? <Rs amount={c.plan_amount} /> : '--'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {c.months_due ? (
@@ -458,7 +459,7 @@ export default function Reminders() {
                         {c.expiry_date ? fmtDate(c.expiry_date) : '--'}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: '#ff3b30' }}>
-                        {c.pending_amount ? fmtRs(c.pending_amount) : '--'}
+                        {c.pending_amount ? <Rs amount={c.pending_amount} /> : '--'}
                       </td>
                     </tr>
                   );
