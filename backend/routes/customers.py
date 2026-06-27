@@ -1094,19 +1094,23 @@ def create_customer(data: CustomerCreateRequest, current_user=Depends(get_curren
                     fee_row = conn.execute("SELECT id FROM connections WHERE customer_id = ? ORDER BY id LIMIT 1", [customer_id]).fetchone()
                     if fee_row:
                         fee_conn_id = fee_row["id"]
+                # Use Python datetime (consistent format with regular payments)
+                from datetime import timezone as _tz
+                _ist = _tz(timedelta(hours=5, minutes=30))
+                _fee_ts = datetime.now(_ist).strftime("%Y-%m-%d %H:%M:%S")
                 # Check if payment_type column exists
                 has_ptype = table_has_column(conn, 'payments', 'payment_type')
                 if has_ptype:
                     conn.execute(
                         """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, payment_type, collected_by, month_year, months_paid, notes, operator_id, collected_at)
-                           VALUES (?, ?, ?, ?, 'Cash', 'new_connection', ?, ?, 1, 'New connection fee', ?, NOW())""",
-                        [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid]
+                           VALUES (?, ?, ?, ?, 'Cash', 'new_connection', ?, ?, 1, 'New connection fee', ?, ?)""",
+                        [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid, _fee_ts]
                     )
                 else:
                     conn.execute(
                         """INSERT INTO payments (customer_id, connection_id, plan_id, amount, payment_mode, collected_by, month_year, months_paid, notes, operator_id, collected_at)
-                           VALUES (?, ?, ?, ?, 'Cash', ?, ?, 1, 'New connection fee', ?, NOW())""",
-                        [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid]
+                           VALUES (?, ?, ?, ?, 'Cash', ?, ?, 1, 'New connection fee', ?, ?)""",
+                        [customer_id, fee_conn_id, data.plan_id, data.connection_fee, current_user["id"], get_current_month(), _oid, _fee_ts]
                     )
 
             conn.commit()
