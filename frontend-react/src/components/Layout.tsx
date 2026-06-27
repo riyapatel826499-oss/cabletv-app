@@ -42,7 +42,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 // service roles handled under collection_agent for now
 type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support' | 'service_agent' | 'collection_point';
 
-const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support'];
+const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support', 'service_agent'];
 const CP: Role[] = [...ALL_ROLES, 'collection_point'];
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
