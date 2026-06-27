@@ -70,6 +70,7 @@ def list_employees(
     rows = db.execute(
         text(f"""
             SELECT u.id, u.username, u.name, u.role, u.phone, u.status, u.created_at, u.permissions,
+                   u.password_hint,
                    COALESCE(pc.cnt, 0) as payment_count
             FROM users u
             LEFT JOIN (
@@ -147,6 +148,7 @@ def create_employee(
     user = User(
         username=data.username.strip().lower(),
         password=hash_password(data.password),
+        password_hint=data.password,
         name=data.name.strip(),
         role=data.role,
         phone=data.phone.strip() if data.phone else None,
@@ -269,7 +271,10 @@ def update_password(
         raise HTTPException(status_code=404, detail="Employee not found")
 
     db.execute(
-        update(User).where(User.id == emp_id).values(password=hash_password(data.password))
+        update(User).where(User.id == emp_id).values(
+            password=hash_password(data.password),
+            password_hint=data.password,
+        )
     )
     db.commit()
     return {"message": "Password updated successfully"}

@@ -39,6 +39,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     password: Mapped[str] = mapped_column(String(200), nullable=False)
+    password_hint: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(50), nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String(20))

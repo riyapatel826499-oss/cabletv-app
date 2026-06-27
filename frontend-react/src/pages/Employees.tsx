@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { employeesApi } from '../api';
 import {
   UserCog, Plus, Phone, X, KeyRound, Ban, Search,
-  CheckCircle2, Shield,
+  CheckCircle2, Shield, Eye, EyeOff,
 } from 'lucide-react';
 
 interface Employee {
@@ -16,6 +16,7 @@ interface Employee {
   status: string;
   created_at?: string;
   payment_count?: number;
+  password_hint?: string;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -379,6 +380,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
 
   const resetMut = useMutation({
     mutationFn: async () => (await employeesApi.resetPassword(employee.id, password)).data,
@@ -392,15 +394,43 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 380, width: '90%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <KeyRound style={{ width: 18, height: 18, color: '#ff9f0a' }} /> Reset Password
+            <KeyRound style={{ width: 18, height: 18, color: '#ff9f0a' }} /> Password
           </h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
           </button>
         </div>
         <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 14 }}>
-          Set new password for <strong style={{ color: 'var(--text)' }}>{employee.name}</strong> ({employee.username})
+          <strong style={{ color: 'var(--text)' }}>{employee.name}</strong> ({employee.username})
         </p>
+
+        {/* Current Password */}
+        {employee.password_hint && (
+          <div style={{
+            padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+            background: 'rgba(0,113,227,0.06)', border: '0.5px solid rgba(0,113,227,0.15)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Current Password
+              </span>
+              <button
+                onClick={() => setShowCurrent(!showCurrent)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: '#0071e3' }}
+              >
+                {showCurrent ? <><EyeOff style={{ width: 13, height: 13 }} />Hide</> : <><Eye style={{ width: 13, height: 13 }} />Show</>}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.95rem', fontWeight: 600, fontFamily: 'monospace', color: 'var(--text)', marginTop: 4, letterSpacing: '0.5px' }}>
+              {showCurrent ? employee.password_hint : '••••••••'}
+            </p>
+          </div>
+        )}
+
+        {/* New Password Input */}
+        <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
+          Set New Password
+        </label>
         <input
           type="text"
           value={password}
