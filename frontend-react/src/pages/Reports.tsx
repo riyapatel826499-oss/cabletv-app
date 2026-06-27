@@ -194,7 +194,7 @@ export default function Reports() {
           Phone: c.phone || '',
           Area: c.area || '',
           Plan: c.plan_name || '',
-          Amount: c.plan_amount ? '₹' + fmtRs(c.plan_amount) : '',
+          Amount: c.plan_amount ? '₹' + fmtRs(c.plan_amount as number) : '',
         })),
       );
     } catch {
