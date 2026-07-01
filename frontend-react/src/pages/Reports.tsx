@@ -294,7 +294,7 @@ export default function Reports() {
                 >
                   <option value="">All Employees</option>
                   {employeesQ.data
-                    ?.filter((e) => e.status === 'Active' && (e.role === 'collection_agent' || e.role === 'service_agent' || e.role === 'admin' || e.role === 'support'))
+                    ?.filter((e) => e.status === 'Active')
                     .map((e) => (
                       <option key={e.id} value={e.name}>{e.name}</option>
                     ))}
