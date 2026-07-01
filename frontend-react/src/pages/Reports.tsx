@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { customersApi, paymentsApi } from '../api';
+import { customersApi, paymentsApi, employeesApi } from '../api';
 import { fmtRs, fmtDateTime } from '../lib/format';
 import StbCopy from '../components/StbCopy';
 import Rs from '../components/Rs';
@@ -17,6 +17,7 @@ import {
   Trash2,
   X,
   AlertTriangle,
+  UserCog,
 } from 'lucide-react';
 
 type Tab = 'paid' | 'unpaid';
@@ -65,8 +66,20 @@ export default function Reports() {
   const [to, setTo] = useState(monthRange().to);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [collectedBy, setCollectedBy] = useState('');
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Fetch employees for filter (admin/support only)
+  const isAdminOrSupport = user?.role === 'admin' || user?.role === 'support' || user?.role === 'master';
+  const employeesQ = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const resp = await employeesApi.list();
+      return (resp.data as { employees: Array<{ id: number; name: string; username: string; role: string; status: string }> }).employees || [];
+    },
+    enabled: isAdminOrSupport,
+  });
 
   // Delete payment state
   const [deleteTarget, setDeleteTarget] = useState<PaymentRow | null>(null);
@@ -89,7 +102,7 @@ export default function Reports() {
 
   // ── PAID tab: individual payment transactions ──
   const paidQ = useQuery({
-    queryKey: ['reports-paid', from, to, page, search],
+    queryKey: ['reports-paid', from, to, page, search, collectedBy],
     queryFn: async () =>
       (
         await paymentsApi.list({
@@ -98,6 +111,7 @@ export default function Reports() {
           page: String(page),
           per_page: '50',
           ...(search ? { q: search } : {}),
+          ...(collectedBy ? { collected_by: collectedBy } : {}),
         })
       ).data,
     enabled: tab === 'paid',
@@ -151,7 +165,7 @@ export default function Reports() {
     setExporting(true);
     try {
       const allPayments = await fetchAllPages<PaymentRow>(
-        (p) => paymentsApi.list({ date_from: from, date_to: to, page: String(p), per_page: '500', ...(search ? { q: search } : {}) }),
+        (p) => paymentsApi.list({ date_from: from, date_to: to, page: String(p), per_page: '500', ...(search ? { q: search } : {}), ...(collectedBy ? { collected_by: collectedBy } : {}) }),
         'payments',
       );
       if (!allPayments.length) { alert('No transactions to export'); return; }
@@ -269,7 +283,25 @@ export default function Reports() {
                 </button>
               );
             })}
-            <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            {isAdminOrSupport && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <UserCog style={{ width: 15, height: 15, color: 'var(--text-light)' }} />
+                <select
+                  value={collectedBy}
+                  onChange={(e) => { setCollectedBy(e.target.value); setPage(1); }}
+                  className="glass-input"
+                  style={{ padding: '7px 12px', fontSize: '0.82rem', minWidth: 160, cursor: 'pointer' }}
+                >
+                  <option value="">All Employees</option>
+                  {employeesQ.data
+                    ?.filter((e) => e.status === 'Active' && (e.role === 'collection_agent' || e.role === 'service_agent' || e.role === 'admin' || e.role === 'support'))
+                    .map((e) => (
+                      <option key={e.id} value={e.name}>{e.name}</option>
+                    ))}
+                </select>
+              </div>
+            )}
+            <div style={{ position: 'relative', marginLeft: isAdminOrSupport ? undefined : 'auto' }}>
               <Search style={{ width: 16, height: 16, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
               <input
                 value={search}
