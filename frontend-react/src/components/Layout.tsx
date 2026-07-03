@@ -30,6 +30,7 @@ import {
   Phone,
   Share,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
@@ -184,6 +185,29 @@ export default function Layout() {
       });
     }
   }, []);
+
+  const [hardRefreshSpin, setHardRefreshSpin] = useState(false);
+
+  const handleHardRefresh = async () => {
+    setHardRefreshSpin(true);
+    try {
+      // 1. Unregister ALL service workers so old cached assets are gone
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      // 2. Clear ALL Cache Storage + localStorage cache keys
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      // 3. Hard reload from server (bypass cache)
+      window.location.replace(window.location.href);
+    } catch {
+      // Fallback: force reload anyway
+      window.location.reload();
+    }
+  };
 
   // ── Standalone (PWA) detection ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -772,6 +796,29 @@ export default function Layout() {
 
             {/* Activity Bell */}
             <NotificationBell />
+
+            {/* Hard refresh — clear caches & SW, reload from server */}
+            <button
+              onClick={handleHardRefresh}
+              title="Hard refresh — clears cache & loads latest version"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--bg-secondary)',
+                border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius-xs)',
+                padding: 8,
+                cursor: 'pointer',
+                color: 'var(--text-light)',
+                transition: 'var(--transition)',
+              }}
+            >
+              <RefreshCw
+                style={{
+                  width: 18, height: 18,
+                  animation: hardRefreshSpin ? 'spin 0.8s linear infinite' : 'none',
+                }}
+              />
+            </button>
 
             {/* Dark mode */}
             <button

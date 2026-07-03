@@ -20,7 +20,7 @@ from conn import get_conn
 from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
-router = APIRouter(prefix="/gtpl", tags=["gtpl"])
+router = APIRouter(prefix="/api/gtpl", tags=["gtpl"])
 
 
 def _assert_stb_ownership(stb_no: str, current_user: dict):
