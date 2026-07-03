@@ -25,6 +25,7 @@ import {
   PowerOff,
   ArrowLeftRight,
   RotateCcw,
+  Zap,
 } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
 
@@ -214,6 +215,7 @@ export default function CustomerDetailPage() {
       if (action === 'activate') return (await gtplApi.activate(stb)).data;
       if (action === 'renew') return (await gtplApi.renew(stb, months || 1)).data;
       if (action === 'change-plan') return (await gtplApi.changePlan(stb, planCode || '')).data;
+      if (action === 'retrigger') return (await gtplApi.retrigger(stb)).data;
       throw new Error('Unknown GTPL action');
     },
     onSuccess: (data) => {
@@ -850,6 +852,27 @@ export default function CustomerDetailPage() {
                           }}
                         >
                           <PlayCircle style={{ width: 13, height: 13 }} /> Activate
+                        </button>
+                        <button
+                          onClick={() => gtplMut.mutate({ action: 'retrigger', stb })}
+                          disabled={gtplMut.isPending}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '0.5px solid rgba(100,100,100,0.3)',
+                            background: 'transparent',
+                            color: 'var(--text-light)',
+                            fontSize: '0.78rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            opacity: gtplMut.isPending ? 0.6 : 1,
+                          }}
+                          title="Refresh STB signal — clears E-51 error after payment"
+                        >
+                          <Zap style={{ width: 13, height: 13 }} /> Retrigger
                         </button>
 
                         {/* Renew inline */}

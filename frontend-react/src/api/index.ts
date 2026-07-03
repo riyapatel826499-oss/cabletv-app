@@ -157,6 +157,7 @@ export const gtplApi = {
   activate: (stbNo: string) => api.post('/gtpl/activate', { stb_no: stbNo }),
   renew: (stbNo: string, months: number) => api.post('/gtpl/renew', { stb_no: stbNo, months }),
   changePlan: (stbNo: string, planCode: string) => api.post('/gtpl/change-plan', { stb_no: stbNo, plan_code: planCode }),
+  retrigger: (stbNo: string) => api.post('/gtpl/retrigger', { stb_no: stbNo }),
   status: (stbNo: string) => api.get(`/gtpl/status/${stbNo}`),
   plans: () => api.get('/gtpl/plans'),
   wallet: () => api.get('/gtpl/wallet'),

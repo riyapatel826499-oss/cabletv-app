@@ -461,3 +461,164 @@ async def gtpl_wallet(current_user=Depends(require_role('admin', 'support'))):
 def gtpl_plan_list(current_user=Depends(require_role('admin', 'support'))):
     """List all available GTPL plan codes."""
     return {"plans": [{"name": k, "code": v} for k, v in GTPL_PLANS.items()]}
+
+
+# ── STB Retrigger (Self-care public page) ──────────────────────────
+# This hits the public selfcare.gtpl.net/troubleshootingstb.aspx page
+# that customers use to clear E-51 errors. No login/CAPTCHA/session needed.
+# Works for ANY GTPL STB (not restricted to 338xxxxx — also works with NUID).
+
+import re as _re
+import urllib.parse as _urlparse
+
+SELFCARE_URL = "https://selfcare.gtpl.net/troubleshootingstb.aspx"
+
+
+def _do_retrigger(stb_no: str) -> dict:
+    """Submit STB retrigger to GTPL self-care page. Returns result dict."""
+    import subprocess, tempfile, os
+
+    cookie_jar = tempfile.NamedTemporaryFile(
+        suffix=".txt", delete=False, mode="w"
+    ).name
+    try:
+        # Step 1: GET the page to extract ViewState
+        r = subprocess.run(
+            ["curl", "-s", "--max-time", "15", "-c", cookie_jar,
+             "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+             "AppleWebKit/537.36",
+             SELFCARE_URL],
+            capture_output=True, text=True,
+        )
+        html = r.stdout
+        if len(html) < 1000:
+            return {"success": False,
+                    "message": "Could not reach GTPL self-care page"}
+
+        # Extract ASP.NET hidden fields
+        def _ef(name):
+            m = _re.search(
+                rf'id="{name}"[^>]*value="([^"]*)"', html
+            ) or _re.search(
+                rf'name="{name}"[^>]*value="([^"]*)"', html
+            )
+            return m.group(1) if m else ""
+
+        vs = _ef("__VIEWSTATE")
+        vsg = _ef("__VIEWSTATEGENERATOR")
+        ev = _ef("__EVENTVALIDATION")
+        if not vs:
+            return {"success": False,
+                    "message": "Could not parse self-care page"}
+
+        # Step 2: POST with STB number
+        payload = _urlparse.urlencode({
+            "__VIEWSTATE": vs,
+            "__VIEWSTATEGENERATOR": vsg,
+            "__VIEWSTATEENCRYPTED": "",
+            "__EVENTVALIDATION": ev,
+            "txtserial": stb_no,
+            "btn_submit": "Submit",
+        })
+        postfile = tempfile.NamedTemporaryFile(
+            suffix=".txt", delete=False, mode="w"
+        ).name
+        with open(postfile, "w") as f:
+            f.write(payload)
+
+        r2 = subprocess.run(
+            ["curl", "-s", "--max-time", "15",
+             "-b", cookie_jar, "-c", cookie_jar,
+             "-H", "Content-Type: application/x-www-form-urlencoded",
+             "-H", f"Referer: {SELFCARE_URL}",
+             "-H", "Origin: https://selfcare.gtpl.net",
+             "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+             "AppleWebKit/537.36",
+             "--data", f"@{postfile}",
+             SELFCARE_URL],
+            capture_output=True, text=True,
+        )
+        body = r2.stdout
+
+        try:
+            os.unlink(postfile)
+        except OSError:
+            pass
+
+        # Parse response — success: alert('STB: Retrack Successfully...')
+        #                   failure: alert('... error ...') or lbl_error
+        alert_match = _re.search(r"alert\('([^']+)'\)", body)
+        if alert_match:
+            alert_text = alert_match.group(1)
+            if "retrack successfully" in alert_text.lower() or \
+               "retrigger" in alert_text.lower():
+                # Extract customer number if present
+                cust_match = _re.search(
+                    r"Customer\s*#\s*:\s*(\d+)", alert_text
+                )
+                cust_no = cust_match.group(1) if cust_match else ""
+                return {
+                    "success": True,
+                    "message": f"STB {stb_no} retriggered successfully"
+                    + (f" (Customer #{cust_no})" if cust_no else ""),
+                    "customer_no": cust_no,
+                }
+            else:
+                return {"success": False, "message": alert_text}
+
+        # Check for error label
+        err_match = _re.search(
+            r'id="lbl_error"[^>]*>([^<]+)', body
+        )
+        if err_match and err_match.group(1).strip():
+            return {"success": False,
+                    "message": err_match.group(1).strip()}
+
+        # Fallback — check if the page just reloaded (no alert = no action)
+        if "btn_submit" in body:
+            return {"success": False,
+                    "message": "No response from GTPL self-care. "
+                               "STB may not exist on GTPL network."}
+
+        return {"success": False,
+                "message": "Unexpected response from self-care page"}
+    finally:
+        try:
+            os.unlink(cookie_jar)
+        except OSError:
+            pass
+
+
+@router.post("/retrigger")
+async def gtpl_retrigger(
+    data: StbRequest,
+    current_user=Depends(require_role('admin', 'support')),
+    db: Session = Depends(get_db),
+):
+    """Retrigger/refresh STB via GTPL self-care page.
+
+    This clears E-51 error (channels not displaying after payment).
+    Hits the public selfcare.gtpl.net page — no login needed.
+    Works for any GTPL STB or NUID number.
+    """
+    if not data.stb_no:
+        raise HTTPException(400, "STB number is required")
+    _assert_stb_ownership(data.stb_no, current_user)
+    log.info(
+        f"GTPL retrigger: {data.stb_no} by {current_user['username']}"
+    )
+
+    result = _do_retrigger(data.stb_no)
+
+    from routes.notifications import _create_notification
+    _create_notification(
+        db,
+        type="retrigger",
+        title=f"STB {data.stb_no} retriggered",
+        message=result.get("message", ""),
+        status="success" if result.get("success") else "error",
+        mso="GTPL",
+        stb_no=data.stb_no,
+        operator_id=current_user.get("operator_id", 1),
+    )
+    return result
