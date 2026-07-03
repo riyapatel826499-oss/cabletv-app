@@ -469,90 +469,62 @@ def gtpl_plan_list(current_user=Depends(require_role('admin', 'support'))):
 # Works for ANY GTPL STB (not restricted to 338xxxxx — also works with NUID).
 
 import re as _re
-import urllib.parse as _urlparse
 
 SELFCARE_URL = "https://selfcare.gtpl.net/troubleshootingstb.aspx"
+_SELFCARE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 
 def _do_retrigger(stb_no: str) -> dict:
-    """Submit STB retrigger to GTPL self-care page. Returns result dict."""
-    import subprocess, tempfile, os
-
-    cookie_jar = tempfile.NamedTemporaryFile(
-        suffix=".txt", delete=False, mode="w"
-    ).name
+    """Submit STB retrigger to GTPL self-care page via httpx."""
     try:
-        # Step 1: GET the page to extract ViewState
-        r = subprocess.run(
-            ["curl", "-s", "--max-time", "15", "-c", cookie_jar,
-             "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-             "AppleWebKit/537.36",
-             SELFCARE_URL],
-            capture_output=True, text=True,
-        )
-        html = r.stdout
-        if len(html) < 1000:
-            return {"success": False,
-                    "message": "Could not reach GTPL self-care page"}
+        with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+            # Step 1: GET page to extract ViewState
+            resp = client.get(SELFCARE_URL,
+                              headers={"User-Agent": _SELFCARE_UA})
+            html = resp.text
+            if len(html) < 1000:
+                return {"success": False,
+                        "message": "Could not reach GTPL self-care page"}
 
-        # Extract ASP.NET hidden fields
-        def _ef(name):
-            m = _re.search(
-                rf'id="{name}"[^>]*value="([^"]*)"', html
-            ) or _re.search(
-                rf'name="{name}"[^>]*value="([^"]*)"', html
+            def _ef(name):
+                m = _re.search(
+                    rf'id="{name}"[^>]*value="([^"]*)"', html
+                ) or _re.search(
+                    rf'name="{name}"[^>]*value="([^"]*)"', html
+                )
+                return m.group(1) if m else ""
+
+            vs = _ef("__VIEWSTATE")
+            vsg = _ef("__VIEWSTATEGENERATOR")
+            ev = _ef("__EVENTVALIDATION")
+            if not vs:
+                return {"success": False,
+                        "message": "Could not parse self-care page"}
+
+            # Step 2: POST STB number (same session keeps cookies)
+            resp2 = client.post(
+                SELFCARE_URL,
+                data={
+                    "__VIEWSTATE": vs,
+                    "__VIEWSTATEGENERATOR": vsg,
+                    "__VIEWSTATEENCRYPTED": "",
+                    "__EVENTVALIDATION": ev,
+                    "txtserial": stb_no,
+                    "btn_submit": "Submit",
+                },
+                headers={
+                    "User-Agent": _SELFCARE_UA,
+                    "Referer": SELFCARE_URL,
+                    "Origin": "https://selfcare.gtpl.net",
+                },
             )
-            return m.group(1) if m else ""
-
-        vs = _ef("__VIEWSTATE")
-        vsg = _ef("__VIEWSTATEGENERATOR")
-        ev = _ef("__EVENTVALIDATION")
-        if not vs:
-            return {"success": False,
-                    "message": "Could not parse self-care page"}
-
-        # Step 2: POST with STB number
-        payload = _urlparse.urlencode({
-            "__VIEWSTATE": vs,
-            "__VIEWSTATEGENERATOR": vsg,
-            "__VIEWSTATEENCRYPTED": "",
-            "__EVENTVALIDATION": ev,
-            "txtserial": stb_no,
-            "btn_submit": "Submit",
-        })
-        postfile = tempfile.NamedTemporaryFile(
-            suffix=".txt", delete=False, mode="w"
-        ).name
-        with open(postfile, "w") as f:
-            f.write(payload)
-
-        r2 = subprocess.run(
-            ["curl", "-s", "--max-time", "15",
-             "-b", cookie_jar, "-c", cookie_jar,
-             "-H", "Content-Type: application/x-www-form-urlencoded",
-             "-H", f"Referer: {SELFCARE_URL}",
-             "-H", "Origin: https://selfcare.gtpl.net",
-             "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-             "AppleWebKit/537.36",
-             "--data", f"@{postfile}",
-             SELFCARE_URL],
-            capture_output=True, text=True,
-        )
-        body = r2.stdout
-
-        try:
-            os.unlink(postfile)
-        except OSError:
-            pass
+            body = resp2.text
 
         # Parse response — success: alert('STB: Retrack Successfully...')
-        #                   failure: alert('... error ...') or lbl_error
         alert_match = _re.search(r"alert\('([^']+)'\)", body)
         if alert_match:
             alert_text = alert_match.group(1)
-            if "retrack successfully" in alert_text.lower() or \
-               "retrigger" in alert_text.lower():
-                # Extract customer number if present
+            if "retrack successfully" in alert_text.lower():
                 cust_match = _re.search(
                     r"Customer\s*#\s*:\s*(\d+)", alert_text
                 )
@@ -563,18 +535,14 @@ def _do_retrigger(stb_no: str) -> dict:
                     + (f" (Customer #{cust_no})" if cust_no else ""),
                     "customer_no": cust_no,
                 }
-            else:
-                return {"success": False, "message": alert_text}
+            return {"success": False, "message": alert_text}
 
         # Check for error label
-        err_match = _re.search(
-            r'id="lbl_error"[^>]*>([^<]+)', body
-        )
+        err_match = _re.search(r'id="lbl_error"[^>]*>([^<]+)', body)
         if err_match and err_match.group(1).strip():
             return {"success": False,
                     "message": err_match.group(1).strip()}
 
-        # Fallback — check if the page just reloaded (no alert = no action)
         if "btn_submit" in body:
             return {"success": False,
                     "message": "No response from GTPL self-care. "
@@ -582,11 +550,13 @@ def _do_retrigger(stb_no: str) -> dict:
 
         return {"success": False,
                 "message": "Unexpected response from self-care page"}
-    finally:
-        try:
-            os.unlink(cookie_jar)
-        except OSError:
-            pass
+    except httpx.HTTPError as e:
+        log.warning(f"Retrigger network error for {stb_no}: {e}")
+        return {"success": False,
+                "message": f"Could not connect to GTPL self-care: {e}"}
+    except Exception as e:
+        log.exception(f"Retrigger error for {stb_no}")
+        return {"success": False, "message": str(e)}
 
 
 @router.post("/retrigger")
