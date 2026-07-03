@@ -477,7 +477,7 @@ _SELFCARE_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 def _do_retrigger(stb_no: str) -> dict:
     """Submit STB retrigger to GTPL self-care page via httpx."""
     try:
-        with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
             # Step 1: GET page to extract ViewState
             resp = client.get(SELFCARE_URL,
                               headers={"User-Agent": _SELFCARE_UA})
