@@ -27,9 +27,9 @@ def run():
     results = []
 
     # 1. Health
-    code, _ = api('GET', '/')
+    code, _ = api('GET', '/api/health')
     ok = code == 200
-    results.append(('Health /', ok, code))
+    results.append(('Health /api/health', ok, code))
     passed += ok; failed += not ok
 
     # 2. Login

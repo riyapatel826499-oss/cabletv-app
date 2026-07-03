@@ -213,13 +213,18 @@ def dashboard_stats(
     all_recent.sort(key=lambda x: x.get("date") or "", reverse=True)
     recent_payments = all_recent[:10]
 
-    # Expiring soon (next 3 days)
+    # Expiring soon (next 3 days) — SQLite vs Postgres date arithmetic
+    from config import DB_ENGINE
+    if DB_ENGINE == "sqlite":
+        date_filter = "date(cp.expiry_date) <= date('now', '+3 days')"
+    else:
+        date_filter = "cp.expiry_date <= (CURRENT_DATE + INTERVAL '3 days')::text"
     expiring_rows = db.execute(
         text(f"""SELECT cp.*, c.name as customer_name, c.phone, c.area, p.name as plan_name
            FROM customer_plans cp
            JOIN customers c ON cp.customer_id = c.customer_id
            JOIN plans p ON cp.plan_id = p.id
-           WHERE cp.status = 'Active' AND cp.expiry_date <= (CURRENT_DATE + INTERVAL '3 days')::text AND {op_flt_cp}
+           WHERE cp.status = 'Active' AND {date_filter} AND {op_flt_cp}
            ORDER BY cp.expiry_date"""),
     ).fetchall()
 
