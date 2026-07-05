@@ -574,11 +574,13 @@ async def gtpl_retrigger(
     if not data.stb_no:
         raise HTTPException(400, "STB number is required")
     _assert_stb_ownership(data.stb_no, current_user)
-    log.info(
-        f"GTPL retrigger: {data.stb_no} by {current_user['username']}"
-    )
+    log.info(f"GTPL retrigger: {data.stb_no} by {current_user['username']}")
 
-    result = _do_retrigger(data.stb_no)
+    # Run blocking httpx call in thread pool to avoid blocking event loop
+    import asyncio
+    result = await asyncio.get_event_loop().run_in_executor(
+        None, _do_retrigger, data.stb_no
+    )
 
     from routes.notifications import _create_notification
     _create_notification(

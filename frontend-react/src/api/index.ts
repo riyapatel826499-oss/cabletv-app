@@ -157,10 +157,19 @@ export const gtplApi = {
   activate: (stbNo: string) => api.post('/gtpl/activate', { stb_no: stbNo }),
   renew: (stbNo: string, months: number) => api.post('/gtpl/renew', { stb_no: stbNo, months }),
   changePlan: (stbNo: string, planCode: string) => api.post('/gtpl/change-plan', { stb_no: stbNo, plan_code: planCode }),
-  retrigger: (stbNo: string) => api.post('/gtpl/retrigger', { stb_no: stbNo }),
+  retrigger: (stbNo: string) => api.post('/gtpl/retrigger', { stb_no: stbNo }, { timeout: 45000 }),
   status: (stbNo: string) => api.get(`/gtpl/status/${stbNo}`),
   plans: () => api.get('/gtpl/plans'),
   wallet: () => api.get('/gtpl/wallet'),
+};
+
+// ── Laya Internet ────────────────────────────────────────────────────────
+export const layaApi = {
+  syncSubscribers: () => api.post('/laya/sync-subscribers', {}, { timeout: 60000 }),
+  importStatement: (content: string) => api.post('/laya/import-statement', { content }, { timeout: 30000 }),
+  wallet: () => api.get('/laya/wallet', { timeout: 20000 }),
+  subscribers: () => api.get('/laya/subscribers'),
+  collectionStatus: () => api.get('/laya/collection-status'),
 };
 
 // ── Settings ──────────────────────────────────────────────────────────────

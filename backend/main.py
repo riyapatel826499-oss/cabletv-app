@@ -100,6 +100,7 @@ _routers = {
     "push": ("routes.push", "router"),
     "notifications": ("routes.notifications", "router"),
     "gtpl": ("routes.gtpl", "router"),
+    "laya": ("routes.laya", "router"),
 }
 
 for route_name, (module, attr) in _routers.items():

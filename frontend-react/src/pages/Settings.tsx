@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi } from '../api';
+import { settingsApi, layaApi } from '../api';
 import {
   Settings as SettingsIcon, Bell, Send, Check, Unlink,
-  Shield, Loader2, RefreshCw,
+  Shield, Loader2, RefreshCw, Wifi, Upload, Wallet,
 } from 'lucide-react';
 
 export default function Settings() {
@@ -76,6 +76,34 @@ export default function Settings() {
 
   const telegramLinked = notifSettings?.telegram_linked;
   const chatCount = notifSettings?.telegram_chat_count ?? 0;
+
+  // ── Laya state ──
+  const [layaMsg, setLayaMsg] = useState('');
+
+  const layaSyncMut = useMutation({
+    mutationFn: async () => (await layaApi.syncSubscribers()).data,
+    onSuccess: (data) => setLayaMsg(`Synced: ${data.created} new, ${data.updated} updated (${data.total_in_crm} total)`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => setLayaMsg(`Error: ${err?.response?.data?.detail || 'Sync failed'}`),
+  });
+
+  const layaStmtMut = useMutation({
+    mutationFn: async (content: string) => (await layaApi.importStatement(content)).data,
+    onSuccess: (data) => setLayaMsg(`Statement: ${data.payments_created} payments created, ${data.collection_pending?.length || 0} pending collection`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => setLayaMsg(`Error: ${err?.response?.data?.detail || 'Import failed'}`),
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      if (content) layaStmtMut.mutate(content);
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 700 }}>
@@ -322,6 +350,77 @@ export default function Settings() {
             </button>
           </div>
         )}
+      </div>
+
+      {/* ── Laya Internet Integration ────────────────────────── */}
+      <div className="glass-card" style={{ padding: '20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Wifi style={{ width: 18, height: 18, color: '#5e5ce6' }} />
+          <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>
+            Laya Internet
+          </h2>
+        </div>
+
+        {layaMsg && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: layaMsg.startsWith('Error') ? 'rgba(255,59,48,0.08)' : 'rgba(52,199,89,0.08)',
+            border: `0.5px solid ${layaMsg.startsWith('Error') ? 'rgba(255,59,48,0.2)' : 'rgba(52,199,89,0.2)'}`,
+            color: layaMsg.startsWith('Error') ? '#ff3b30' : '#34c759',
+            padding: '10px 14px', borderRadius: 'var(--radius-xs)',
+            fontSize: '0.82rem', marginBottom: 12,
+          }}>
+            {layaMsg}
+            <button onClick={() => setLayaMsg('')} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem' }}>×</button>
+          </div>
+        )}
+
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 14 }}>
+          Sync subscribers from Laya CRM and import monthly statements for auto-reconciliation.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => layaSyncMut.mutate()}
+            disabled={layaSyncMut.isPending}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 16px', borderRadius: 'var(--radius-xs)',
+              border: '0.5px solid rgba(94,92,230,0.3)', background: 'transparent',
+              color: '#5e5ce6', fontSize: '0.82rem', fontWeight: 500, cursor: 'pointer',
+              opacity: layaSyncMut.isPending ? 0.6 : 1,
+            }}
+          >
+            {layaSyncMut.isPending ? (
+              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> Syncing...</>
+            ) : (
+              <><RefreshCw style={{ width: 14, height: 14 }} /> Sync Subscribers</>
+            )}
+          </button>
+
+          <label
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '10px 16px', borderRadius: 'var(--radius-xs)',
+              border: '0.5px solid rgba(0,113,227,0.3)', background: 'transparent',
+              color: '#0071e3', fontSize: '0.82rem', fontWeight: 500, cursor: 'pointer',
+              opacity: layaStmtMut.isPending ? 0.6 : 1,
+            }}
+          >
+            {layaStmtMut.isPending ? (
+              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> Importing...</>
+            ) : (
+              <><Upload style={{ width: 14, height: 14 }} /> Import Statement</>
+            )}
+            <input
+              type="file"
+              accept=".xls,.html"
+              onChange={handleFileUpload}
+              disabled={layaStmtMut.isPending}
+              style={{ display: 'none' }}
+            />
+          </label>
+        </div>
       </div>
     </div>
   );
