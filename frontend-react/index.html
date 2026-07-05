@@ -14,6 +14,60 @@
     <link rel="apple-touch-icon" href="/app/icon-192.png" />
 
     <title>Wasool — Cable TV</title>
+
+    <!-- ── SW Cache-Busting Self-Heal ──────────────────────────
+         This inline script runs in the HTML thread BEFORE any module
+         loads. It cannot be intercepted by the service worker because
+         inline scripts are part of the HTML document itself.
+
+         When we deploy a new version, the old SW serves the OLD cached
+         index.html (which has this OLD inline script). But this script
+         fetches the SERVER's index.html to compare JS filenames.
+
+         If the filenames differ (old SW serving old JS), it force-kills
+         the old SW and clears all caches, then reloads from server.
+    -->
+    <script>
+      (async function() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+          // Fetch the REAL index.html from server (bypass SW cache)
+          const resp = await fetch('/app/index.html?_sw_bust=' + Date.now(), {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' },
+          });
+          if (!resp.ok) return;
+          const serverHtml = await resp.text();
+
+          // Extract JS filename from server's HTML
+          const serverJs = (serverHtml.match(/index-[A-Za-z0-9_-]+\.js/) || [])[0];
+          // Get our current JS filename (from the script tag this HTML loaded)
+          const currentJs = (document.querySelector('script[src*="index-"]') || {})
+            .src?.match(/index-[A-Za-z0-9_-]+\.js/)?.[0];
+
+          if (serverJs && currentJs && serverJs !== currentJs) {
+            // MISMATCH: old SW is serving stale content
+            // Nuke everything and reload
+            console.warn('SW cache mismatch: server=' + serverJs + ' current=' + currentJs + ' — clearing all caches');
+
+            // Unregister ALL service workers
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+
+            // Clear ALL Cache Storage
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+
+            // Hard reload from server
+            window.location.replace(window.location.href.split('?')[0] + '?_fresh=' + Date.now());
+          }
+        } catch (e) {
+          // Network error or SW interference — ignore, let app load normally
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

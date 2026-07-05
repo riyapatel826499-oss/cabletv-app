@@ -45,10 +45,15 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Force immediate activation — don't wait for old SW to release
+        skipWaiting: true,
+        clientsClaim: true,
         // Cache app shell for offline use
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // Don't cache API calls — always hit network for fresh data
         navigateFallbackDenylist: [/^\/api\//],
+        // Purge old caches on activation
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
