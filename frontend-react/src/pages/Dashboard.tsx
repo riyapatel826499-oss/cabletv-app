@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { dashboardApi, gtplApi } from '../api';
+import { useState } from 'react';
+import { dashboardApi, gtplApi, layaApi } from '../api';
 import {
   TrendingUp, AlertCircle, Phone,
   Zap, Wifi, Tv, Package, CheckCircle2, Clock, ArrowRight,
@@ -109,6 +110,14 @@ export default function Dashboard() {
     queryFn: () => gtplApi.wallet().then(r => r.data),
     refetchInterval: 300000,
     retry: 1,
+  });
+
+  // Laya sync
+  const [layaMsg, setLayaMsg] = useState('');
+  const layaSyncMut = useMutation({
+    mutationFn: () => layaApi.syncSubscribers(),
+    onSuccess: (r) => setLayaMsg(`Synced: ${r.data.created} new, ${r.data.updated} updated`),
+    onError: (e: any) => setLayaMsg(`Error: ${e?.response?.data?.detail || 'failed'}`),
   });
 
   if (isLoading) {
@@ -516,6 +525,37 @@ export default function Dashboard() {
             );
           })}
         </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION 3.5: LAYA INTERNET SYNC
+      ══════════════════════════════════════════════════════════════════ */}
+      <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
+        <SectionHeader icon={Wifi} title="Laya Internet" color="#5e5ce6" />
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 12 }}>
+          Sync subscribers from Laya CRM
+        </p>
+        {layaMsg && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 8, marginBottom: 10,
+            background: layaMsg.startsWith('Error') ? 'rgba(255,59,48,0.08)' : 'rgba(52,199,89,0.08)',
+            color: layaMsg.startsWith('Error') ? '#ff3b30' : '#34c759',
+            fontSize: '0.82rem',
+          }}>{layaMsg}</div>
+        )}
+        <button
+          onClick={() => layaSyncMut.mutate()}
+          disabled={layaSyncMut.isPending}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 16px', borderRadius: 10,
+            border: '0.5px solid rgba(94,92,230,0.3)', background: 'transparent',
+            color: '#5e5ce6', fontSize: '0.82rem', fontWeight: 500, cursor: 'pointer',
+            opacity: layaSyncMut.isPending ? 0.6 : 1,
+          }}
+        >
+          {layaSyncMut.isPending ? 'Syncing...' : 'Sync Subscribers from CRM'}
+        </button>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
