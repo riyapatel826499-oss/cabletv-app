@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, layaApi } from '../api';
 import {
   Settings as SettingsIcon, Bell, Send, Check, Unlink,
-  Shield, Loader2, RefreshCw, Wifi, Upload, Wallet,
+  Shield, Loader2, RefreshCw, Wifi, Upload,
 } from 'lucide-react';
 
 export default function Settings() {
