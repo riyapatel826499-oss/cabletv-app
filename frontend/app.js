@@ -2245,7 +2245,7 @@ function autoDetectGap(conn) {
     const expYear = expiryDate.getFullYear();
 
     if (expYear > curYear || (expYear === curYear && expMonth >= curMonth)) {
-      let nextM = curMonth + 2;
+      let nextM = curMonth + 1;
       let nextY = curYear;
       if (nextM > 12) { nextM -= 12; nextY++; }
       document.getElementById('payMonth').value = nextY + '-' + String(nextM).padStart(2, '0');
