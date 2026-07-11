@@ -536,10 +536,13 @@ def get_unpaid_customers(
             exp = r["expiry_date"]
             gap_months = 0
             if exp:
-                exp_dt = datetime.strptime(exp, "%Y-%m-%d")
-                gap_months = (ref_date.year - exp_dt.year) * 12 + (ref_date.month - exp_dt.month)
-                if gap_months < 0:
-                    gap_months = 0
+                try:
+                    exp_dt = datetime.strptime(exp, "%Y-%m-%d")
+                    gap_months = (ref_date.year - exp_dt.year) * 12 + (ref_date.month - exp_dt.month)
+                    if gap_months < 0:
+                        gap_months = 0
+                except (ValueError, TypeError):
+                    pass  # unparseable date → treat as no gap, skip amount calc
 
             results.append({
                 "customer_id": r["customer_id"],
