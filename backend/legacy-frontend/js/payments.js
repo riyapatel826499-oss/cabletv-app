@@ -252,12 +252,12 @@ function autoDetectGap(conn) {
     const expYear = expiryDate.getFullYear();
 
     if (expYear > curYear || (expYear === curYear && expMonth >= curMonth)) {
-      let nextM = curMonth + 1;
-      let nextY = curYear;
-      if (nextM > 12) { nextM -= 12; nextY++; }
+      // Next unpaid = month of expiry date (exp 12 Jul → July / 07-2026). Not curMonth+2.
+      const nextM = expMonth + 1;
+      const nextY = expYear;
       document.getElementById('payMonth').value = nextY + '-' + String(nextM).padStart(2, '0');
       const nextMonthName = new Date(nextY, nextM - 1, 1).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
-      noteEl.innerHTML = '✅ Already paid till <strong>' + expiry.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + '</strong>. Month set to <strong>' + nextMonthName + '</strong>.';
+      noteEl.innerHTML = '✅ Already paid till <strong>' + expiry.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'}) + '</strong>. Month set to <strong>' + nextMonthName + '</strong> (next unpaid).';
       noteEl.style.display = 'block';
     } else {
       document.getElementById('payMonth').value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');

@@ -184,22 +184,23 @@ function detectGap(conn: ConnectionInfo): { isDisconnected: boolean; defaultMont
     };
   }
 
-  // Not expired — check if already paid for current month
+  // Not expired — next unpaid billing month = month of expiry date.
+  // Expiry 12 Jul means June cycle is paid; next to collect is July (07-2026).
+  // NEVER use curMonth+2 (that stored Aug and left customers on not-renewed).
   const curMonth = today.getMonth();
   const curYear = today.getFullYear();
   const expMonth = expiryDate.getMonth();
   const expYear = expiryDate.getFullYear();
 
   if (expYear > curYear || (expYear === curYear && expMonth >= curMonth)) {
-    let nextM = curMonth + 2;
-    let nextY = curYear;
-    if (nextM > 12) { nextM -= 12; nextY++; }
+    const nextM = expMonth + 1; // 1-indexed month of expiry = next unpaid month_year
+    const nextY = expYear;
     const nextMonthName = new Date(nextY, nextM - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
     const expStr = expiry.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     return {
       isDisconnected: false,
       defaultMonth: `${nextY}-${String(nextM).padStart(2, '0')}`,
-      gapNote: `Already paid till ${expStr}. Month set to ${nextMonthName}.`,
+      gapNote: `Already paid till ${expStr}. Month set to ${nextMonthName} (next unpaid).`,
     };
   }
 

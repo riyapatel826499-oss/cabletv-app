@@ -92,8 +92,53 @@ def create_payment(
         raise HTTPException(status_code=404, detail="Connection not found")
     connection_dict = _obj_to_dict(connection)
 
-    # Auto-fill month_year
-    if not data.month_year:
+    # Auto-fill / normalize month_year (MM-YYYY).
+    # Next unpaid month for a connection is the calendar month of its current
+    # expiry (expiry 2026-07-12 → next month_year 07-2026). Frontend bugs that
+    # skip a month (e.g. curMonth+2 → 08-2026) must not keep the customer on
+    # the not-renewed list after payment.
+    def _norm_month_year(my: Optional[str]) -> Optional[str]:
+        if not my or "-" not in my:
+            return my
+        parts = my.split("-")
+        if len(parts) != 2:
+            return my
+        a, b = parts[0], parts[1]
+        # Accept YYYY-MM from some clients → MM-YYYY
+        if len(a) == 4 and len(b) <= 2:
+            return f"{int(b):02d}-{a}"
+        if len(b) == 4 and len(a) <= 2:
+            return f"{int(a):02d}-{b}"
+        return my
+
+    def _month_idx(my: str) -> int:
+        m, y = my.split("-")
+        return int(y) * 12 + int(m)
+
+    def _next_month_year_from_expiry(exp: Optional[str]) -> Optional[str]:
+        if not exp:
+            return None
+        try:
+            d = str(exp).strip()[:10]
+            y, m, _day = d.split("-")
+            return f"{int(m):02d}-{y}"
+        except Exception:
+            return None
+
+    data.month_year = _norm_month_year(data.month_year)
+    months_paid = data.months_paid or 1
+    expected_my = _next_month_year_from_expiry(connection_dict.get("expiry_date"))
+    if (data.payment_type or "regular") == "regular" and months_paid == 1 and expected_my:
+        if not data.month_year:
+            data.month_year = expected_my
+        else:
+            try:
+                # If client skipped ahead of the next unpaid month, force correct month
+                if _month_idx(data.month_year) > _month_idx(expected_my):
+                    data.month_year = expected_my
+            except Exception:
+                data.month_year = expected_my
+    elif not data.month_year:
         data.month_year = get_current_month()
 
     # Insert payment
