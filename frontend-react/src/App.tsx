@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import AgentDashboard from './pages/AgentDashboard';
 import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import Payments from './pages/Payments';
@@ -95,6 +96,14 @@ function RoleRoute({ path, element }: { path: string; element: React.ReactNode }
   return <>{element}</>;
 }
 
+// ── Role-based dashboard switch ────────────────────────────────────────────
+function DashboardSwitch() {
+  const { user } = useAuth();
+  const role = user?.role;
+  const isAgent = role && !['master', 'admin'].includes(role);
+  return isAgent ? <AgentDashboard /> : <Dashboard />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -107,7 +116,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
+        <Route index element={<DashboardSwitch />} />
         <Route path="customers" element={<RoleRoute path="/customers" element={<Customers />} />} />
         <Route path="customers/:id" element={<RoleRoute path="/customers/:id" element={<CustomerDetail />} />} />
         <Route path="unpaid" element={<RoleRoute path="/unpaid" element={<Unpaid />} />} />

@@ -5,7 +5,7 @@ import { dashboardApi, gtplApi, layaApi } from '../api';
 import {
   TrendingUp, AlertCircle, Phone,
   Zap, Wifi, Tv, Package, CheckCircle2, Clock, ArrowRight,
-  MessageCircle, BarChart3,
+  MessageCircle, BarChart3, Trophy, CreditCard,
 } from 'lucide-react';
 import type { DashboardInsights } from '../types';
 import Rs from '../components/Rs';
@@ -102,6 +102,30 @@ export default function Dashboard() {
     queryKey: ['priority-unpaid'],
     queryFn: () => dashboardApi.priorityUnpaid(1).then(r => r.data),
     refetchInterval: 30000,
+  });
+
+  // Collector leaderboard — admin only, refresh every 60s
+  const { data: leaderboardData } = useQuery({
+    queryKey: ['collector-leaderboard'],
+    queryFn: () => dashboardApi.collectorLeaderboard().then(r => r.data),
+    refetchInterval: 60000,
+    retry: 1,
+  });
+
+  // Payment mode breakdown — refresh every 60s
+  const { data: paymentModesData } = useQuery({
+    queryKey: ['payment-modes'],
+    queryFn: () => dashboardApi.paymentModes().then(r => r.data),
+    refetchInterval: 60000,
+    retry: 1,
+  });
+
+  // Payment mode transition (Cash ↔ Digital) — refresh every 120s
+  const { data: transitionData } = useQuery({
+    queryKey: ['payment-mode-transition'],
+    queryFn: () => dashboardApi.paymentModeTransition().then(r => r.data),
+    refetchInterval: 120000,
+    retry: 1,
   });
 
   // GTPL wallet balance — refresh every 5 min
@@ -368,6 +392,283 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION 1C: COLLECTOR LEADERBOARD + PAYMENT MODES
+      ══════════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {/* Collector Leaderboard */}
+        {leaderboardData && leaderboardData.collectors && leaderboardData.collectors.length > 0 && (
+          <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 300 }}>
+            <SectionHeader
+              icon={Trophy}
+              title="Collector Leaderboard"
+              color="#ff9f0a"
+              action={
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                  {leaderboardData.month} · <Rs amount={leaderboardData.total_collected} /> total
+                </span>
+              }
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {leaderboardData.collectors.slice(0, 6).map((c: any, i: number) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                const pct = leaderboardData.total_collected > 0
+                  ? Math.round((c.collected / leaderboardData.total_collected) * 100)
+                  : 0;
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                    borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)',
+                  }}>
+                    <span style={{ fontSize: '1.2rem', width: 28, textAlign: 'center', flexShrink: 0 }}>
+                      {medal || `${i + 1}`}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'flex', gap: 6 }}>
+                        <span>{c.count} payments</span>
+                        {c.today_count > 0 && <span style={{ color: '#34c759' }}>↑ {c.today_count} today</span>}
+                        {c.areas && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {c.areas}</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}>
+                        <Rs amount={c.collected} />
+                      </div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{pct}% of total</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Payment Mode Breakdown */}
+        {paymentModesData && paymentModesData.modes && Object.keys(paymentModesData.modes).length > 0 && (
+          <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 260 }}>
+            <SectionHeader
+              icon={CreditCard}
+              title="Payment Modes"
+              color="#5856d6"
+              action={
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                  {paymentModesData.total_count} payments
+                </span>
+              }
+            />
+            {(() => {
+              const modes = paymentModesData.modes as Record<string, { count: number; total: number }>;
+              const sorted = Object.entries(modes).sort((a, b) => b[1].total - a[1].total);
+              const maxTotal = Math.max(...sorted.map(([, v]) => v.total), 1);
+              const modeColors: Record<string, string> = {
+                Cash: '#34c759', GPay: '#0071e3', PhonePe: '#5e5ce6', UPI: '#5856d6',
+                Card: '#ff9f0a', Cheque: '#ff3b30', Other: '#8e8e93',
+              };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {sorted.map(([mode, data]) => {
+                    const color = modeColors[mode] || '#8e8e93';
+                    const pct = Math.round((data.total / maxTotal) * 100);
+                    return (
+                      <div key={mode}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>{mode}</span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600, color }}>
+                            <Rs amount={data.total} />
+                          </span>
+                        </div>
+                        <div style={{ height: 8, background: 'var(--bg-secondary, #f0f0f3)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{
+                            height: '100%', width: `${pct}%`, background: color,
+                            borderRadius: 4, transition: 'width 0.5s ease',
+                          }} />
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-light)', marginTop: 2 }}>
+                          {data.count} payments
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION 1D: PAYMENT MODE MIGRATION (Cash ↔ Digital)
+      ══════════════════════════════════════════════════════════════════ */}
+      {transitionData && transitionData.summary && (
+        <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
+          <SectionHeader
+            icon={TrendingUp}
+            title="Cash → Digital Migration"
+            color="#34c759"
+            action={
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                {transitionData.last_month} → {transitionData.this_month}
+              </span>
+            }
+          />
+
+          {/* Top: Digital % comparison */}
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ flex: 1, minWidth: 120, textAlign: 'center', padding: 16, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {transitionData.last_month} Digital
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#5856d6' }}>
+                {transitionData.summary.digital_pct_last}%
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                {transitionData.last_month_split.digital}/{transitionData.last_month_split.total} customers
+              </div>
+            </div>
+
+            {/* Arrow */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRight style={{ width: 28, height: 28, color: 'var(--text-light)' }} />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 120, textAlign: 'center', padding: 16, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {transitionData.this_month} Digital
+              </div>
+              <div style={{
+                fontSize: '2rem', fontWeight: 800,
+                color: transitionData.summary.digital_pct_this >= transitionData.summary.digital_pct_last ? '#34c759' : '#ff3b30',
+              }}>
+                {transitionData.summary.digital_pct_this}%
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                {transitionData.this_month_split.digital}/{transitionData.this_month_split.total} customers
+              </div>
+            </div>
+
+            {/* Delta badge */}
+            {(() => {
+              const delta = transitionData.summary.digital_pct_this - transitionData.summary.digital_pct_last;
+              if (delta === 0) return null;
+              const positive = delta > 0;
+              return (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '6px 12px', borderRadius: 20,
+                  background: positive ? '#34c75915' : '#ff3b3015',
+                  border: `1px solid ${positive ? '#34c75930' : '#ff3b3030'}`,
+                }}>
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: positive ? '#34c759' : '#ff3b30' }}>
+                    {positive ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Middle: 4 transition buckets as flow diagram */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 10, marginBottom: 16,
+          }}>
+            {(() => {
+              const t = transitionData.transitions;
+              const total = t.cash_to_cash.count + t.cash_to_digital.count + t.digital_to_cash.count + t.digital_to_digital.count;
+              const buckets = [
+                { key: 'cash_to_digital', label: '💵→📱 Cash to Digital', color: '#34c759', icon: '🎉', data: t.cash_to_digital, good: true },
+                { key: 'digital_to_digital', label: '📱→📱 Stable Digital', color: '#0071e3', icon: '✓', data: t.digital_to_digital, good: true },
+                { key: 'cash_to_cash', label: '💵→💵 Stable Cash', color: '#ff9f0a', icon: '', data: t.cash_to_cash, good: false },
+                { key: 'digital_to_cash', label: '📱→💵 Digital to Cash', color: '#ff3b30', icon: '⚠️', data: t.digital_to_cash, good: false },
+              ];
+              return buckets.map((b) => {
+                const pct = total > 0 ? Math.round((b.data.count / total) * 100) : 0;
+                return (
+                  <div
+                    key={b.key}
+                    style={{
+                      padding: 14, borderRadius: 'var(--radius-sm)',
+                      background: `${b.color}08`, border: `1px solid ${b.color}30`,
+                      textAlign: 'center',
+                      cursor: b.data.count > 0 ? 'pointer' : 'default',
+                      transition: 'transform 0.12s ease',
+                    }}
+                    onClick={() => b.data.count > 0 && navigate('/payments')}
+                  >
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-light)', marginBottom: 4, fontWeight: 500 }}>
+                      {b.label}
+                    </div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: b.color }}>
+                      {b.data.count}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>
+                      {pct}% of repeat customers
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Bottom: 6-month digital % trend bar chart */}
+          {transitionData.trend && transitionData.trend.length > 1 && (
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 8, fontWeight: 500 }}>
+                📊 6-Month Digital Payment % Trend
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 80 }}>
+                {transitionData.trend.map((t, i) => {
+                  const barHeight = Math.max(t.digital_pct, 2);
+                  return (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: '0.6rem', fontWeight: 600, color: t.digital_pct >= 40 ? '#34c759' : '#ff9f0a' }}>
+                        {t.digital_pct}%
+                      </span>
+                      <div style={{
+                        width: '100%', height: `${barHeight}%`, minHeight: 3,
+                        borderRadius: '4px 4px 0 0',
+                        background: t.digital_pct >= 40
+                          ? 'linear-gradient(180deg, #34c759, #30d158)'
+                          : 'linear-gradient(180deg, #ff9f0a, #ffb340)',
+                        transition: 'height 0.5s ease',
+                      }} />
+                      <span style={{ fontSize: '0.55rem', color: 'var(--text-light)' }}>
+                        {t.month.split('-')[1]}/{t.month.split('-0')[1]?.slice(0, 2) || ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Convert/Lost highlight banner */}
+          {transitionData.summary.converted > 0 || transitionData.summary.lost > 0 ? (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+              background: transitionData.summary.converted > transitionData.summary.lost
+                ? 'rgba(52,199,89,0.08)' : 'rgba(255,59,48,0.08)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: '0.82rem',
+            }}>
+              {transitionData.summary.converted > 0 && (
+                <span style={{ color: '#34c759', fontWeight: 600 }}>
+                  ✅ {transitionData.summary.converted} customer{transitionData.summary.converted !== 1 ? 's' : ''} shifted to Digital
+                </span>
+              )}
+              {transitionData.summary.converted > 0 && transitionData.summary.lost > 0 && (
+                <span style={{ color: 'var(--text-light)' }}>·</span>
+              )}
+              {transitionData.summary.lost > 0 && (
+                <span style={{ color: '#ff3b30', fontWeight: 600 }}>
+                  ⚠️ {transitionData.summary.lost} went back to Cash
+                </span>
+              )}
+            </div>
+          ) : null}
         </div>
       )}
 

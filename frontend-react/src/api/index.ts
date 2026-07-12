@@ -64,6 +64,9 @@ export const dashboardApi = {
   master: () => api.get('/dashboard/master'),
   insights: () => api.get('/dashboard/insights'),
   priorityUnpaid: (page = 1) => api.get('/dashboard/priority-unpaid', { params: { page } }),
+  agentInsights: () => api.get('/dashboard/agent-insights'),
+  collectorLeaderboard: () => api.get('/dashboard/collector-leaderboard'),
+  paymentModeTransition: () => api.get('/dashboard/payment-mode-transition'),
 };
 
 // ── Plans ─────────────────────────────────────────────────────────────────

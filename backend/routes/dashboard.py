@@ -1085,3 +1085,561 @@ def priority_unpaid(
     }
     set_cached(_cache_key, result)
     return result
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Agent Personal Dashboard — /api/dashboard/agent-insights
+# ════════════════════════════════════════════════════════════════════════════
+@router.get("/agent-insights")
+def agent_insights(
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Personal dashboard for collection agents — today/week/month stats,
+    recent payments, priority follow-ups, area breakdown, collection streak."""
+    if not is_agent_role(current_user):
+        raise HTTPException(403, "Agent access only")
+
+    uid = current_user.get("id")
+    _cache_key = f"agent_insights:{uid}"
+    cached = get_cached(_cache_key, ttl=20)
+    if cached:
+        return cached
+
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+
+    # ── Date ranges ─────────────────────────────────────────────────────
+    today_start = now.strftime("%Y-%m-%d 00:00:00")
+    today_end = now.strftime("%Y-%m-%d 23:59:59")
+    yesterday_start = (now - timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+    yesterday_end = (now - timedelta(days=1)).strftime("%Y-%m-%d 23:59:59")
+    week_start = (now - timedelta(days=6)).strftime("%Y-%m-%d 00:00:00")
+    month_start = now.strftime("%Y-%m-01")
+    now_end = now.strftime("%Y-%m-%d 23:59:59")
+
+    # Last month range
+    if now.month == 1:
+        lm_year, lm_month = now.year - 1, 12
+    else:
+        lm_year, lm_month = now.year, now.month - 1
+    last_month_start = f"{lm_year}-{lm_month:02d}-01"
+    if lm_month == 12:
+        lm_last_day = 31
+    else:
+        lm_last_day = (now.replace(year=lm_year, month=lm_month + 1, day=1) - timedelta(days=1)).day
+    last_month_end = f"{lm_year}-{lm_month:02d}-{lm_last_day} 23:59:59"
+
+    agent_name = current_user.get("name", "")
+
+    # ── Today / Week / Month collection ─────────────────────────────────
+    _common = "collected_by = :uid AND (deleted IS NULL OR deleted = 0)"
+    today_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt
+                 FROM payments
+                 WHERE {_common} AND collected_at >= :ts AND collected_at <= :te"""),
+        {"uid": uid, "ts": today_start, "te": today_end},
+    ).fetchone()
+    today_collected = today_row.total or 0 if today_row else 0
+    today_count = today_row.cnt or 0 if today_row else 0
+
+    week_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt
+                 FROM payments
+                 WHERE {_common} AND collected_at >= :ws AND collected_at <= :te"""),
+        {"uid": uid, "ws": week_start, "te": today_end},
+    ).fetchone()
+    week_collected = week_row.total or 0 if week_row else 0
+    week_count = week_row.cnt or 0 if week_row else 0
+
+    month_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt
+                 FROM payments
+                 WHERE {_common} AND collected_at >= :ms AND collected_at <= :ne"""),
+        {"uid": uid, "ms": month_start, "ne": now_end},
+    ).fetchone()
+    month_collected = month_row.total or 0 if month_row else 0
+    month_count = month_row.cnt or 0 if month_row else 0
+
+    # ── Yesterday & last month for comparison ───────────────────────────
+    yesterday_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) AS total
+                 FROM payments
+                 WHERE {_common} AND collected_at >= :ys AND collected_at <= :ye"""),
+        {"uid": uid, "ys": yesterday_start, "ye": yesterday_end},
+    ).fetchone()
+    yesterday_collected = yesterday_row.total or 0 if yesterday_row else 0
+
+    last_month_row = db.execute(
+        text(f"""SELECT COALESCE(SUM(amount), 0) AS total
+                 FROM payments
+                 WHERE {_common} AND collected_at >= :lms AND collected_at <= :lme"""),
+        {"uid": uid, "lms": last_month_start, "lme": last_month_end},
+    ).fetchone()
+    last_month_collected = last_month_row.total or 0 if last_month_row else 0
+
+    # ── Month target & percentage ───────────────────────────────────────
+    # Default target derived from last month's collection (rounded up to nearest 5k);
+    # fallback 50000 if no history.
+    month_target = 50000
+    if last_month_collected > 0:
+        month_target = int(((last_month_collected + 4999) // 5000) * 5000)
+    month_pct = round((month_collected / month_target * 100), 1) if month_target else 0.0
+
+    # ── Recent payments (last 10) — same pattern as /stats agent section ──
+    recent_rows = db.execute(
+        text("""SELECT p.customer_id, p.amount, p.payment_mode AS mode, p.collected_at AS date,
+                       c.name AS customer_name, c.area, u.name AS collector_name, 'Local' AS source,
+                       cn.stb_no
+                FROM payments p
+                JOIN customers c ON p.customer_id = c.customer_id
+                LEFT JOIN users u ON p.collected_by = u.id
+                LEFT JOIN connections cn ON cn.id = p.connection_id
+                WHERE p.collected_by = :uid AND (p.deleted IS NULL OR p.deleted = 0)
+                ORDER BY p.collected_at DESC LIMIT 10"""),
+        {"uid": uid},
+    ).fetchall()
+    recent_payments = [dict(r._mapping) for r in recent_rows]
+
+    # ── Priority count: customers who paid last month but not this month ──
+    # Same CTE pattern as /priority-unpaid endpoint.
+    priority_count = db.execute(
+        text(f"""
+            WITH paid_last AS (
+                SELECT DISTINCT customer_id FROM payments
+                WHERE (deleted IS NULL OR deleted = 0)
+                  AND collected_at >= :lms AND collected_at <= :lme
+            ),
+            paid_this AS (
+                SELECT DISTINCT customer_id FROM payments
+                WHERE (deleted IS NULL OR deleted = 0)
+                  AND collected_at >= :ms AND collected_at <= :ne
+            )
+            SELECT COUNT(DISTINCT conn.customer_id)
+            FROM connections conn
+            JOIN customers c ON c.customer_id = conn.customer_id
+            WHERE conn.status = 'Active'
+              AND conn.customer_id IN (SELECT customer_id FROM paid_last)
+              AND conn.customer_id NOT IN (SELECT customer_id FROM paid_this)
+              AND c.area IN (
+                  SELECT DISTINCT c2.area FROM payments p2
+                  JOIN customers c2 ON p2.customer_id = c2.customer_id
+                  WHERE p2.collected_by = :uid
+              )
+        """),
+        {"uid": uid, "lms": last_month_start, "lme": last_month_end,
+         "ms": month_start, "ne": now_end},
+    ).scalar() or 0
+
+    # ── Open service requests assigned to agent ─────────────────────────
+    my_open_sr = 0
+    try:
+        my_open_sr = db.execute(
+            select(func.count(ServiceRequest.id)).where(
+                and_(
+                    ServiceRequest.status.in_(["open", "pending", "assigned", "in_progress"]),
+                    ServiceRequest.assigned_to == uid,
+                )
+            )
+        ).scalar() or 0
+    except Exception:
+        pass
+
+    # ── My areas: unpaid customers in areas the agent covers ─────────────
+    area_rows = db.execute(
+        text("""
+            SELECT COALESCE(c.area, 'Unknown') AS area,
+                   COUNT(DISTINCT conn.customer_id) AS unpaid,
+                   COALESCE(SUM(conn.plan_amount), 0) AS pending
+            FROM connections conn
+            JOIN customers c ON conn.customer_id = c.customer_id
+            WHERE conn.status = 'Active'
+              AND c.area IN (
+                  SELECT DISTINCT c2.area FROM payments p2
+                  JOIN customers c2 ON p2.customer_id = c2.customer_id
+                  WHERE p2.collected_by = :uid
+              )
+              AND conn.customer_id NOT IN (
+                  SELECT customer_id FROM payments
+                  WHERE (deleted IS NULL OR deleted = 0)
+                    AND collected_at >= :ms AND collected_at <= :ne
+              )
+            GROUP BY COALESCE(c.area, 'Unknown')
+            ORDER BY unpaid DESC
+            LIMIT 10
+        """),
+        {"uid": uid, "ms": month_start, "ne": now_end},
+    ).fetchall()
+    my_areas = [
+        {"area": r.area, "unpaid": r.unpaid, "pending": r.pending or 0}
+        for r in area_rows
+    ]
+
+    # ── Collection streak: consecutive days with ≥1 payment ──────────────
+    week_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d 00:00:00")
+    streak_rows = db.execute(
+        text("""SELECT DATE(collected_at) AS d
+                FROM payments
+                WHERE collected_by = :uid
+                  AND (deleted IS NULL OR deleted = 0)
+                  AND collected_at >= :wa
+                GROUP BY d
+                ORDER BY d DESC"""),
+        {"uid": uid, "wa": week_ago},
+    ).fetchall()
+    streak_dates = {r.d for r in streak_rows}
+    collection_streak = 0
+    cursor = now.date()
+    for _ in range(8):
+        if cursor in streak_dates:
+            collection_streak += 1
+            cursor -= timedelta(days=1)
+        else:
+            # Allow a gap if today has no payments yet (streak counts from yesterday)
+            if collection_streak == 0 and cursor == now.date():
+                cursor -= timedelta(days=1)
+                continue
+            break
+
+    result = {
+        "month": current_month,
+        "agent_name": agent_name,
+        "today_collected": today_collected,
+        "today_count": today_count,
+        "week_collected": week_collected,
+        "week_count": week_count,
+        "month_collected": month_collected,
+        "month_count": month_count,
+        "month_target": month_target,
+        "month_pct": month_pct,
+        "yesterday_collected": yesterday_collected,
+        "last_month_collected": last_month_collected,
+        "recent_payments": recent_payments,
+        "priority_count": priority_count,
+        "my_open_sr": my_open_sr,
+        "my_areas": my_areas,
+        "collection_streak": collection_streak,
+    }
+    set_cached(_cache_key, result)
+    return result
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Collector Leaderboard — /api/dashboard/collector-leaderboard
+# ════════════════════════════════════════════════════════════════════════════
+@router.get("/collector-leaderboard")
+def collector_leaderboard(
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Collector performance for current month — admin/support/master only.
+    Returns per-collector totals (amount, count, today) + areas covered."""
+    if is_agent_role(current_user):
+        raise HTTPException(403, "Admin access only")
+
+    _oid = op_id(current_user)
+    _cache_key = f"collector_leaderboard:{_oid}"
+    cached = get_cached(_cache_key, ttl=30)
+    if cached:
+        return cached
+
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+    month_start = now.strftime("%Y-%m-01")
+    now_end = now.strftime("%Y-%m-%d 23:59:59")
+
+    # Operator filter fragment
+    op_clause = "AND p.operator_id = :oid"
+    op_params = {"oid": _oid}
+    if _oid is None:
+        op_clause = ""  # master sees all
+        op_params = {}
+
+    # ── Main per-collector aggregation ──────────────────────────────────
+    collector_rows = db.execute(
+        text(f"""
+            SELECT u.name, u.role,
+                   COALESCE(SUM(p.amount), 0) AS collected,
+                   COUNT(p.id) AS cnt,
+                   COALESCE(SUM(CASE WHEN DATE(p.collected_at) = CURRENT_DATE THEN p.amount ELSE 0 END), 0) AS today,
+                   SUM(CASE WHEN DATE(p.collected_at) = CURRENT_DATE THEN 1 ELSE 0 END) AS today_count
+            FROM payments p
+            JOIN users u ON p.collected_by = u.id
+            WHERE (p.deleted IS NULL OR p.deleted = 0)
+              AND p.collected_at >= :ms AND p.collected_at <= :ne
+              {op_clause}
+            GROUP BY u.name, u.role
+            ORDER BY collected DESC
+        """),
+        {"ms": month_start, "ne": now_end, **op_params},
+    ).fetchall()
+
+    # ── Areas per collector (separate query, merged by name) ─────────────
+    from services.payments import _gc
+    area_rows = db.execute(
+        text(f"""
+            SELECT u.name,
+                   {_gc("COALESCE(c.area, 'Unknown')")} AS areas
+            FROM payments p
+            JOIN users u ON p.collected_by = u.id
+            JOIN customers c ON p.customer_id = c.customer_id
+            WHERE (p.deleted IS NULL OR p.deleted = 0)
+              AND p.collected_at >= :ms AND p.collected_at <= :ne
+              {op_clause}
+            GROUP BY u.name
+        """),
+        {"ms": month_start, "ne": now_end, **op_params},
+    ).fetchall()
+    areas_map = {r.name: (r.areas or "") for r in area_rows}
+
+    collectors = []
+    total_collected = 0
+    total_count = 0
+    for r in collector_rows:
+        d = dict(r._mapping)
+        collected = d.get("collected") or 0
+        cnt = d.get("cnt") or 0
+        name = d.get("name") or ""
+        total_collected += collected
+        total_count += cnt
+        collectors.append({
+            "name": name,
+            "role": d.get("role") or "",
+            "collected": collected,
+            "count": cnt,
+            "today": d.get("today") or 0,
+            "today_count": d.get("today_count") or 0,
+            "areas": areas_map.get(name, ""),
+        })
+
+    result = {
+        "month": current_month,
+        "collectors": collectors,
+        "total_collected": total_collected,
+        "total_count": total_count,
+    }
+    set_cached(_cache_key, result)
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYMENT MODE TRANSITION — Cash ↔ Digital migration between two months
+#
+# Classifies each customer's payment mode as "Cash" or "Digital":
+#   Cash   = Cash
+#   Digital = GPay, PhonePe, UPI, Bank Transfer, Online, Card, Cheque
+#
+# Then tracks 4 transition buckets:
+#   cash_to_digital    — paid cash last month, digital this month (converted!)
+#   digital_to_cash    — paid digital last month, cash this month (lost!)
+#   digital_to_digital — stable digital
+#   cash_to_cash       — stable cash
+#
+# Also returns side-by-side split: last_month {cash, digital} vs this_month,
+# and a 6-month digital % trend.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Modes classified as "Digital"
+_DIGITAL_KEYWORDS = ("gpay", "phonepe", "phone pe", "phonepé", "upi",
+                     "online", "bank", "card", "cheque", "check", "netbanking")
+
+
+def _classify_mode(mode: str) -> str:
+    """Return 'Cash', 'Digital', or 'Other' for a payment mode string."""
+    if not mode:
+        return "Other"
+    m = str(mode).strip().lower()
+    if m == "cash":
+        return "Cash"
+    if m in _DIGITAL_KEYWORDS:
+        return "Digital"
+    if "cash" in m:
+        return "Cash"
+    if any(k in m for k in _DIGITAL_KEYWORDS):
+        return "Digital"
+    return "Other"
+
+
+@router.get("/payment-mode-transition")
+def payment_mode_transition(
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_db),
+):
+    """Cash ↔ Digital payment mode transition between last month and this month."""
+    if is_agent_role(current_user):
+        raise HTTPException(403, "Admin access only")
+
+    _oid = op_id(current_user)
+    _cache_key = f"payment_mode_transition:{_oid}"
+    cached = get_cached(_cache_key, ttl=60)
+    if cached:
+        return cached
+
+    now = datetime.now()
+
+    this_ms = now.strftime("%Y-%m-01")
+    this_me = now.strftime("%Y-%m-%d 23:59:59")
+
+    if now.month == 1:
+        lm_year, lm_month = now.year - 1, 12
+    else:
+        lm_year, lm_month = now.year, now.month - 1
+    last_ms = f"{lm_year}-{lm_month:02d}-01"
+    if lm_month == 12:
+        lm_last_day = 31
+    else:
+        lm_last_day = (now.replace(year=lm_year, month=lm_month + 1, day=1) - timedelta(days=1)).day
+    last_me = f"{lm_year}-{lm_month:02d}-{lm_last_day} 23:59:59"
+
+    op_flt = "1=1"
+    if _oid is not None:
+        op_flt = f"operator_id = {_oid}"
+
+    # Engine-specific month extraction
+    from config import DB_ENGINE
+    if DB_ENGINE == "sqlite":
+        month_expr = "strftime('%Y-%m', collected_at)"
+    else:
+        month_expr = "TO_CHAR(collected_at::timestamp, 'YYYY-MM')"
+
+    # ── Each customer's latest payment mode per month ───────────────────
+    # Simplified: for each customer, get their most recent payment in the
+    # date window. Use a correlated subquery instead of ROW_NUMBER for
+    # cross-engine compatibility (SQLite 3.25+ supports ROW_NUMBER but
+    # some older deployments may not).
+    last_mode_rows = db.execute(
+        text(f"""
+            SELECT p1.customer_id, p1.payment_mode
+            FROM payments p1
+            INNER JOIN (
+                SELECT customer_id, MAX(collected_at) as max_dt
+                FROM payments
+                WHERE (deleted IS NULL OR deleted = 0)
+                  AND collected_at >= :ms AND collected_at <= :me AND {op_flt}
+                GROUP BY customer_id
+            ) p2 ON p1.customer_id = p2.customer_id AND p1.collected_at = p2.max_dt
+            WHERE (p1.deleted IS NULL OR p1.deleted = 0) AND {op_flt.replace('operator_id', 'p1.operator_id')}
+        """),
+        {"ms": last_ms, "me": last_me},
+    ).fetchall()
+    last_mode_map = {r.customer_id: _classify_mode(r.payment_mode) for r in last_mode_rows}
+
+    this_mode_rows = db.execute(
+        text(f"""
+            SELECT p1.customer_id, p1.payment_mode
+            FROM payments p1
+            INNER JOIN (
+                SELECT customer_id, MAX(collected_at) as max_dt
+                FROM payments
+                WHERE (deleted IS NULL OR deleted = 0)
+                  AND collected_at >= :ms AND collected_at <= :me AND {op_flt}
+                GROUP BY customer_id
+            ) p2 ON p1.customer_id = p2.customer_id AND p1.collected_at = p2.max_dt
+            WHERE (p1.deleted IS NULL OR p1.deleted = 0) AND {op_flt.replace('operator_id', 'p1.operator_id')}
+        """),
+        {"ms": this_ms, "me": this_me},
+    ).fetchall()
+    this_mode_map = {r.customer_id: _classify_mode(r.payment_mode) for r in this_mode_rows}
+
+    # ── Compute transition buckets ───────────────────────────────────────
+    transition_buckets = {
+        "cash_to_cash": {"count": 0, "customers": []},
+        "cash_to_digital": {"count": 0, "customers": []},
+        "digital_to_cash": {"count": 0, "customers": []},
+        "digital_to_digital": {"count": 0, "customers": []},
+    }
+
+    both_months = set(last_mode_map.keys()) & set(this_mode_map.keys())
+
+    # Batch fetch customer names
+    cust_names = {}
+    if both_months:
+        cust_ids = list(both_months)
+        # fetch in chunks to avoid param limit
+        for i in range(0, len(cust_ids), 100):
+            chunk = cust_ids[i:i + 100]
+            placeholders = ",".join([f":id{j}" for j in range(len(chunk))])
+            params = {f"id{j}": cid for j, cid in enumerate(chunk)}
+            name_rows = db.execute(
+                text(f"SELECT customer_id, name FROM customers WHERE customer_id IN ({placeholders})"),
+                params,
+            ).fetchall()
+            for r in name_rows:
+                cust_names[r.customer_id] = r.name
+
+    for cid in both_months:
+        lm_mode = last_mode_map[cid]
+        tm_mode = this_mode_map[cid]
+        if lm_mode == "Other" or tm_mode == "Other":
+            continue
+        key = f"{lm_mode.lower()}_to_{tm_mode.lower()}"
+        if key in transition_buckets:
+            transition_buckets[key]["count"] += 1
+            transition_buckets[key]["customers"].append({
+                "customer_id": cid,
+                "name": cust_names.get(cid, cid),
+            })
+
+    # ── Side-by-side split per month ─────────────────────────────────────
+    last_total = sum(1 for v in last_mode_map.values() if v != "Other")
+    last_cash = sum(1 for v in last_mode_map.values() if v == "Cash")
+    last_digital = sum(1 for v in last_mode_map.values() if v == "Digital")
+
+    this_total = sum(1 for v in this_mode_map.values() if v != "Other")
+    this_cash = sum(1 for v in this_mode_map.values() if v == "Cash")
+    this_digital = sum(1 for v in this_mode_map.values() if v == "Digital")
+
+    # ── 6-month digital % trend ──────────────────────────────────────────
+    six_months_ago = (now - timedelta(days=180)).strftime("%Y-%m-01")
+    trend_rows = db.execute(
+        text(f"""
+            SELECT {month_expr} as month,
+                   COUNT(*) as total,
+                   SUM(CASE WHEN LOWER(COALESCE(payment_mode,'')) = 'cash' THEN 1 ELSE 0 END) as cash_cnt,
+                   SUM(CASE WHEN LOWER(COALESCE(payment_mode,'')) IN ('gp','gpay','phonepe','phone pe','upi','online','bank','bank transfer','netbanking','card','debit card','credit card','cheque') THEN 1 ELSE 0 END) as digital_cnt
+            FROM payments
+            WHERE (deleted IS NULL OR deleted = 0)
+              AND collected_at >= :sma AND {op_flt}
+            GROUP BY {month_expr}
+            ORDER BY month
+        """),
+        {"sma": six_months_ago},
+    ).fetchall()
+
+    trend = []
+    for r in trend_rows:
+        total = r.total or 0
+        cash_cnt = r.cash_cnt or 0
+        digital_cnt = r.digital_cnt or 0
+        known = cash_cnt + digital_cnt
+        if known > 0 and known < total:
+            unknown = total - known
+            ratio = digital_cnt / known
+            digital_cnt += int(unknown * ratio)
+            cash_cnt = total - digital_cnt
+
+        pct = round((digital_cnt / total * 100) if total > 0 else 0, 1)
+        trend.append({
+            "month": r.month,
+            "total": total,
+            "cash": cash_cnt,
+            "digital": digital_cnt,
+            "digital_pct": pct,
+        })
+
+    result = {
+        "last_month": f"{lm_month:02d}-{lm_year}",
+        "this_month": f"{now.month:02d}-{now.year}",
+        "last_month_split": {"cash": last_cash, "digital": last_digital, "total": last_total},
+        "this_month_split": {"cash": this_cash, "digital": this_digital, "total": this_total},
+        "transitions": transition_buckets,
+        "trend": trend,
+        "summary": {
+            "digital_pct_last": round((last_digital / last_total * 100) if last_total > 0 else 0, 1),
+            "digital_pct_this": round((this_digital / this_total * 100) if this_total > 0 else 0, 1),
+            "converted": transition_buckets["cash_to_digital"]["count"],
+            "lost": transition_buckets["digital_to_cash"]["count"],
+        },
+    }
+    set_cached(_cache_key, result)
+    return result

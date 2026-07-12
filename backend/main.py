@@ -101,6 +101,7 @@ _routers = {
     "notifications": ("routes.notifications", "router"),
     "gtpl": ("routes.gtpl", "router"),
     "laya": ("routes.laya", "router"),
+    "internal": ("routes.internal", "router"),
 }
 
 for route_name, (module, attr) in _routers.items():

@@ -48,8 +48,17 @@ AUTH_RATE_LIMIT=os.getenv("AUTH_RATE_LIMIT", "5/minute")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8738324317:AAE-8zaNhMixSs7cKZHoTtxObm9WiQSrhLk")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "1632880933")
 
+# WhatsApp Cloud API (Meta)
+WA_PHONE_NUMBER_ID = os.getenv("WA_PHONE_NUMBER_ID", "")
+WA_ACCESS_TOKEN = os.getenv("WA_ACCESS_TOKEN", "")
+WA_BUSINESS_ACCOUNT_ID = os.getenv("WA_BUSINESS_ACCOUNT_ID", "")
+WA_API_VERSION = os.getenv("WA_API_VERSION", "v20.0")
+WA_WEBHOOK_VERIFY_TOKEN = os.getenv("WA_WEBHOOK_VERIFY_TOKEN", "")
+INTERNAL_CRON_SECRET = os.getenv("INTERNAL_CRON_SECRET", "dev-cron-secret-CHANGE-IN-PROD")
+REMINDER_DAYS_BEFORE_DUE = int(os.getenv("REMINDER_DAYS_BEFORE_DUE", "3"))
+
 # Telegram Service Requests Bot
-SR_BOT_TOKEN = os.getenv("SR_BOT_TOKEN", "8738324317:AAE-8zaNhMixSs7cKZHoTtxObm9WiQSrhLk")
+SR_BOT_TOKEN = os.getenv("SR_BOT_TOKEN", "8738324317:***")
 SR_GROUP_ID = os.getenv("SR_GROUP_ID", "-5136685396")
 SR_ADMIN_IDS = os.getenv("SR_ADMIN_IDS", "1632880933").split(",")  # Prabhu's TG ID
 # Telegram webhook secret token. When set, the SR webhook verifies the
