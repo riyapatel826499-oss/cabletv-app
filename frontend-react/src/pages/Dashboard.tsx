@@ -121,7 +121,23 @@ export default function Dashboard() {
   });
 
   // Payment mode transition (Cash ↔ Digital) — refresh every 120s
-  const { data: transitionData } = useQuery({
+  type ModeSplit = { cash: number; digital: number; total: number };
+  type TransitionBucket = { count: number; customers: Array<{ customer_id: string; name: string }> };
+  type ModeTransition = {
+    last_month: string;
+    this_month: string;
+    last_month_split: ModeSplit;
+    this_month_split: ModeSplit;
+    transitions: {
+      cash_to_cash: TransitionBucket;
+      cash_to_digital: TransitionBucket;
+      digital_to_cash: TransitionBucket;
+      digital_to_digital: TransitionBucket;
+    };
+    trend: Array<{ month: string; total: number; cash: number; digital: number; digital_pct: number }>;
+    summary: { digital_pct_last: number; digital_pct_this: number; converted: number; lost: number };
+  };
+  const { data: transitionData } = useQuery<ModeTransition>({
     queryKey: ['payment-mode-transition'],
     queryFn: () => dashboardApi.paymentModeTransition().then(r => r.data),
     refetchInterval: 120000,
