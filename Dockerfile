@@ -20,6 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all backend code
 COPY backend/ .
 
+# Force rebuild marker (bump when Railway cache is stale)
+RUN echo "rebuild-v2" && python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
+
 # Copy legacy frontend files (the working vanilla-JS SPA, served at the root)
 COPY backend/legacy-frontend/ ./legacy-frontend/
 RUN rm -f legacy-frontend/*.bak
