@@ -6,6 +6,7 @@ COPY frontend-react/package.json frontend-react/package-lock.json ./
 RUN npm ci
 COPY frontend-react/ ./
 # vite outDir is '../backend/static' → emits to /build/backend/static
+ARG CACHE_BUST=1
 RUN npm run build
 
 # ── Stage 2: Python backend ───────────────────────────────────────────────
@@ -20,8 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all backend code
 COPY backend/ .
 
-# Force rebuild marker (bump when Railway cache is stale)
-RUN echo "rebuild-v2" && python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
+# Force rebuild marker (bump CACHE_BUST when Railway cache is stale)
+ARG CACHE_BUST=1
+RUN echo "rebuild-${CACHE_BUST}" && python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
 
 # Copy legacy frontend files (the working vanilla-JS SPA, served at the root)
 COPY backend/legacy-frontend/ ./legacy-frontend/
@@ -31,8 +33,5 @@ RUN rm -f legacy-frontend/*.bak
 COPY --from=frontend /build/backend/static ./static
 
 EXPOSE 8000
-
-# Pre-flight: verify app imports cleanly before starting gunicorn
-RUN python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
 
 CMD gunicorn main:app -c gunicorn_conf.py
