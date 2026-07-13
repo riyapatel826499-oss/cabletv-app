@@ -29,4 +29,7 @@ COPY --from=frontend /build/backend/static ./static
 
 EXPOSE 8000
 
+# Pre-flight: verify app imports cleanly before starting gunicorn
+RUN python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
+
 CMD gunicorn main:app -c gunicorn_conf.py
