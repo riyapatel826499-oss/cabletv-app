@@ -1,12 +1,10 @@
 # ── Stage 1: build the React (Vite) frontend ──────────────────────────────
-FROM node:22-slim AS frontend
+# Changed FROM to force Railway to re-read this Dockerfile
+FROM node:22-slim AS frontend-build
 WORKDIR /build/frontend-react
-# Install deps first (cached unless lockfile changes)
 COPY frontend-react/package.json frontend-react/package-lock.json ./
 RUN npm ci
 COPY frontend-react/ ./
-# vite outDir is '../backend/static' → emits to /build/backend/static
-ARG CACHE_BUST=1
 RUN npm run build
 
 # ── Stage 2: Python backend ───────────────────────────────────────────────
@@ -14,24 +12,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy backend requirements and install deps
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all backend code
 COPY backend/ .
 
-# Force rebuild marker (bump CACHE_BUST when Railway cache is stale)
-ARG CACHE_BUST=1
-RUN echo "rebuild-${CACHE_BUST}" && python -c "from main import app; print(f'App OK, {len(app.routes)} routes')"
-
-# Copy legacy frontend files (the working vanilla-JS SPA, served at the root)
 COPY backend/legacy-frontend/ ./legacy-frontend/
 RUN rm -f legacy-frontend/*.bak
 
-# React build output → /app/static (served under /app)
-COPY --from=frontend /build/backend/static ./static
+COPY --from=frontend-build /build/backend/static ./static
 
 EXPOSE 8000
 
-CMD gunicorn main:app -c gunicorn_conf.py
+CMD ["gunicorn", "main:app", "-c", "gunicorn_conf.py"]
