@@ -1,23 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, X } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair } from 'lucide-react';
 import { mapApi } from '../api';
 
-// ── Config (set these in frontend-react/.env) ──────────────────────────────
-// No API key and no credit card needed — uses free Esri satellite imagery.
-// Center on your area (right-click your home in Google Maps to copy lat,lng).
+// ── Your collection area ───────────────────────────────────────────────────
+// Hardcoded so it always centers here (no env/rebuild needed). Change these two
+// numbers if your area ever moves. Right-click your area's centre in Google Maps
+// to copy the lat,lng.
 const HOME_CENTER: [number, number] = [
-  Number(import.meta.env.VITE_HOME_LAT) || 13.0827,
-  Number(import.meta.env.VITE_HOME_LNG) || 80.2707,
+  Number(import.meta.env.VITE_HOME_LAT) || 11.0974473,
+  Number(import.meta.env.VITE_HOME_LNG) || 77.2013613,
 ];
-// How far (km) the map is allowed to roam from your area.
+// How far (km) the map may roam from the centre. Keeps you in your area.
 const AREA_RADIUS_KM = Number(import.meta.env.VITE_AREA_RADIUS_KM) || 3;
 
-// Lock the map to a box around your area so other places never load.
 const _latPad = AREA_RADIUS_KM / 111;
 const _lngPad = AREA_RADIUS_KM / (111 * Math.cos((HOME_CENTER[0] * Math.PI) / 180));
 const MAX_BOUNDS: L.LatLngBoundsExpression = [
@@ -53,14 +53,23 @@ type NoLocCustomer = {
   address?: string | null;
 };
 
-// Minimal shape needed to place/move any customer.
 type Placing = { customer_id: string; name: string; hasLocation: boolean };
+type Filter = 'without' | 'with' | 'all';
+
+type ListRow = {
+  customer_id: string;
+  name: string;
+  area?: string | null;
+  hasLocation: boolean;
+  latitude?: number;
+  longitude?: number;
+  is_paid?: boolean;
+};
 
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7); // YYYY-MM
+  return new Date().toISOString().slice(0, 7);
 }
 
-// Coloured pin (green = paid, red = unpaid) drawn with HTML — no image files.
 function pinIcon(paid: boolean) {
   return L.divIcon({
     className: 'collection-pin',
@@ -73,7 +82,6 @@ function pinIcon(paid: boolean) {
   });
 }
 
-// Handles map taps while you're placing a customer.
 function MapClickHandler({
   enabled,
   onPick,
@@ -92,11 +100,15 @@ function MapClickHandler({
 export default function MapView() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mapRef = useRef<L.Map | null>(null);
+  const autoPlacedRef = useRef(false);
 
   const [month, setMonth] = useState(currentMonth());
   const [unpaidOnly, setUnpaidOnly] = useState(false);
   const [placingFor, setPlacingFor] = useState<Placing | null>(null);
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('without');
 
   const { data } = useQuery<MapResponse>({
     queryKey: ['map-customers', month],
@@ -117,38 +129,62 @@ export default function MapView() {
     },
   });
 
-  const customers = useMemo(
-    () => (data?.customers ?? []).filter((c) => (unpaidOnly ? !c.is_paid : true)),
-    [data, unpaidOnly],
+  const located = data?.customers ?? [];
+  const unlocated = noLoc ?? [];
+
+  const markers = useMemo(
+    () => located.filter((c) => (unpaidOnly ? !c.is_paid : true)),
+    [located, unpaidOnly],
   );
 
-  // Every active customer (located + not-yet-located) for the search picker.
-  const allCustomers: Placing[] = useMemo(() => {
-    const located = (data?.customers ?? []).map((c) => ({
+  // Unified list for the bottom panel, respecting the with/without/all filter.
+  const rows: ListRow[] = useMemo(() => {
+    const withRows: ListRow[] = located.map((c) => ({
       customer_id: c.customer_id,
       name: c.name,
+      area: c.area,
       hasLocation: true,
+      latitude: c.latitude,
+      longitude: c.longitude,
+      is_paid: c.is_paid,
     }));
-    const unlocated = (noLoc ?? []).map((c) => ({
+    const withoutRows: ListRow[] = unlocated.map((c) => ({
       customer_id: c.customer_id,
       name: c.name,
+      area: c.area,
       hasLocation: false,
     }));
-    return [...unlocated, ...located];
-  }, [data, noLoc]);
-
-  const searchResults = useMemo(() => {
+    let base: ListRow[] =
+      filter === 'without' ? withoutRows :
+      filter === 'with' ? withRows :
+      [...withoutRows, ...withRows];
     const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return allCustomers
-      .filter(
-        (c) => c.name.toLowerCase().includes(q) || c.customer_id.toLowerCase().includes(q),
-      )
-      .slice(0, 8);
-  }, [search, allCustomers]);
+    if (q) {
+      base = base.filter(
+        (r) => r.name.toLowerCase().includes(q) || r.customer_id.toLowerCase().includes(q),
+      );
+    }
+    return base.sort((a, b) => a.name.localeCompare(b.name));
+  }, [located, unlocated, filter, search]);
 
-  const paidCount = data?.customers.filter((c) => c.is_paid).length ?? 0;
-  const unpaidCount = (data?.customers.length ?? 0) - paidCount;
+  // Deep-link from a customer profile: /map?place=<customer_id>
+  useEffect(() => {
+    const placeId = searchParams.get('place');
+    if (!placeId || autoPlacedRef.current) return;
+    const inWith = located.find((c) => c.customer_id === placeId);
+    const inWithout = unlocated.find((c) => c.customer_id === placeId);
+    const hit = inWith || inWithout;
+    if (hit) {
+      autoPlacedRef.current = true;
+      setPlacingFor({ customer_id: hit.customer_id, name: hit.name, hasLocation: !!inWith });
+      searchParams.delete('place');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [located, unlocated, searchParams, setSearchParams]);
+
+  const paidCount = located.filter((c) => c.is_paid).length;
+  const unpaidCount = located.length - paidCount;
+  const total = located.length + unlocated.length;
 
   function placeAt(lat: number, lng: number) {
     if (!placingFor) return;
@@ -174,18 +210,27 @@ export default function MapView() {
     );
   }
 
-  function pickForPlacing(c: Placing) {
-    setPlacingFor(c);
-    setSearch('');
+  function flyTo(lat: number, lng: number) {
+    mapRef.current?.flyTo([lat, lng], 18);
   }
+
+  const FILTERS: { key: Filter; label: string; count: number }[] = [
+    { key: 'without', label: 'Without location', count: unlocated.length },
+    { key: 'with', label: 'With location', count: located.length },
+    { key: 'all', label: 'All', count: total },
+  ];
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-white border-b">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-white border-b">
         <span className="text-sm font-semibold">Collection Map</span>
+        <span className="text-xs text-gray-500">
+          Placed {located.length}/{total}
+        </span>
         <span className="text-sm text-green-600">{paidCount} paid</span>
         <span className="text-sm text-red-600">{unpaidCount} unpaid</span>
+        <span className="text-[11px] text-gray-400">(among placed, this month)</span>
         <input
           type="month"
           value={month}
@@ -200,43 +245,6 @@ export default function MapView() {
           />
           Unpaid only
         </label>
-
-        {/* Search any customer to place / move them */}
-        <div className="relative ml-auto">
-          <div className="flex items-center gap-1 border rounded px-2 py-1">
-            <Search size={14} className="text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Find customer to place\u2026"
-              className="text-sm outline-none w-48"
-            />
-            {search && (
-              <button onClick={() => setSearch('')}>
-                <X size={14} className="text-gray-400" />
-              </button>
-            )}
-          </div>
-          {searchResults.length > 0 && (
-            <div className="absolute right-0 mt-1 w-64 bg-white border rounded shadow z-[1000] max-h-72 overflow-y-auto">
-              {searchResults.map((c) => (
-                <button
-                  key={c.customer_id}
-                  onClick={() => pickForPlacing(c)}
-                  className="flex items-center justify-between w-full px-3 py-2 text-sm hover:bg-gray-50 text-left"
-                >
-                  <span>
-                    <span className="font-medium">{c.name}</span>
-                    <span className="text-xs text-gray-400 ml-1">{c.customer_id}</span>
-                  </span>
-                  <span className={`text-xs ${c.hasLocation ? 'text-green-600' : 'text-amber-600'}`}>
-                    {c.hasLocation ? 'move' : 'place'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {placingFor && (
@@ -255,21 +263,20 @@ export default function MapView() {
       {/* ── Map ── */}
       <div className="flex-1 min-h-0">
         <MapContainer
+          ref={mapRef}
           center={HOME_CENTER}
-          zoom={16}
-          minZoom={14}
+          zoom={15}
+          minZoom={13}
           maxZoom={19}
           maxBounds={MAX_BOUNDS}
           maxBoundsViscosity={1.0}
           style={{ width: '100%', height: '100%' }}
         >
-          {/* Free Esri satellite imagery */}
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             attribution="Tiles &copy; Esri, Maxar, Earthstar Geographics"
             maxZoom={19}
           />
-          {/* Street/place name labels on top (hybrid look) */}
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
@@ -277,7 +284,7 @@ export default function MapView() {
 
           <MapClickHandler enabled={!!placingFor} onPick={placeAt} />
 
-          {customers.map((c) => (
+          {markers.map((c) => (
             <Marker
               key={c.customer_id}
               position={[c.latitude, c.longitude]}
@@ -285,8 +292,7 @@ export default function MapView() {
               draggable
               eventHandlers={{
                 dragend: (e) => {
-                  const m = e.target as L.Marker;
-                  const p = m.getLatLng();
+                  const p = (e.target as L.Marker).getLatLng();
                   saveLocation.mutate({ id: c.customer_id, lat: p.lat, lng: p.lng });
                 },
               }}
@@ -333,36 +339,89 @@ export default function MapView() {
         </MapContainer>
       </div>
 
-      {/* ── Customers still needing a location ── */}
-      {noLoc && noLoc.length > 0 && (
-        <div className="px-4 py-2 bg-gray-50 border-t max-h-40 overflow-y-auto">
-          <div className="text-sm font-semibold mb-1">Needs location ({noLoc.length})</div>
-          <div className="flex flex-wrap gap-2">
-            {noLoc.map((c) => (
-              <span
-                key={c.customer_id}
-                className="inline-flex items-center gap-1 bg-white border rounded-full px-2 py-1 text-xs"
-              >
-                {c.name}
-                <button
-                  className="text-blue-600 flex items-center gap-0.5"
-                  onClick={() => pickForPlacing({ customer_id: c.customer_id, name: c.name, hasLocation: false })}
-                  title="Tap the map to place"
-                >
-                  <MapPin size={12} /> map
-                </button>
-                <button
-                  className="text-green-600 flex items-center gap-0.5"
-                  onClick={() => captureGps({ customer_id: c.customer_id, name: c.name, hasLocation: false })}
-                  title="Use my current GPS"
-                >
-                  <Satellite size={12} /> GPS
-                </button>
-              </span>
-            ))}
+      {/* ── Customer list panel (find + add locations) ── */}
+      <div className="border-t bg-white flex flex-col" style={{ height: '38vh' }}>
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`text-xs px-2 py-1 rounded-full border ${
+                filter === f.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600'
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+          <div className="flex items-center gap-1 border rounded px-2 py-1 ml-auto">
+            <Search size={14} className="text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or ID\u2026"
+              className="text-sm outline-none w-44"
+            />
           </div>
         </div>
-      )}
+
+        <div className="flex-1 overflow-y-auto divide-y">
+          {rows.length === 0 && (
+            <div className="px-4 py-6 text-sm text-gray-400 text-center">No customers here.</div>
+          )}
+          {rows.map((r) => (
+            <div key={r.customer_id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50">
+              <span
+                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                  !r.hasLocation ? 'bg-gray-300' : r.is_paid ? 'bg-green-500' : 'bg-red-500'
+                }`}
+                title={!r.hasLocation ? 'No location' : r.is_paid ? 'Paid' : 'Unpaid'}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium truncate">{r.name}</div>
+                <div className="text-xs text-gray-400 truncate">
+                  {r.customer_id}
+                  {r.area ? ` \u00b7 ${r.area}` : ''}
+                </div>
+              </div>
+              {r.hasLocation ? (
+                <>
+                  <button
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-gray-600"
+                    onClick={() => flyTo(r.latitude!, r.longitude!)}
+                    title="Show on map"
+                  >
+                    <Crosshair size={12} /> show
+                  </button>
+                  <button
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-blue-600"
+                    onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: true })}
+                    title="Tap the map to move this pin"
+                  >
+                    <MapPin size={12} /> move
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-blue-600"
+                    onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
+                    title="Tap the map to place this customer"
+                  >
+                    <MapPin size={12} /> place
+                  </button>
+                  <button
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-green-600"
+                    onClick={() => captureGps({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
+                    title="Use my current GPS"
+                  >
+                    <Satellite size={12} /> GPS
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

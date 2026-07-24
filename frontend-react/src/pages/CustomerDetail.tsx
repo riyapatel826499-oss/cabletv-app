@@ -522,6 +522,16 @@ export default function CustomerDetailPage() {
         >
           <Trash2 style={{ width: 14, height: 14 }} /> Delete
         </button>
+        <Link
+          to={`/map?place=${customer.customer_id}`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8, background: '#2563eb',
+            color: '#fff', textDecoration: 'none', fontSize: 14,
+          }}
+        >
+          <MapPin style={{ width: 14, height: 14 }} /> Set location on map
+        </Link>
         {customer.status !== 'Surrendered' && customer.status !== 'Pending Surrender' && (
           <button
             onClick={() => { setSurrenderMsg(''); setSurrenderOpen(true); }}
