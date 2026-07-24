@@ -25,6 +25,14 @@ const MAX_BOUNDS: L.LatLngBoundsExpression = [
   [HOME_CENTER[0] + _latPad, HOME_CENTER[1] + _lngPad],
 ];
 
+// Theme-aware colours (follow the app's dark/light CSS variables).
+const S = {
+  panel: { background: 'var(--bg-card)', color: 'var(--text)' } as const,
+  text: { color: 'var(--text)' } as const,
+  textLight: { color: 'var(--text-light)' } as const,
+  border: '1px solid rgba(128,128,128,0.25)',
+};
+
 type MapCustomer = {
   customer_id: string;
   name: string;
@@ -137,7 +145,6 @@ export default function MapView() {
     [located, unpaidOnly],
   );
 
-  // Unified list for the bottom panel, respecting the with/without/all filter.
   const rows: ListRow[] = useMemo(() => {
     const withRows: ListRow[] = located.map((c) => ({
       customer_id: c.customer_id,
@@ -154,20 +161,25 @@ export default function MapView() {
       area: c.area,
       hasLocation: false,
     }));
-    let base: ListRow[] =
-      filter === 'without' ? withoutRows :
-      filter === 'with' ? withRows :
-      [...withoutRows, ...withRows];
     const q = search.trim().toLowerCase();
+    let base: ListRow[];
     if (q) {
-      base = base.filter(
-        (r) => r.name.toLowerCase().includes(q) || r.customer_id.toLowerCase().includes(q),
-      );
+      // Search across ALL customers ignoring the tab filter,
+      // matching every word in any order against name + id + area.
+      const words = q.split(/\s+/).filter(Boolean);
+      base = [...withoutRows, ...withRows].filter((r) => {
+        const hay = `${r.name} ${r.customer_id} ${r.area ?? ''}`.toLowerCase();
+        return words.every((w) => hay.includes(w));
+      });
+    } else {
+      base =
+        filter === 'without' ? withoutRows :
+        filter === 'with' ? withRows :
+        [...withoutRows, ...withRows];
     }
     return base.sort((a, b) => a.name.localeCompare(b.name));
   }, [located, unlocated, filter, search]);
 
-  // Deep-link from a customer profile: /map?place=<customer_id>
   useEffect(() => {
     const placeId = searchParams.get('place');
     if (!placeId || autoPlacedRef.current) return;
@@ -223,21 +235,23 @@ export default function MapView() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-2 bg-white border-b">
-        <span className="text-sm font-semibold">Collection Map</span>
-        <span className="text-xs text-gray-500">
-          Placed {located.length}/{total}
-        </span>
+      <div
+        className="flex flex-wrap items-center gap-3 px-4 py-2"
+        style={{ ...S.panel, borderBottom: S.border }}
+      >
+        <span className="text-sm font-semibold" style={S.text}>Collection Map</span>
+        <span className="text-xs" style={S.textLight}>Placed {located.length}/{total}</span>
         <span className="text-sm text-green-600">{paidCount} paid</span>
         <span className="text-sm text-red-600">{unpaidCount} unpaid</span>
-        <span className="text-[11px] text-gray-400">(among placed, this month)</span>
+        <span className="text-[11px]" style={S.textLight}>(among placed, this month)</span>
         <input
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="text-sm border rounded px-2 py-1"
+          className="text-sm rounded px-2 py-1"
+          style={{ ...S.text, background: 'var(--bg-secondary)', border: S.border }}
         />
-        <label className="flex items-center gap-1 text-sm cursor-pointer">
+        <label className="flex items-center gap-1 text-sm cursor-pointer" style={S.text}>
           <input
             type="checkbox"
             checked={unpaidOnly}
@@ -248,7 +262,7 @@ export default function MapView() {
       </div>
 
       {placingFor && (
-        <div className="px-4 py-2 bg-amber-100 text-amber-800 text-sm flex items-center gap-2">
+        <div className="px-4 py-2 text-sm flex items-center gap-2" style={{ background: '#fde68a', color: '#92400e' }}>
           <MapPin size={16} />
           Tap {placingFor.name}&apos;s home on the map to {placingFor.hasLocation ? 'move' : 'set'} the pin.
           <button className="underline" onClick={() => captureGps(placingFor)} title="Use my current GPS instead">
@@ -298,9 +312,10 @@ export default function MapView() {
               }}
             >
               <Popup>
-                <div className="min-w-[170px] text-sm">
+                {/* Leaflet popups are always light — keep dark text here. */}
+                <div className="min-w-[170px] text-sm" style={{ color: '#1d1d1f' }}>
                   <div className="font-bold">{c.name}</div>
-                  <div className="text-xs text-gray-500">{c.customer_id}</div>
+                  <div className="text-xs" style={{ color: '#6b7280' }}>{c.customer_id}</div>
                   {c.phone && (
                     <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-blue-600 mt-1">
                       <Phone size={14} /> {c.phone}
@@ -313,7 +328,7 @@ export default function MapView() {
                       {c.is_paid ? 'PAID' : 'UNPAID'}
                     </b>
                   </div>
-                  <div className="text-[11px] text-gray-400 mt-1">Tip: drag the pin to adjust.</div>
+                  <div className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>Tip: drag the pin to adjust.</div>
                   <div className="flex gap-2 mt-2">
                     <a
                       className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white no-underline"
@@ -340,45 +355,57 @@ export default function MapView() {
       </div>
 
       {/* ── Customer list panel (find + add locations) ── */}
-      <div className="border-t bg-white flex flex-col" style={{ height: '38vh' }}>
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b">
+      <div className="flex flex-col" style={{ height: '38vh', ...S.panel, borderTop: S.border }}>
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2" style={{ borderBottom: S.border }}>
           {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`text-xs px-2 py-1 rounded-full border ${
-                filter === f.key ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600'
-              }`}
+              className="text-xs px-2 py-1 rounded-full"
+              style={
+                filter === f.key
+                  ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
+                  : { ...S.text, border: S.border, background: 'transparent' }
+              }
             >
               {f.label} ({f.count})
             </button>
           ))}
-          <div className="flex items-center gap-1 border rounded px-2 py-1 ml-auto">
-            <Search size={14} className="text-gray-400" />
+          <div
+            className="flex items-center gap-1 rounded px-2 py-1 ml-auto"
+            style={{ border: S.border, background: 'var(--bg-secondary)' }}
+          >
+            <Search size={14} style={S.textLight} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name or ID\u2026"
-              className="text-sm outline-none w-44"
+              className="text-sm outline-none w-44 bg-transparent"
+              style={S.text}
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y">
+        <div className="flex-1 overflow-y-auto">
           {rows.length === 0 && (
-            <div className="px-4 py-6 text-sm text-gray-400 text-center">No customers here.</div>
+            <div className="px-4 py-6 text-sm text-center" style={S.textLight}>No customers here.</div>
           )}
           {rows.map((r) => (
-            <div key={r.customer_id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50">
+            <div
+              key={r.customer_id}
+              className="flex items-center gap-2 px-4 py-2"
+              style={{ borderTop: S.border }}
+            >
               <span
-                className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                  !r.hasLocation ? 'bg-gray-300' : r.is_paid ? 'bg-green-500' : 'bg-red-500'
-                }`}
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{
+                  background: !r.hasLocation ? '#9ca3af' : r.is_paid ? '#22c55e' : '#ef4444',
+                }}
                 title={!r.hasLocation ? 'No location' : r.is_paid ? 'Paid' : 'Unpaid'}
               />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{r.name}</div>
-                <div className="text-xs text-gray-400 truncate">
+                <div className="text-sm font-medium truncate" style={S.text}>{r.name}</div>
+                <div className="text-xs truncate" style={S.textLight}>
                   {r.customer_id}
                   {r.area ? ` \u00b7 ${r.area}` : ''}
                 </div>
@@ -386,14 +413,16 @@ export default function MapView() {
               {r.hasLocation ? (
                 <>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-gray-600"
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded"
+                    style={{ ...S.textLight, border: S.border }}
                     onClick={() => flyTo(r.latitude!, r.longitude!)}
                     title="Show on map"
                   >
                     <Crosshair size={12} /> show
                   </button>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-blue-600"
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-blue-500"
+                    style={{ border: S.border }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: true })}
                     title="Tap the map to move this pin"
                   >
@@ -403,14 +432,16 @@ export default function MapView() {
               ) : (
                 <>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-blue-600"
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-blue-500"
+                    style={{ border: S.border }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
                     title="Tap the map to place this customer"
                   >
                     <MapPin size={12} /> place
                   </button>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded border text-green-600"
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-green-500"
+                    style={{ border: S.border }}
                     onClick={() => captureGps({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
                     title="Use my current GPS"
                   >
