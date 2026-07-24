@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from config import DB_ENGINE
 
+
 def _gc(col):
     """Return GROUP_CONCAT or STRING_AGG depending on DB engine."""
     if DB_ENGINE == "postgresql":
@@ -32,16 +33,43 @@ def get_date_range(paid_from=None, paid_to=None):
 def paid_customer_subquery(current_month):
     """Return (SQL subquery, params) to find distinct customer_ids who paid.
     
-    Always uses date range (collected_at / paypakka_created_at) for consistency
-    across all views. The current_month param is kept for API compatibility but
-    the query logic is now uniform.
+    Checks three sources:
+    1. Local payments within the current month's date range (monthly payers)
+    2. Paypakka payments within the current month's date range (monthly payers)
+    3. Advance payments — customers whose total months_paid from their earliest
+       month_year covers the current month (annual / multi-month payers).
     """
+    if DB_ENGINE == "postgresql":
+        advance_sql = (
+            "SELECT customer_id FROM payments "
+            "GROUP BY customer_id "
+            "HAVING "
+            "  EXTRACT(YEAR FROM TO_DATE(MIN(month_year), 'MM-YYYY')) * 12 + "
+            "  EXTRACT(MONTH FROM TO_DATE(MIN(month_year), 'MM-YYYY')) + "
+            "  COALESCE(SUM(months_paid), 0) "
+            "  >= "
+            "  EXTRACT(YEAR FROM CURRENT_DATE) * 12 + EXTRACT(MONTH FROM CURRENT_DATE)"
+        )
+    else:
+        advance_sql = (
+            "SELECT customer_id FROM payments "
+            "GROUP BY customer_id "
+            "HAVING "
+            "  CAST(SUBSTR(MIN(month_year), 4, 4) AS INTEGER) * 12 + "
+            "  CAST(SUBSTR(MIN(month_year), 1, 2) AS INTEGER) + "
+            "  COALESCE(SUM(months_paid), 0) "
+            "  > "
+            "  CAST(STRFTIME('%Y', 'now') AS INTEGER) * 12 + CAST(STRFTIME('%m', 'now') AS INTEGER)"
+        )
+
     return (
         "SELECT DISTINCT customer_id FROM ("
         "SELECT customer_id FROM payments WHERE collected_at >= ? AND collected_at <= ? "
         "UNION "
         "SELECT customer_id FROM paypakka_payments "
-        "WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?"
+        "WHERE paypakka_created_at >= ? AND paypakka_created_at <= ? "
+        "UNION "
+        + advance_sql +
         ")"
     )
 
@@ -50,6 +78,7 @@ def paid_subquery_params(month_start, month_end, current_month):
     """Return the parameter list for paid_customer_subquery().
     
     Always returns 4 params (date range for both local and paypakka).
+    The advance-payment UNION uses CURRENT_DATE and needs no params.
     """
     return [month_start, month_end, month_start, month_end]
 
