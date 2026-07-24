@@ -84,7 +84,7 @@ def customers_map(
             "LEFT JOIN (" + paid_subq + ") p ON c.customer_id = p.customer_id "
             "WHERE " + _of_c + " "
             "AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL "
-            "AND (c.status = 'Active' OR c.status IS NULL)"
+            "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active')"
         )
         params = list(paid_params)
 
@@ -114,9 +114,9 @@ def customers_map(
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
         missing = conn.execute(
-            "SELECT COUNT(*) AS n FROM customers "
-            "WHERE (latitude IS NULL OR longitude IS NULL) "
-            "AND (status = 'Active' OR status IS NULL) " + of_and
+            "SELECT COUNT(*) AS n FROM customers c "
+            "WHERE (c.latitude IS NULL OR c.longitude IS NULL) "
+            "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active') " + of_and
         ).fetchone()["n"]
 
         return {
@@ -134,9 +134,9 @@ def customers_without_location(current_user=Depends(get_current_user)):
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
         rows = conn.execute(
-            "SELECT customer_id, name, phone, area, address FROM customers "
-            "WHERE (latitude IS NULL OR longitude IS NULL) "
-            "AND (status = 'Active' OR status IS NULL) " + of_and +
+            "SELECT c.customer_id, c.name, c.phone, c.area, c.address FROM customers c "
+            "WHERE (c.latitude IS NULL OR c.longitude IS NULL) "
+            "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active') " + of_and +
             " ORDER BY " + _order_name(),
         ).fetchall()
         return [dict(customer_id=r["customer_id"], name=r["name"], phone=r["phone"],
