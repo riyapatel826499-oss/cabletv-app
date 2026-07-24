@@ -101,6 +101,7 @@ _routers = {
     "notifications": ("routes.notifications", "router"),
     "gtpl": ("routes.gtpl", "router"),
     "laya": ("routes.laya", "router"),
+    "map": ("routes.map", "router"),
     "internal": ("routes.internal", "router"),
 }
 

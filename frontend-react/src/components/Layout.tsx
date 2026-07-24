@@ -31,6 +31,7 @@ import {
   Share,
   ChevronRight,
   RefreshCw,
+  MapPin,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
@@ -70,6 +71,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/audit':               ['master', 'admin'],
   '/employees':           ['master', 'admin'],
   '/operators':           ['master'],
+  '/map':                 ALL_ROLES,
 };
 
 // ── Nav types ───────────────────────────────────────────────────────────────
@@ -93,6 +95,7 @@ const navGroups: NavGroup[] = [
       { to: '/add-customer', label: 'Add Customer', icon: UserPlus },
       { to: '/unpaid',       label: 'Unpaid',       icon: AlertCircle },
       { to: '/not-renewed',  label: 'Not Renewed',  icon: UserX },
+      { to: '/map',          label: 'Collection Map', icon: MapPin },
     ],
   },
   {

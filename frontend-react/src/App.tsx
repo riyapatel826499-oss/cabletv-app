@@ -24,6 +24,7 @@ import AuditLog from './pages/AuditLog';
 import Surrender from './pages/Surrender';
 import MyCollections from './pages/MyCollections';
 import Inventory from './pages/Inventory';
+import MapView from './pages/MapView';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -81,6 +82,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/audit':               ['master', 'admin'],
   '/employees':           ['master', 'admin'],
   '/operators':           ['master'],
+  '/map':                 _ALL,
 };
 
 function RoleRoute({ path, element }: { path: string; element: React.ReactNode }) {
@@ -136,6 +138,7 @@ function AppRoutes() {
         <Route path="surrender" element={<RoleRoute path="/surrender" element={<Surrender />} />} />
         <Route path="inventory" element={<RoleRoute path="/inventory" element={<Inventory />} />} />
         <Route path="my-collections" element={<RoleRoute path="/my-collections" element={<MyCollections />} />} />
+        <Route path="map" element={<RoleRoute path="/map" element={<MapView />} />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

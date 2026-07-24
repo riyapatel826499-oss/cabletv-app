@@ -193,3 +193,12 @@ export const notificationsApi = {
   markAllRead: () => api.put('/notifications/read-all'),
   create: (data: Record<string, unknown>) => api.post('/notifications', data),
 };
+
+// ── Map (customer locations) ──────────────────────────────────────────────
+export const mapApi = {
+  customers: (month?: string) =>
+    api.get('/map/customers', { params: month ? { month } : undefined }),
+  withoutLocation: () => api.get('/map/customers/without-location'),
+  setLocation: (customerId: string, latitude: number, longitude: number) =>
+    api.put(`/map/customers/${customerId}/location`, { latitude, longitude }),
+};
