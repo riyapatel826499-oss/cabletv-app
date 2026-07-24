@@ -78,6 +78,7 @@ if limiter_available:
 init_db = _safe_import("init_db", "models.database")
 run_migrations = _safe_import("run_migrations", "models.database")
 import_customers = _safe_import("import_customers_from_json", "models.database")
+migrate_customer_location = _safe_import("run", "migrate_customer_location")
 
 # Route routers — each may fail independently
 _routers = {
@@ -147,6 +148,13 @@ async def lifespan(app: FastAPI):
             # Production (Postgres): schema is managed by the Alembic release step
             # (migrate.py via railway preDeployCommand), NOT by startup DDL.
             _log.info("Startup: DATABASE_URL set — skipping startup DDL (Alembic release step manages schema)")
+            # Run the Collection Map location columns migration (idempotent)
+            if migrate_customer_location:
+                try:
+                    migrate_customer_location()
+                    _log.info("Startup: customer location migration complete")
+                except Exception as me:
+                    _log.warning(f"Startup: customer location migration error (non-fatal): {me}")
         else:
             # Local/dev/CI (SQLite): build & migrate the schema in-process so a
             # fresh checkout (no separate migration step) just works.
@@ -154,6 +162,12 @@ async def lifespan(app: FastAPI):
                 init_db()
             if run_migrations:
                 run_migrations()
+            if migrate_customer_location:
+                try:
+                    migrate_customer_location()
+                    _log.info("Startup: customer location migration complete (sqlite)")
+                except Exception as me:
+                    _log.warning(f"Startup: customer location migration error (non-fatal): {me}")
         if import_customers:
             import_customers()
         _log.info("Backend ready - Wasool")
