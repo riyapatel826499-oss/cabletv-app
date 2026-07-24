@@ -8,8 +8,8 @@ api('/api/me').then(u => {
   
   // Reload dashboard if role changed from the default 'admin'
   if (_userRole === 'master') loadDashboard();
-  // For agents, re-render dashboard with restricted data
-  if (_userRole === 'service_agent' || _userRole === 'collection_agent' || _userRole === 'agent') loadDashboard();
+  // For agents and support, re-render dashboard with appropriate data
+  if (_userRole === 'service_agent' || _userRole === 'collection_agent' || _userRole === 'agent' || _userRole === 'support') loadDashboard();
   
   // Initialize push notifications
   initPushNotifications();
