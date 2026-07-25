@@ -79,7 +79,7 @@ export default function Payments() {
             gap: 6,
             padding: '10px 18px',
             borderRadius: 'var(--radius-sm)',
-            background: '#0071e3',
+            background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
             color: '#fff',
             fontSize: '0.88rem',
             fontWeight: 600,

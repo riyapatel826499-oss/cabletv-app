@@ -71,7 +71,7 @@ function MiniBars({ data, height = 40 }: { data: { month: string; total: number 
         const y = height - h - 12;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={w} height={h} rx={1.5} fill="#0071e3" opacity={0.85} />
+            <rect x={x} y={y} width={w} height={h} rx={1.5} fill="#5aa2ff" opacity={0.85} />
             <text x={x + w / 2} y={height - 2} textAnchor="middle" style={{ fontSize: '2.5px', fill: 'var(--text-light)' }}>
               {d.month.split('-')[1]}
             </text>

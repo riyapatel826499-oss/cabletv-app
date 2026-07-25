@@ -599,7 +599,7 @@ export default function Reminders() {
                   padding: '8px 18px',
                   borderRadius: 10,
                   border: 'none',
-                  background: '#0071e3',
+                  background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
                   color: '#fff',
                   fontSize: '0.85rem',
                   fontWeight: 600,

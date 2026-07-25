@@ -65,7 +65,7 @@ export default function Plans() {
           onClick={() => { setEditPlan(null); setShowModal(true); }}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 12,
-            border: 'none', background: '#0071e3', color: '#fff', fontSize: '0.85rem', fontWeight: 600,
+            border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.85rem', fontWeight: 600,
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
@@ -281,7 +281,7 @@ function PlanModal({ plan, onClose, onSave, saving }: {
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
             <button type="button" onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>Cancel</button>
-            <button type="submit" disabled={saving} style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: '#0071e3', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+            <button type="submit" disabled={saving} style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Saving...' : plan ? 'Update' : 'Create'}
             </button>
           </div>

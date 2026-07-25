@@ -590,7 +590,7 @@ export default function RecordPayment() {
                   >
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%',
-                      background: '#0071e3', color: '#fff',
+                      background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '0.95rem', fontWeight: 700, flexShrink: 0,
                     }}>

@@ -317,7 +317,7 @@ export default function Reports() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 'var(--radius-xs)',
-                border: 'none', background: '#0071e3', color: '#fff',
+                border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
                 fontSize: '0.82rem', fontWeight: 600,
                 cursor: (!paidPayments.length || exporting) ? 'not-allowed' : 'pointer',
                 opacity: (!paidPayments.length || exporting) ? 0.5 : 1,
@@ -408,7 +408,7 @@ export default function Reports() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 'var(--radius-xs)',
-                border: 'none', background: '#0071e3', color: '#fff',
+                border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
                 fontSize: '0.82rem', fontWeight: 600,
                 cursor: (!unpaidCustomers.length || exporting) ? 'not-allowed' : 'pointer',
                 opacity: (!unpaidCustomers.length || exporting) ? 0.5 : 1,
@@ -507,7 +507,7 @@ export default function Reports() {
                   onClick={() => { setDeleteTarget(null); setDeleteResult(null); }}
                   style={{
                     width: '100%', padding: '12px', borderRadius: 'var(--radius-xs)',
-                    background: '#0071e3', color: '#fff', fontSize: '0.9rem', fontWeight: 600,
+                    background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.9rem', fontWeight: 600,
                     border: 'none', cursor: 'pointer',
                   }}
                 >

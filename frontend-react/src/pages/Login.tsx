@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,6 +26,27 @@ export default function Login() {
     }
   };
 
+  const inputStyle = (name: string): React.CSSProperties => ({
+    width: '100%',
+    padding: '13px 16px',
+    borderRadius: 12,
+    fontSize: '0.92rem',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#f5f6fa',
+    border: `1px solid ${focus === name ? '#5aa2ff' : 'rgba(255,255,255,0.14)'}`,
+    boxShadow: focus === name ? '0 0 0 3px rgba(90,162,255,0.28)' : 'none',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  });
+
+  const label: React.CSSProperties = {
+    display: 'block',
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    color: '#aab0c2',
+    marginBottom: 8,
+  };
+
   return (
     <div
       style={{
@@ -32,50 +54,52 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background:
-          'linear-gradient(135deg, #e8f2ff 0%, #f5f5f7 40%, #f0f0f3 100%)',
         padding: '0 16px',
+        background:
+          'radial-gradient(1100px 700px at 10% -10%, rgba(79,140,255,0.25), transparent 58%),' +
+          'radial-gradient(1000px 700px at 105% 0%, rgba(139,92,255,0.22), transparent 55%),' +
+          'radial-gradient(900px 900px at 50% 120%, rgba(45,212,160,0.10), transparent 60%),' +
+          '#090b14',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 380 }}>
+      <div style={{ width: '100%', maxWidth: 390 }}>
         {/* Brand */}
-        <div className="text-center animate-fade-in" style={{ marginBottom: 32 }}>
+        <div className="text-center animate-fade-in" style={{ marginBottom: 30 }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 72,
-              height: 72,
-              borderRadius: 20,
-              background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
-              boxShadow: '0 8px 32px rgba(0,113,227,0.25)',
-              marginBottom: 16,
+              width: 74,
+              height: 74,
+              borderRadius: 22,
+              background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
+              boxShadow: '0 12px 40px rgba(90,162,255,0.45), inset 0 1px 0 rgba(255,255,255,0.3)',
+              marginBottom: 18,
             }}
           >
             <Tv style={{ width: 36, height: 36, color: '#fff' }} />
           </div>
-          <h1
-            style={{
-              fontSize: '1.8rem',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              color: '#1d1d1f',
-            }}
-          >
+          <h1 style={{ fontSize: '1.9rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#f5f6fa' }}>
             Wasool
           </h1>
-          <p style={{ color: '#86868b', marginTop: 4, fontSize: '0.9rem' }}>
+          <p style={{ color: '#aab0c2', marginTop: 4, fontSize: '0.9rem' }}>
             Cable TV Management System
           </p>
         </div>
 
-        {/* Glass Card */}
+        {/* Glass card */}
         <div
-          className="glass-card animate-fade-in"
+          className="animate-fade-in"
           style={{
-            padding: 32,
-            borderRadius: 'var(--radius)',
+            padding: 30,
+            borderRadius: 22,
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 45%), rgba(34,38,54,0.66)',
+            backdropFilter: 'saturate(160%) blur(18px)',
+            WebkitBackdropFilter: 'saturate(160%) blur(18px)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10)',
           }}
         >
           {error && (
@@ -84,13 +108,13 @@ export default function Login() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                background: 'rgba(255,59,48,0.08)',
-                border: '0.5px solid rgba(255,59,48,0.2)',
-                color: '#ff3b30',
+                background: 'rgba(255,59,48,0.12)',
+                border: '1px solid rgba(255,59,48,0.3)',
+                color: '#ff6b63',
                 padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 12,
                 fontSize: '0.85rem',
-                marginBottom: 16,
+                marginBottom: 18,
               }}
             >
               <AlertCircle style={{ width: 16, height: 16, flexShrink: 0 }} />
@@ -99,29 +123,15 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 20 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.82rem',
-                  fontWeight: 500,
-                  color: '#1d1d1f',
-                  marginBottom: 8,
-                }}
-              >
-                Username
-              </label>
+            <div style={{ marginBottom: 18 }}>
+              <label style={label}>Username</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="glass-input"
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.9rem',
-                }}
+                onFocus={() => setFocus('username')}
+                onBlur={() => setFocus(null)}
+                style={inputStyle('username')}
                 placeholder="Enter your username"
                 required
                 autoFocus
@@ -129,28 +139,14 @@ export default function Login() {
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.82rem',
-                  fontWeight: 500,
-                  color: '#1d1d1f',
-                  marginBottom: 8,
-                }}
-              >
-                Password
-              </label>
+              <label style={label}>Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="glass-input"
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.9rem',
-                }}
+                onFocus={() => setFocus('password')}
+                onBlur={() => setFocus(null)}
+                style={inputStyle('password')}
                 placeholder="Enter your password"
                 required
               />
@@ -161,42 +157,36 @@ export default function Login() {
               disabled={loading}
               style={{
                 width: '100%',
-                padding: '13px',
-                borderRadius: 'var(--radius-sm)',
-                background: loading ? '#005bb5' : '#0071e3',
+                padding: '14px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
                 color: '#fff',
-                fontSize: '0.92rem',
+                fontSize: '0.95rem',
                 fontWeight: 600,
                 border: 'none',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'var(--transition)',
+                opacity: loading ? 0.7 : 1,
+                transition: 'all 0.2s ease',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-                boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
+                boxShadow: '0 10px 30px rgba(90,162,255,0.4)',
               }}
             >
               {loading ? (
                 <>
                   <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
-                  Signing in...
+                  Signing in…
                 </>
               ) : (
-                'Sign In'
+                'Sign in'
               )}
             </button>
           </form>
         </div>
 
-        <p
-          style={{
-            textAlign: 'center',
-            marginTop: 24,
-            fontSize: '0.78rem',
-            color: '#86868b',
-          }}
-        >
+        <p style={{ textAlign: 'center', marginTop: 22, fontSize: '0.78rem', color: '#7e839a' }}>
           © {new Date().getFullYear()} Wasool. All rights reserved.
         </p>
       </div>

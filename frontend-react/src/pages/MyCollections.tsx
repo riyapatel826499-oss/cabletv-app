@@ -156,7 +156,7 @@ export default function MyCollections() {
             padding: '8px 14px',
             borderRadius: 'var(--radius-xs)',
             border: 'none',
-            background: '#0071e3',
+            background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
             color: '#fff',
             fontSize: '0.82rem',
             fontWeight: 600,

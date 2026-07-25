@@ -115,7 +115,7 @@ export default function AddCustomer() {
                 padding: '10px 20px',
                 borderRadius: 12,
                 border: 'none',
-                background: '#0071e3',
+                background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
                 color: '#fff',
                 fontSize: '0.88rem',
                 fontWeight: 600,

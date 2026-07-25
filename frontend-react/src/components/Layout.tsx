@@ -411,7 +411,7 @@ export default function Layout() {
                   width: 40,
                   height: 40,
                   borderRadius: 12,
-                  background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                  background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -458,20 +458,20 @@ export default function Layout() {
                   fontSize: '0.92rem',
                   fontWeight: 500,
                   transition: 'var(--transition)',
-                  background: isActive ? 'rgba(0,113,227,0.25)' : 'transparent',
+                  background: isActive ? 'linear-gradient(135deg, rgba(90,162,255,0.28), rgba(139,92,255,0.20))' : 'transparent',
                   color: isActive ? '#fff' : 'rgba(255,255,255,0.7)',
                   textDecoration: 'none',
                 })}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget;
-                  if (!el.style.background.includes('113')) {
+                  if (!el.style.background.includes('162')) {
                     el.style.background = 'rgba(255,255,255,0.08)';
                     el.style.color = 'rgba(255,255,255,0.95)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget;
-                  if (!el.style.background.includes('113')) {
+                  if (!el.style.background.includes('162')) {
                     el.style.background = 'transparent';
                     el.style.color = 'rgba(255,255,255,0.7)';
                   }
@@ -545,20 +545,20 @@ export default function Layout() {
                         fontSize: '0.88rem',
                         fontWeight: 500,
                         transition: 'var(--transition)',
-                        background: isActive ? 'rgba(0,113,227,0.25)' : 'transparent',
+                        background: isActive ? 'linear-gradient(135deg, rgba(90,162,255,0.28), rgba(139,92,255,0.20))' : 'transparent',
                         color: isActive ? '#fff' : 'rgba(255,255,255,0.65)',
                         textDecoration: 'none',
                       })}
                       onMouseEnter={(e) => {
                         const el = e.currentTarget;
-                        if (!el.style.background.includes('113')) {
+                        if (!el.style.background.includes('162')) {
                           el.style.background = 'rgba(255,255,255,0.08)';
                           el.style.color = 'rgba(255,255,255,0.9)';
                         }
                       }}
                       onMouseLeave={(e) => {
                         const el = e.currentTarget;
-                        if (!el.style.background.includes('113')) {
+                        if (!el.style.background.includes('162')) {
                           el.style.background = 'transparent';
                           el.style.color = 'rgba(255,255,255,0.65)';
                         }
@@ -587,7 +587,7 @@ export default function Layout() {
                     width: 36,
                     height: 36,
                     borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                    background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -919,7 +919,7 @@ export default function Layout() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
-                background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
@@ -972,7 +972,7 @@ export default function Layout() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
-                background: 'linear-gradient(135deg, #0071e3, #64d2ff)',
+                background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>

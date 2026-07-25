@@ -222,7 +222,7 @@ export default function Settings() {
                 }}
                 style={{
                   padding: '6px 14px', borderRadius: 10, border: 'none',
-                  background: '#0071e3', color: '#fff',
+                  background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
                   fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
                   boxShadow: '0 1px 4px rgba(0,113,227,0.3)',
                 }}
@@ -338,7 +338,7 @@ export default function Settings() {
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 padding: '12px 20px', borderRadius: 12, border: 'none',
-                background: '#0071e3', color: '#fff', fontSize: '0.88rem', fontWeight: 600,
+                background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.88rem', fontWeight: 600,
                 cursor: 'pointer', opacity: (!botToken || verifyTelegramMut.isPending) ? 0.5 : 1,
               }}
             >

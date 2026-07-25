@@ -77,7 +77,7 @@ export default function Employees() {
           onClick={() => setShowNew(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
-            borderRadius: 12, border: 'none', background: '#0071e3', color: '#fff',
+            borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
             fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
             boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
           }}
@@ -290,7 +290,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
               onClick={() => createMut.mutate()}
               disabled={!form.name || !form.username || !form.password || createMut.isPending}
               style={{
-                padding: '10px 20px', borderRadius: 12, border: 'none', background: '#0071e3',
+                padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)',
                 color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
                 opacity: (!form.name || !form.username || !form.password || createMut.isPending) ? 0.5 : 1,
               }}
@@ -366,7 +366,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
             <button
               onClick={() => updateMut.mutate()}
               disabled={updateMut.isPending}
-              style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: '#0071e3', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: updateMut.isPending ? 0.5 : 1 }}
+              style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: updateMut.isPending ? 0.5 : 1 }}
             >
               {updateMut.isPending ? 'Saving...' : 'Save'}
             </button>

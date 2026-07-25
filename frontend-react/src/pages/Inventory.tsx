@@ -108,7 +108,7 @@ export default function Inventory() {
           onClick={() => setShowAddModal(true)} disabled={!canAdd}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 12,
-            border: 'none', background: '#0071e3', color: '#fff', fontSize: '0.85rem', fontWeight: 600,
+            border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.85rem', fontWeight: 600,
             cursor: 'pointer',
           }}
         >
@@ -260,7 +260,7 @@ export default function Inventory() {
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}>Cancel</button>
-              <button onClick={handleAdd} disabled={addMut.isPending || !newStb.stb_no.trim()} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#0071e3', color: '#fff', fontWeight: 600 }}>
+              <button onClick={handleAdd} disabled={addMut.isPending || !newStb.stb_no.trim()} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontWeight: 600 }}>
                 {addMut.isPending ? 'Adding...' : 'Add to Inventory'}
               </button>
             </div>

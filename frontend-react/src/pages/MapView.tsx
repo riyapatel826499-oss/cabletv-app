@@ -38,10 +38,15 @@ function inArea(lat: number, lng: number) {
 }
 
 const S = {
-  panel: { background: 'var(--bg-card)', color: 'var(--text)' } as const,
+  panel: {
+    background: 'var(--bg-card)',
+    color: 'var(--text)',
+    backdropFilter: 'saturate(160%) blur(18px)',
+    WebkitBackdropFilter: 'saturate(160%) blur(18px)',
+  } as const,
   text: { color: 'var(--text)' } as const,
   textLight: { color: 'var(--text-light)' } as const,
-  border: '1px solid rgba(128,128,128,0.25)',
+  border: '1px solid var(--border)',
 };
 
 type Status = 'paid' | 'due' | 'overdue';
