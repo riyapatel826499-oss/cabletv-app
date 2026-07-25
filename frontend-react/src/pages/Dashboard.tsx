@@ -89,26 +89,26 @@ export default function Dashboard() {
   const { data: insights, isLoading, isError } = useQuery<DashboardInsights>({
     queryKey: ['dashboard-insights'],
     queryFn: () => dashboardApi.insights().then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   const { data: today } = useQuery({
     queryKey: ['dashboard-today'],
     queryFn: () => dashboardApi.today().then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   const { data: priorityData } = useQuery({
     queryKey: ['priority-unpaid'],
     queryFn: () => dashboardApi.priorityUnpaid(1).then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   // Collector leaderboard — admin only, refresh every 60s
   const { data: leaderboardData } = useQuery({
     queryKey: ['collector-leaderboard'],
     queryFn: () => dashboardApi.collectorLeaderboard().then(r => r.data),
-    refetchInterval: 60000,
+    refetchInterval: 300000,
     retry: 1,
   });
 
@@ -116,7 +116,7 @@ export default function Dashboard() {
   const { data: paymentModesData } = useQuery({
     queryKey: ['payment-modes'],
     queryFn: () => dashboardApi.paymentModes().then(r => r.data),
-    refetchInterval: 60000,
+    refetchInterval: 300000,
     retry: 1,
   });
 
@@ -140,7 +140,7 @@ export default function Dashboard() {
   const { data: transitionData } = useQuery<ModeTransition>({
     queryKey: ['payment-mode-transition'],
     queryFn: () => dashboardApi.paymentModeTransition().then(r => r.data),
-    refetchInterval: 120000,
+    refetchInterval: 300000,
     retry: 1,
   });
 

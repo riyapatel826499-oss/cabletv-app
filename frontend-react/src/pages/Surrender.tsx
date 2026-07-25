@@ -25,7 +25,7 @@ export default function Surrender() {
   const { data: resp, isLoading } = useQuery({
     queryKey: ['surrender-requests', filter],
     queryFn: async () => (await surrenderApi.listRequests(filter !== 'all' ? filter : undefined)).data,
-    refetchInterval: 15000,
+    refetchInterval: 300000,
   });
 
   const reviewMut = useMutation({

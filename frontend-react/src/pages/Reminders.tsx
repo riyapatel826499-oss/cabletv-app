@@ -74,7 +74,7 @@ export default function Reminders() {
   const { data: statusData } = useQuery({
     queryKey: ['reminders', 'status'],
     queryFn: async () => (await remindersApi.status()).data as StatusResponse,
-    refetchInterval: 30_000,
+    refetchInterval: 180000,
   });
 
   const { data: historyData } = useQuery({

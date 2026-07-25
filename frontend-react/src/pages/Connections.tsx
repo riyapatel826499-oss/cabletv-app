@@ -30,7 +30,7 @@ export default function Connections() {
   const { data: tdData, isLoading } = useQuery({
     queryKey: ['temp-disconnected'],
     queryFn: async () => (await customersApi.tempDisconnected()).data as { customers: TempDisconnectedCustomer[] },
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   const reconnectMut = useMutation({

@@ -71,7 +71,7 @@ export default function AgentDashboard() {
   const { data: agentData, isLoading, isError } = useQuery<AgentInsights>({
     queryKey: ['agent-insights'],
     queryFn: () => api.get('/dashboard/agent-insights').then(r => r.data),
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   // ── Loading state ──

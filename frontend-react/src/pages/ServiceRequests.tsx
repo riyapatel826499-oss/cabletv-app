@@ -57,7 +57,7 @@ export default function ServiceRequests() {
       if (statusFilter) params.status = statusFilter;
       return (await serviceRequestsApi.list(params)).data as ServiceRequest[];
     },
-    refetchInterval: 30000,
+    refetchInterval: 180000,
   });
 
   const { data: stats } = useQuery({
