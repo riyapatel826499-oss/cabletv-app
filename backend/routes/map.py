@@ -124,13 +124,17 @@ def customers_map(
         # `map_note` (floor/unit label) may not exist yet if migration hasn't run
         note_col = "c.map_note" if table_has_column(conn, "customers", "map_note") else "NULL"
 
+        # All STB numbers for the customer, comma-joined, so search can match any.
+        stb_agg = "GROUP_CONCAT(cs.stb_no)" if _is_sqlite() else "STRING_AGG(cs.stb_no, ',')"
+
         query = (
             "SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address, "
             "c.latitude, c.longitude, " + note_col + " AS map_note, "
             "CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END AS is_paid, "
             "CASE WHEN p2.customer_id IS NOT NULL THEN 1 ELSE 0 END AS paid_prev, "
             "(SELECT cn.plan_amount FROM connections cn "
-            " WHERE cn.customer_id = c.customer_id AND cn.status = 'Active' LIMIT 1) AS plan_amount "
+            " WHERE cn.customer_id = c.customer_id AND cn.status = 'Active' LIMIT 1) AS plan_amount, "
+            "(SELECT " + stb_agg + " FROM connections cs WHERE cs.customer_id = c.customer_id) AS stbs "
             "FROM customers c "
             "LEFT JOIN (" + subq + ") p  ON c.customer_id = p.customer_id "
             "LEFT JOIN (" + subq + ") p2 ON c.customer_id = p2.customer_id "
@@ -161,6 +165,7 @@ def customers_map(
                 "latitude": r["latitude"],
                 "longitude": r["longitude"],
                 "map_note": r["map_note"],
+                "stbs": r["stbs"],
                 "is_paid": is_paid,
                 "paid_prev": paid_prev,
                 "status": status,
@@ -189,14 +194,18 @@ def customers_without_location(current_user=Depends(get_current_user)):
     with _get_conn() as conn:
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
+        stb_agg = "GROUP_CONCAT(cs.stb_no)" if _is_sqlite() else "STRING_AGG(cs.stb_no, ',')"
         rows = conn.execute(
-            "SELECT c.customer_id, c.name, c.phone, c.area, c.address FROM customers c "
+            "SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address, "
+            "(SELECT " + stb_agg + " FROM connections cs WHERE cs.customer_id = c.customer_id) AS stbs "
+            "FROM customers c "
             "WHERE (c.latitude IS NULL OR c.longitude IS NULL) "
             "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active') " + of_and +
             " ORDER BY " + _order_name(),
         ).fetchall()
         return [dict(customer_id=r["customer_id"], name=r["name"], phone=r["phone"],
-                     area=r["area"], address=r["address"]) for r in rows]
+                     phone2=r["phone2"], area=r["area"], address=r["address"],
+                     stbs=r["stbs"]) for r in rows]
 
 
 @router.put("/customers/{customer_id}/location")

@@ -67,6 +67,7 @@ type MapCustomer = {
   latitude: number;
   longitude: number;
   map_note?: string | null;
+  stbs?: string | null;
   is_paid: boolean;
   paid_prev?: boolean;
   status: Status;
@@ -84,8 +85,10 @@ type NoLocCustomer = {
   customer_id: string;
   name: string;
   phone: string;
+  phone2?: string | null;
   area?: string | null;
   address?: string | null;
+  stbs?: string | null;
 };
 
 type Placing = { customer_id: string; name: string; hasLocation: boolean };
@@ -95,6 +98,9 @@ type ListRow = {
   customer_id: string;
   name: string;
   area?: string | null;
+  phone?: string | null;
+  phone2?: string | null;
+  stbs?: string | null;
   hasLocation: boolean;
   latitude?: number;
   longitude?: number;
@@ -366,6 +372,9 @@ export default function MapView() {
       customer_id: c.customer_id,
       name: c.name,
       area: c.area,
+      phone: c.phone,
+      phone2: c.phone2,
+      stbs: c.stbs,
       hasLocation: true,
       latitude: c.latitude,
       longitude: c.longitude,
@@ -375,6 +384,9 @@ export default function MapView() {
       customer_id: c.customer_id,
       name: c.name,
       area: c.area,
+      phone: c.phone,
+      phone2: c.phone2,
+      stbs: c.stbs,
       hasLocation: false,
     }));
     const q = search.trim().toLowerCase();
@@ -382,7 +394,9 @@ export default function MapView() {
     if (q) {
       const words = q.split(/\s+/).filter(Boolean);
       base = [...withoutRows, ...withRows].filter((r) => {
-        const hay = `${r.name} ${r.customer_id} ${r.area ?? ''}`.toLowerCase();
+        const hay = `${r.name} ${r.customer_id} ${r.area ?? ''} ${r.phone ?? ''} ${
+          r.phone2 ?? ''
+        } ${r.stbs ?? ''}`.toLowerCase();
         return words.every((w) => hay.includes(w));
       });
     } else {
