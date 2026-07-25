@@ -203,4 +203,6 @@ export const mapApi = {
     api.put(`/map/customers/${customerId}/location`, { latitude, longitude }),
   clearLocation: (customerId: string) =>
     api.delete(`/map/customers/${customerId}/location`),
+  setNote: (customerId: string, note: string) =>
+    api.put(`/map/customers/${customerId}/note`, { note }),
 };

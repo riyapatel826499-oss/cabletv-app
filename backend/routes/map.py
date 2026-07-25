@@ -32,6 +32,7 @@ from deps_orm import get_current_user, _op_flt
 from services.payments import get_date_range, paid_customer_subquery, paid_subquery_params
 from audit import log_action
 from config import DB_ENGINE
+from db import table_has_column
 
 router = APIRouter(prefix="/api/map", tags=["Map"])
 
@@ -58,6 +59,10 @@ def _in_area(lat, lng) -> bool:
 class LocationIn(BaseModel):
     latitude: float
     longitude: float
+
+
+class NoteIn(BaseModel):
+    note: Optional[str] = None  # e.g. "1st floor", "Ground floor - back"
 
 
 def _month_range(month: Optional[str]):
@@ -116,9 +121,12 @@ def customers_map(
 
         _of_c = _op_flt(current_user, "c.")
 
+        # `map_note` (floor/unit label) may not exist yet if migration hasn't run
+        note_col = "c.map_note" if table_has_column(conn, "customers", "map_note") else "NULL"
+
         query = (
             "SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address, "
-            "c.latitude, c.longitude, "
+            "c.latitude, c.longitude, " + note_col + " AS map_note, "
             "CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END AS is_paid, "
             "CASE WHEN p2.customer_id IS NOT NULL THEN 1 ELSE 0 END AS paid_prev, "
             "(SELECT cn.plan_amount FROM connections cn "
@@ -152,6 +160,7 @@ def customers_map(
                 "address": r["address"],
                 "latitude": r["latitude"],
                 "longitude": r["longitude"],
+                "map_note": r["map_note"],
                 "is_paid": is_paid,
                 "paid_prev": paid_prev,
                 "status": status,
@@ -253,3 +262,30 @@ def clear_customer_location(customer_id: str, current_user=Depends(get_current_u
             user=current_user,
         )
     return {"message": "Location cleared"}
+
+
+@router.put("/customers/{customer_id}/note")
+def set_customer_note(customer_id: str, body: NoteIn, current_user=Depends(get_current_user)):
+    """Save a short floor/unit label for a customer (e.g. '1st floor'), shown in the
+    building popup. Helps tell apart connections stacked in a multi-floor building."""
+    with _get_conn() as conn:
+        if not table_has_column(conn, "customers", "map_note"):
+            raise HTTPException(
+                status_code=400,
+                detail="map_note column missing — run migrate_customer_map_note.py first",
+            )
+        _of = _op_flt(current_user)
+        of_and = "" if _of == "1=1" else f"AND {_of}"
+        exists = conn.execute(
+            f"SELECT 1 FROM customers WHERE customer_id = ? {of_and}", [customer_id]
+        ).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        note = (body.note or "").strip() or None
+        conn.execute(
+            f"UPDATE customers SET map_note = ? WHERE customer_id = ? {of_and}",
+            [note, customer_id],
+        )
+        conn.commit()
+    return {"message": "Note saved", "map_note": note}

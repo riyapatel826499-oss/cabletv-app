@@ -66,6 +66,7 @@ type MapCustomer = {
   address?: string | null;
   latitude: number;
   longitude: number;
+  map_note?: string | null;
   is_paid: boolean;
   paid_prev?: boolean;
   status: Status;
@@ -104,16 +105,118 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-function pinIcon(status: Status) {
+// A pin coloured by status. When `count` > 1 it shows the number of connections
+// at that spot (e.g. several houses in one building).
+function pinIcon(status: Status, count = 1) {
+  const size = count > 1 ? 26 : 18;
+  const label = count > 1 ? String(count) : '';
   return L.divIcon({
     className: 'collection-pin',
-    html: `<div style="width:18px;height:18px;border-radius:50%;
-      background:${STATUS_COLOR[status]};
-      border:2px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.6)"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -10],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;
+      background:${STATUS_COLOR[status]};border:2px solid #fff;
+      box-shadow:0 0 3px rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;
+      display:flex;align-items:center;justify-content:center">${label}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2)],
   });
+}
+
+// The "worst" status in a group decides the group pin's colour
+// (red beats yellow beats green), so a building with anyone unpaid stands out.
+function worstStatus(list: { status: Status }[]): Status {
+  if (list.some((c) => c.status === 'overdue')) return 'overdue';
+  if (list.some((c) => c.status === 'due')) return 'due';
+  return 'paid';
+}
+
+// One customer's details, shown in popups. Includes an editable floor/unit label.
+function CustomerBlock({
+  c,
+  onRecordPayment,
+  onSaveNote,
+}: {
+  c: MapCustomer;
+  onRecordPayment: (id: string) => void;
+  onSaveNote: (id: string, note: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(c.map_note ?? '');
+  return (
+    <div className="text-sm" style={{ color: '#1d1d1f' }}>
+      <div className="font-bold">{c.name}</div>
+      <div className="text-xs" style={{ color: '#6b7280' }}>{c.customer_id}</div>
+      {c.phone && (
+        <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-blue-600 mt-1">
+          <Phone size={14} /> {c.phone}
+        </a>
+      )}
+      {c.address && <div className="text-xs mt-1">{c.address}</div>}
+
+      {/* Floor / unit label */}
+      {editing ? (
+        <div className="flex items-center gap-1 mt-1">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="e.g. 1st floor"
+            className="text-xs border rounded px-1 py-0.5"
+            style={{ width: 110 }}
+          />
+          <button
+            className="text-xs px-2 py-0.5 rounded bg-blue-600 text-white"
+            onClick={() => {
+              onSaveNote(c.customer_id, draft);
+              setEditing(false);
+            }}
+          >
+            save
+          </button>
+          <button className="text-xs" onClick={() => setEditing(false)}>cancel</button>
+        </div>
+      ) : (
+        <div className="text-xs mt-1 flex items-center gap-2">
+          {c.map_note ? (
+            <span style={{ color: '#1d1d1f' }}>🏢 {c.map_note}</span>
+          ) : (
+            <span style={{ color: '#9ca3af' }}>No floor/unit set</span>
+          )}
+          <button
+            className="text-blue-600 underline"
+            onClick={() => {
+              setDraft(c.map_note ?? '');
+              setEditing(true);
+            }}
+          >
+            edit
+          </button>
+        </div>
+      )}
+
+      <div className="mt-1">
+        Plan: ₹{c.plan_amount ?? '—'} —{' '}
+        <b style={{ color: STATUS_COLOR[c.status] }}>{STATUS_LABEL[c.status]}</b>
+      </div>
+      <div className="flex gap-2 mt-2">
+        <a
+          className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white no-underline"
+          href={`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Navigation size={14} /> Navigate
+        </a>
+        {c.status !== 'paid' && (
+          <button
+            className="px-2 py-1 rounded bg-green-600 text-white"
+            onClick={() => onRecordPayment(c.customer_id)}
+          >
+            Record payment
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // Blue "you are here" marker.
@@ -187,9 +290,12 @@ export default function MapView() {
     },
   });
 
+  const saveNote = useMutation({
+    mutationFn: (v: { id: string; note: string }) => mapApi.setNote(v.id, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
+  });
+
   const located = data?.customers ?? [];
-  // De-duplicate: a customer with a location must not also appear in the
-  // (possibly stale) without-location list.
   const locatedIds = useMemo(() => new Set(located.map((c) => c.customer_id)), [located]);
   const unlocated = useMemo(
     () => (noLoc ?? []).filter((c) => !locatedIds.has(c.customer_id)),
@@ -200,6 +306,25 @@ export default function MapView() {
     () => located.filter((c) => (unpaidOnly ? c.status !== 'paid' : true)),
     [located, unpaidOnly],
   );
+
+  // Group customers that share (almost) the same location into numbered pins.
+  // ~4 decimals ≈ 11 m resolution.
+  const groups = useMemo(() => {
+    const m = new Map<string, MapCustomer[]>();
+    for (const c of markers) {
+      const key = `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`;
+      const arr = m.get(key);
+      if (arr) arr.push(c);
+      else m.set(key, [c]);
+    }
+    return Array.from(m.values()).map((list) => ({
+      key: `${list[0].latitude},${list[0].longitude}:${list.length}`,
+      list,
+      lat: list[0].latitude,
+      lng: list[0].longitude,
+      status: worstStatus(list),
+    }));
+  }, [markers]);
 
   const rows: ListRow[] = useMemo(() => {
     const withRows: ListRow[] = located.map((c) => ({
@@ -326,7 +451,6 @@ export default function MapView() {
     setUserPos(null);
   }
 
-  // Stop watching when leaving the page.
   useEffect(() => {
     return () => {
       if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
@@ -442,53 +566,58 @@ export default function MapView() {
 
           <MapClickHandler enabled={!!placingFor} onPick={placeAt} />
 
-          {markers.map((c) => (
+          {groups.map((g) => (
             <Marker
-              key={c.customer_id}
-              position={[c.latitude, c.longitude]}
-              icon={pinIcon(c.status)}
-              draggable
-              eventHandlers={{
-                dragend: (e) => {
-                  const p = (e.target as L.Marker).getLatLng();
-                  saveLocation.mutate({ id: c.customer_id, lat: p.lat, lng: p.lng });
-                },
-              }}
+              key={g.key}
+              position={[g.lat, g.lng]}
+              icon={pinIcon(g.status, g.list.length)}
+              draggable={g.list.length === 1}
+              eventHandlers={
+                g.list.length === 1
+                  ? {
+                      dragend: (e) => {
+                        const p = (e.target as L.Marker).getLatLng();
+                        saveLocation.mutate({ id: g.list[0].customer_id, lat: p.lat, lng: p.lng });
+                      },
+                    }
+                  : undefined
+              }
             >
               <Popup>
-                <div className="min-w-[170px] text-sm" style={{ color: '#1d1d1f' }}>
-                  <div className="font-bold">{c.name}</div>
-                  <div className="text-xs" style={{ color: '#6b7280' }}>{c.customer_id}</div>
-                  {c.phone && (
-                    <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-blue-600 mt-1">
-                      <Phone size={14} /> {c.phone}
-                    </a>
-                  )}
-                  {c.address && <div className="text-xs mt-1">{c.address}</div>}
-                  <div className="mt-1">
-                    Plan: ₹{c.plan_amount ?? '—'} —{' '}
-                    <b style={{ color: STATUS_COLOR[c.status] }}>{STATUS_LABEL[c.status]}</b>
+                {g.list.length === 1 ? (
+                  <div className="min-w-[180px]">
+                    <CustomerBlock
+                      c={g.list[0]}
+                      onRecordPayment={(id) => navigate(`/customers/${id}`)}
+                      onSaveNote={(id, note) => saveNote.mutate({ id, note })}
+                    />
+                    <div className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>
+                      Tip: drag the pin to adjust.
+                    </div>
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>Tip: drag the pin to adjust.</div>
-                  <div className="flex gap-2 mt-2">
-                    <a
-                      className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white no-underline"
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Navigation size={14} /> Navigate
-                    </a>
-                    {c.status !== 'paid' && (
-                      <button
-                        className="px-2 py-1 rounded bg-green-600 text-white"
-                        onClick={() => navigate(`/customers/${c.customer_id}`)}
+                ) : (
+                  <div className="min-w-[210px]" style={{ maxHeight: 280, overflowY: 'auto' }}>
+                    <div className="font-bold text-sm mb-1" style={{ color: '#1d1d1f' }}>
+                      {g.list.length} connections here
+                    </div>
+                    {g.list.map((c, i) => (
+                      <div
+                        key={c.customer_id}
+                        style={{
+                          borderTop: i ? '1px solid #eee' : 'none',
+                          paddingTop: i ? 8 : 0,
+                          marginTop: i ? 8 : 0,
+                        }}
                       >
-                        Record payment
-                      </button>
-                    )}
+                        <CustomerBlock
+                          c={c}
+                          onRecordPayment={(id) => navigate(`/customers/${id}`)}
+                          onSaveNote={(id, note) => saveNote.mutate({ id, note })}
+                        />
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </Popup>
             </Marker>
           ))}
