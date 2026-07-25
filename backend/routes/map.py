@@ -11,8 +11,7 @@ Design notes
 * "Paid" reuses the SAME logic as the rest of the app: a customer counts as paid
   for a month if they have a local payment OR a paypakka payment inside that
   month's date range (see services.payments.paid_customer_subquery). So a pin
-  turns green automatically once a payment is recorded through the normal
-  Record-Payment flow — nothing extra to maintain.
+  turns green automatically once a payment is recorded — nothing extra to maintain.
 * Multi-tenant safe: every query is scoped with _op_flt(current_user), exactly
   like customers.py, so an operator only ever sees their own customers.
 * Area guard blocks saving locations outside the collection area (e.g. GPS from
@@ -22,6 +21,7 @@ Design notes
 import calendar
 import math
 import os
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -61,8 +61,7 @@ class LocationIn(BaseModel):
 
 
 def _month_range(month: Optional[str]):
-    """Turn 'YYYY-MM' into (paid_from, paid_to) for get_date_range().
-    None -> current month (handled by get_date_range)."""
+    """Turn 'YYYY-MM' into (paid_from, paid_to) for get_date_range()."""
     if not month:
         return None, None
     try:
@@ -71,6 +70,19 @@ def _month_range(month: Optional[str]):
         return f"{month}-01", f"{month}-{last:02d}"
     except (ValueError, TypeError):
         raise HTTPException(status_code=400, detail="month must be 'YYYY-MM'")
+
+
+def _prev_month_str(month: Optional[str]) -> str:
+    """The calendar month before the given 'YYYY-MM' (or current month)."""
+    if month:
+        y, m = int(month[:4]), int(month[5:7])
+    else:
+        now = datetime.now()
+        y, m = now.year, now.month
+    m -= 1
+    if m == 0:
+        m, y = 12, y - 1
+    return f"{y:04d}-{m:02d}"
 
 
 def _order_name():
@@ -84,29 +96,41 @@ def customers_map(
     unpaid_only: bool = Query(False),
     current_user=Depends(get_current_user),
 ):
-    """Return every customer that has a saved location, plus whether they've
-    paid for the selected month. Frontend colours green (paid) / red (unpaid)."""
+    """Return every located customer with a colour status for the selected month:
+      - 'paid'    (GREEN)  : paid this month
+      - 'due'     (YELLOW) : not paid this month, but paid last month (not renewed)
+      - 'overdue' (RED)    : not paid this month AND not last month (2+ months)"""
     paid_from, paid_to = _month_range(month)
-    with _get_conn() as conn:
-        month_start, month_end, current_month = get_date_range(paid_from, paid_to)
-        paid_subq = paid_customer_subquery(current_month)
-        paid_params = paid_subquery_params(month_start, month_end, current_month)
+    prev_from, prev_to = _month_range(_prev_month_str(month))
 
-        _of_c = _op_flt(current_user, "c.")  # "1=1" for master, else "c.operator_id = N"
+    with _get_conn() as conn:
+        # This month params
+        ms, me, cm = get_date_range(paid_from, paid_to)
+        paid_params = paid_subquery_params(ms, me, cm)
+
+        # Last month params
+        ms2, me2, cm2 = get_date_range(prev_from, prev_to)
+        prev_params = paid_subquery_params(ms2, me2, cm2)
+
+        subq = paid_customer_subquery(cm)
+
+        _of_c = _op_flt(current_user, "c.")
 
         query = (
             "SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address, "
             "c.latitude, c.longitude, "
             "CASE WHEN p.customer_id IS NOT NULL THEN 1 ELSE 0 END AS is_paid, "
+            "CASE WHEN p2.customer_id IS NOT NULL THEN 1 ELSE 0 END AS paid_prev, "
             "(SELECT cn.plan_amount FROM connections cn "
             " WHERE cn.customer_id = c.customer_id AND cn.status = 'Active' LIMIT 1) AS plan_amount "
             "FROM customers c "
-            "LEFT JOIN (" + paid_subq + ") p ON c.customer_id = p.customer_id "
+            "LEFT JOIN (" + subq + ") p  ON c.customer_id = p.customer_id "
+            "LEFT JOIN (" + subq + ") p2 ON c.customer_id = p2.customer_id "
             "WHERE " + _of_c + " "
             "AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL "
             "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active')"
         )
-        params = list(paid_params)
+        params = list(paid_params) + list(prev_params)
 
         if unpaid_only:
             query += " AND p.customer_id IS NULL"
@@ -116,6 +140,9 @@ def customers_map(
         rows = conn.execute(query, params).fetchall()
         customers = []
         for r in rows:
+            is_paid = bool(r["is_paid"])
+            paid_prev = bool(r["paid_prev"])
+            status = "paid" if is_paid else ("due" if paid_prev else "overdue")
             customers.append({
                 "customer_id": r["customer_id"],
                 "name": r["name"],
@@ -125,11 +152,12 @@ def customers_map(
                 "address": r["address"],
                 "latitude": r["latitude"],
                 "longitude": r["longitude"],
-                "is_paid": bool(r["is_paid"]),
+                "is_paid": is_paid,
+                "paid_prev": paid_prev,
+                "status": status,
                 "plan_amount": r["plan_amount"],
             })
 
-        # Count of customers still missing a location, so the UI can nudge.
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
         missing = conn.execute(
@@ -139,7 +167,7 @@ def customers_map(
         ).fetchone()["n"]
 
         return {
-            "month": month or month_start[:7],
+            "month": month or ms[:7],
             "count": len(customers),
             "missing_location": missing,
             "customers": customers,
@@ -168,7 +196,6 @@ def set_customer_location(customer_id: str, loc: LocationIn, current_user=Depend
     if not (-90 <= loc.latitude <= 90 and -180 <= loc.longitude <= 180):
         raise HTTPException(status_code=400, detail="Invalid coordinates")
 
-    # Block anything outside the collection area (e.g. GPS from another city).
     if not _in_area(loc.latitude, loc.longitude):
         dist = _distance_km(loc.latitude, loc.longitude, AREA_CENTER_LAT, AREA_CENTER_LNG)
         raise HTTPException(
@@ -203,8 +230,7 @@ def set_customer_location(customer_id: str, loc: LocationIn, current_user=Depend
 
 @router.delete("/customers/{customer_id}/location")
 def clear_customer_location(customer_id: str, current_user=Depends(get_current_user)):
-    """Remove a customer's saved location (sets it back to 'no location').
-    Use this to fix a pin that was placed in the wrong spot."""
+    """Remove a customer's saved location (sets it back to 'no location')."""
     with _get_conn() as conn:
         _of = _op_flt(current_user)
         of_and = "" if _of == "1=1" else f"AND {_of}"

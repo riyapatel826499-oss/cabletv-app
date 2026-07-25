@@ -44,6 +44,19 @@ const S = {
   border: '1px solid rgba(128,128,128,0.25)',
 };
 
+type Status = 'paid' | 'due' | 'overdue';
+
+const STATUS_COLOR: Record<Status, string> = {
+  paid: '#22c55e',
+  due: '#eab308',
+  overdue: '#ef4444',
+};
+const STATUS_LABEL: Record<Status, string> = {
+  paid: 'PAID',
+  due: 'NOT RENEWED (paid last month)',
+  overdue: 'OVERDUE (2+ months)',
+};
+
 type MapCustomer = {
   customer_id: string;
   name: string;
@@ -54,6 +67,8 @@ type MapCustomer = {
   latitude: number;
   longitude: number;
   is_paid: boolean;
+  paid_prev?: boolean;
+  status: Status;
   plan_amount?: number | null;
 };
 
@@ -82,18 +97,18 @@ type ListRow = {
   hasLocation: boolean;
   latitude?: number;
   longitude?: number;
-  is_paid?: boolean;
+  status?: Status;
 };
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-function pinIcon(paid: boolean) {
+function pinIcon(status: Status) {
   return L.divIcon({
     className: 'collection-pin',
     html: `<div style="width:18px;height:18px;border-radius:50%;
-      background:${paid ? '#22c55e' : '#ef4444'};
+      background:${STATUS_COLOR[status]};
       border:2px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.6)"></div>`,
     iconSize: [18, 18],
     iconAnchor: [9, 9],
@@ -158,10 +173,16 @@ export default function MapView() {
   });
 
   const located = data?.customers ?? [];
-  const unlocated = noLoc ?? [];
+  // De-duplicate: a customer with a location must not also appear in the
+  // (possibly stale) without-location list.
+  const locatedIds = useMemo(() => new Set(located.map((c) => c.customer_id)), [located]);
+  const unlocated = useMemo(
+    () => (noLoc ?? []).filter((c) => !locatedIds.has(c.customer_id)),
+    [noLoc, locatedIds],
+  );
 
   const markers = useMemo(
-    () => located.filter((c) => (unpaidOnly ? !c.is_paid : true)),
+    () => located.filter((c) => (unpaidOnly ? c.status !== 'paid' : true)),
     [located, unpaidOnly],
   );
 
@@ -173,7 +194,7 @@ export default function MapView() {
       hasLocation: true,
       latitude: c.latitude,
       longitude: c.longitude,
-      is_paid: c.is_paid,
+      status: c.status,
     }));
     const withoutRows: ListRow[] = unlocated.map((c) => ({
       customer_id: c.customer_id,
@@ -209,8 +230,9 @@ export default function MapView() {
     }
   }, [located, unlocated, searchParams, setSearchParams]);
 
-  const paidCount = located.filter((c) => c.is_paid).length;
-  const unpaidCount = located.length - paidCount;
+  const paidCount = located.filter((c) => c.status === 'paid').length;
+  const dueCount = located.filter((c) => c.status === 'due').length;
+  const overdueCount = located.filter((c) => c.status === 'overdue').length;
   const total = located.length + unlocated.length;
 
   function placeAt(lat: number, lng: number) {
@@ -271,9 +293,19 @@ export default function MapView() {
       >
         <span className="text-sm font-semibold" style={S.text}>Collection Map</span>
         <span className="text-xs" style={S.textLight}>Placed {located.length}/{total}</span>
-        <span className="text-sm text-green-600">{paidCount} paid</span>
-        <span className="text-sm text-red-600">{unpaidCount} unpaid</span>
-        <span className="text-[11px]" style={S.textLight}>(among placed, this month)</span>
+        <span className="flex items-center gap-1 text-sm" style={{ color: STATUS_COLOR.paid }}>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.paid }} />
+          {paidCount} paid
+        </span>
+        <span className="flex items-center gap-1 text-sm" style={{ color: '#a16207' }}>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.due }} />
+          {dueCount} not renewed
+        </span>
+        <span className="flex items-center gap-1 text-sm" style={{ color: STATUS_COLOR.overdue }}>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.overdue }} />
+          {overdueCount} overdue
+        </span>
+        <span className="text-[11px]" style={S.textLight}>(placed, this month)</span>
         <input
           type="month"
           value={month}
@@ -332,7 +364,7 @@ export default function MapView() {
             <Marker
               key={c.customer_id}
               position={[c.latitude, c.longitude]}
-              icon={pinIcon(c.is_paid)}
+              icon={pinIcon(c.status)}
               draggable
               eventHandlers={{
                 dragend: (e) => {
@@ -353,9 +385,7 @@ export default function MapView() {
                   {c.address && <div className="text-xs mt-1">{c.address}</div>}
                   <div className="mt-1">
                     Plan: ₹{c.plan_amount ?? '—'} —{' '}
-                    <b className={c.is_paid ? 'text-green-600' : 'text-red-600'}>
-                      {c.is_paid ? 'PAID' : 'UNPAID'}
-                    </b>
+                    <b style={{ color: STATUS_COLOR[c.status] }}>{STATUS_LABEL[c.status]}</b>
                   </div>
                   <div className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>Tip: drag the pin to adjust.</div>
                   <div className="flex gap-2 mt-2">
@@ -367,7 +397,7 @@ export default function MapView() {
                     >
                       <Navigation size={14} /> Navigate
                     </a>
-                    {!c.is_paid && (
+                    {c.status !== 'paid' && (
                       <button
                         className="px-2 py-1 rounded bg-green-600 text-white"
                         onClick={() => navigate(`/customers/${c.customer_id}`)}
@@ -383,7 +413,7 @@ export default function MapView() {
         </MapContainer>
       </div>
 
-      {/* ── Customer list panel (find + add locations) ── */}
+      {/* ── Customer list panel ── */}
       <div className="flex flex-col" style={{ height: '38vh', ...S.panel, borderTop: S.border }}>
         <div className="flex flex-wrap items-center gap-2 px-4 py-2" style={{ borderBottom: S.border }}>
           {FILTERS.map((f) => (
@@ -427,10 +457,8 @@ export default function MapView() {
             >
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{
-                  background: !r.hasLocation ? '#9ca3af' : r.is_paid ? '#22c55e' : '#ef4444',
-                }}
-                title={!r.hasLocation ? 'No location' : r.is_paid ? 'Paid' : 'Unpaid'}
+                style={{ background: !r.hasLocation || !r.status ? '#9ca3af' : STATUS_COLOR[r.status] }}
+                title={!r.hasLocation || !r.status ? 'No location' : STATUS_LABEL[r.status]}
               />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium truncate" style={S.text}>{r.name}</div>
