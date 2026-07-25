@@ -571,17 +571,6 @@ export default function MapView() {
               key={g.key}
               position={[g.lat, g.lng]}
               icon={pinIcon(g.status, g.list.length)}
-              draggable={g.list.length === 1}
-              eventHandlers={
-                g.list.length === 1
-                  ? {
-                      dragend: (e) => {
-                        const p = (e.target as L.Marker).getLatLng();
-                        saveLocation.mutate({ id: g.list[0].customer_id, lat: p.lat, lng: p.lng });
-                      },
-                    }
-                  : undefined
-              }
             >
               <Popup>
                 {g.list.length === 1 ? (
@@ -591,9 +580,19 @@ export default function MapView() {
                       onRecordPayment={(id) => navigate(`/customers/${id}`)}
                       onSaveNote={(id, note) => saveNote.mutate({ id, note })}
                     />
-                    <div className="text-[11px] mt-1" style={{ color: '#9ca3af' }}>
-                      Tip: drag the pin to adjust.
-                    </div>
+                    <button
+                      className="text-xs mt-2 flex items-center gap-1 px-2 py-1 rounded"
+                      style={{ border: '1px solid #d1d5db', color: '#2563eb' }}
+                      onClick={() =>
+                        setPlacingFor({
+                          customer_id: g.list[0].customer_id,
+                          name: g.list[0].name,
+                          hasLocation: true,
+                        })
+                      }
+                    >
+                      <MapPin size={12} /> Move location
+                    </button>
                   </div>
                 ) : (
                   <div className="min-w-[210px]" style={{ maxHeight: 280, overflowY: 'auto' }}>
