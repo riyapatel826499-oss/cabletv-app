@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic } from 'lucide-react';
 import { mapApi } from '../api';
 
 // ── Your collection area ───────────────────────────────────────────────────
@@ -103,6 +103,29 @@ type ListRow = {
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
+}
+
+// ── Voice search (browser Web Speech API — free, no key) ────────────────────
+interface SpeechResultEvent {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  continuous: boolean;
+  onresult: ((e: SpeechResultEvent) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
 // A pin coloured by status. When `count` > 1 it shows the number of connections
@@ -251,10 +274,17 @@ export default function MapView() {
   const autoPlacedRef = useRef(false);
 
   const [month, setMonth] = useState(currentMonth());
-  const [unpaidOnly, setUnpaidOnly] = useState(false);
+  // Which statuses are shown on the map (all on by default).
+  const [visible, setVisible] = useState<Record<Status, boolean>>({
+    paid: true,
+    due: true,
+    overdue: true,
+  });
   const [placingFor, setPlacingFor] = useState<Placing | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('without');
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   // Live "my location"
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -303,8 +333,8 @@ export default function MapView() {
   );
 
   const markers = useMemo(
-    () => located.filter((c) => (unpaidOnly ? c.status !== 'paid' : true)),
-    [located, unpaidOnly],
+    () => located.filter((c) => visible[c.status]),
+    [located, visible],
   );
 
   // Group customers that share (almost) the same location into numbered pins.
@@ -418,6 +448,38 @@ export default function MapView() {
     mapRef.current?.flyTo([lat, lng], 18);
   }
 
+  function startVoice() {
+    const SR = getSpeechRecognition();
+    if (!SR) {
+      alert('Voice search needs a supported browser like Chrome or Edge (or Chrome on Android).');
+      return;
+    }
+    const rec = new SR();
+    rec.lang = 'en-IN';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.continuous = false;
+    rec.onresult = (e) => {
+      setSearch(e.results[0][0].transcript);
+      setFilter('all');
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  }
+
+  function stopVoice() {
+    recognitionRef.current?.stop();
+    setListening(false);
+  }
+
+  // Stop any voice session when leaving the page.
+  useEffect(() => {
+    return () => recognitionRef.current?.stop();
+  }, []);
+
   function startMyLocation() {
     if (!navigator.geolocation) {
       alert('This device has no GPS/location support.');
@@ -494,14 +556,17 @@ export default function MapView() {
           className="text-sm rounded px-2 py-1"
           style={{ ...S.text, background: 'var(--bg-secondary)', border: S.border }}
         />
-        <label className="flex items-center gap-1 text-sm cursor-pointer" style={S.text}>
-          <input
-            type="checkbox"
-            checked={unpaidOnly}
-            onChange={(e) => setUnpaidOnly(e.target.checked)}
-          />
-          Unpaid only
-        </label>
+        {(['paid', 'due', 'overdue'] as Status[]).map((s) => (
+          <label key={s} className="flex items-center gap-1 text-sm cursor-pointer" style={S.text}>
+            <input
+              type="checkbox"
+              checked={visible[s]}
+              onChange={(e) => setVisible((v) => ({ ...v, [s]: e.target.checked }))}
+            />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR[s] }} />
+            {s === 'paid' ? 'Paid' : s === 'due' ? 'Not renewed' : 'Overdue'}
+          </label>
+        ))}
         <button
           onClick={() => (watching ? stopMyLocation() : startMyLocation())}
           className="flex items-center gap-1 text-sm px-2 py-1 rounded"
@@ -664,10 +729,22 @@ export default function MapView() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name or ID…"
-              className="text-sm outline-none w-44 bg-transparent"
+              placeholder={listening ? 'Listening…' : 'Search or tap mic 🎤'}
+              className="text-sm outline-none w-40 bg-transparent"
               style={S.text}
             />
+            <button
+              onClick={() => (listening ? stopVoice() : startVoice())}
+              title="Voice search — tap and say the customer name"
+              className="flex items-center justify-center rounded-full"
+              style={{
+                width: 28,
+                height: 28,
+                background: listening ? '#ef4444' : 'transparent',
+              }}
+            >
+              <Mic size={16} style={{ color: listening ? '#fff' : 'var(--text-light)' }} />
+            </button>
           </div>
         </div>
 
