@@ -64,8 +64,8 @@ type MapCustomer = {
   phone2?: string | null;
   area?: string | null;
   address?: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   map_note?: string | null;
   stbs?: string | null;
   is_paid: boolean;
@@ -74,21 +74,17 @@ type MapCustomer = {
   plan_amount?: number | null;
 };
 
+// A customer that definitely has coordinates (after filtering).
+type LocatedCustomer = MapCustomer & { latitude: number; longitude: number };
+function hasCoords(c: MapCustomer): c is LocatedCustomer {
+  return c.latitude != null && c.longitude != null;
+}
+
 type MapResponse = {
   month: string;
   count: number;
   missing_location: number;
   customers: MapCustomer[];
-};
-
-type NoLocCustomer = {
-  customer_id: string;
-  name: string;
-  phone: string;
-  phone2?: string | null;
-  area?: string | null;
-  address?: string | null;
-  stbs?: string | null;
 };
 
 type Placing = { customer_id: string; name: string; hasLocation: boolean };
@@ -308,17 +304,11 @@ export default function MapView() {
     queryFn: async () => (await mapApi.customers(month)).data,
   });
 
-  const { data: noLoc } = useQuery<NoLocCustomer[]>({
-    queryKey: ['map-no-location'],
-    queryFn: async () => (await mapApi.withoutLocation()).data,
-  });
-
   const saveLocation = useMutation({
     mutationFn: (v: { id: string; lat: number; lng: number }) =>
       mapApi.setLocation(v.id, v.lat, v.lng),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
-      qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
     onError: () => alert('Could not save — that point may be outside your collection area.'),
   });
@@ -327,7 +317,6 @@ export default function MapView() {
     mutationFn: (id: string) => mapApi.clearLocation(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
-      qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
   });
 
@@ -336,12 +325,11 @@ export default function MapView() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
   });
 
-  const located = data?.customers ?? [];
-  const locatedIds = useMemo(() => new Set(located.map((c) => c.customer_id)), [located]);
-  const unlocated = useMemo(
-    () => (noLoc ?? []).filter((c) => !locatedIds.has(c.customer_id)),
-    [noLoc, locatedIds],
-  );
+  // ONE source of truth: all active customers come from a single query, then we
+  // split them into located / unlocated here. No second query, no drift.
+  const all = useMemo(() => data?.customers ?? [], [data]);
+  const located = useMemo(() => all.filter(hasCoords), [all]);
+  const unlocated = useMemo(() => all.filter((c) => !hasCoords(c)), [all]);
 
   const markers = useMemo(
     () => located.filter((c) => visible[c.status]),
@@ -351,7 +339,7 @@ export default function MapView() {
   // Group customers that share (almost) the same location into numbered pins.
   // ~4 decimals ≈ 11 m resolution.
   const groups = useMemo(() => {
-    const m = new Map<string, MapCustomer[]>();
+    const m = new Map<string, LocatedCustomer[]>();
     for (const c of markers) {
       const key = `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`;
       const arr = m.get(key);

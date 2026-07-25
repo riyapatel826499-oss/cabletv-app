@@ -151,8 +151,9 @@ def customers_map(
             "LEFT JOIN (" + subq + ") p  ON c.customer_id = p.customer_id "
             "LEFT JOIN (" + subq + ") p2 ON c.customer_id = p2.customer_id "
             "WHERE " + _of_c + " "
-            "AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL "
-            "AND EXISTS (SELECT 1 FROM connections cn WHERE cn.customer_id = c.customer_id AND cn.status = 'Active')"
+            # Return ALL active customers (located AND not). The frontend splits them
+            # by whether they have coordinates — one source of truth, no second query.
+            "AND (c.status = 'Active' OR c.status IS NULL)"
         )
         params = list(paid_params) + list(prev_params)
 
