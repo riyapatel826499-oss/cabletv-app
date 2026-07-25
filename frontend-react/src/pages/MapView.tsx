@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2 } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate } from 'lucide-react';
 import { mapApi } from '../api';
 
 // ── Your collection area ───────────────────────────────────────────────────
@@ -116,6 +116,15 @@ function pinIcon(status: Status) {
   });
 }
 
+// Blue "you are here" marker.
+const USER_ICON = L.divIcon({
+  className: 'user-location',
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;
+    border:3px solid #fff;box-shadow:0 0 0 5px rgba(37,99,235,.30)"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
 function MapClickHandler({
   enabled,
   onPick,
@@ -143,6 +152,12 @@ export default function MapView() {
   const [placingFor, setPlacingFor] = useState<Placing | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('without');
+
+  // Live "my location"
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [watching, setWatching] = useState(false);
+  const watchRef = useRef<number | null>(null);
+  const centeredRef = useRef(false);
 
   const { data } = useQuery<MapResponse>({
     queryKey: ['map-customers', month],
@@ -278,6 +293,48 @@ export default function MapView() {
     mapRef.current?.flyTo([lat, lng], 18);
   }
 
+  function startMyLocation() {
+    if (!navigator.geolocation) {
+      alert('This device has no GPS/location support.');
+      return;
+    }
+    setWatching(true);
+    centeredRef.current = false;
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserPos(p);
+        if (!centeredRef.current && inArea(p.lat, p.lng)) {
+          centeredRef.current = true;
+          mapRef.current?.flyTo([p.lat, p.lng], 17);
+        }
+      },
+      (err) => {
+        alert('Could not get your location: ' + err.message);
+        setWatching(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+  }
+
+  function stopMyLocation() {
+    if (watchRef.current != null) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+    setWatching(false);
+    setUserPos(null);
+  }
+
+  // Stop watching when leaving the page.
+  useEffect(() => {
+    return () => {
+      if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+    };
+  }, []);
+
+  const userOutside = userPos != null && !inArea(userPos.lat, userPos.lng);
+
   const FILTERS: { key: Filter; label: string; count: number }[] = [
     { key: 'without', label: 'Without location', count: unlocated.length },
     { key: 'with', label: 'With location', count: located.length },
@@ -321,7 +378,32 @@ export default function MapView() {
           />
           Unpaid only
         </label>
+        <button
+          onClick={() => (watching ? stopMyLocation() : startMyLocation())}
+          className="flex items-center gap-1 text-sm px-2 py-1 rounded"
+          style={
+            watching
+              ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
+              : { ...S.text, border: S.border }
+          }
+          title="Show my current location on the map"
+        >
+          <Locate size={14} /> {watching ? 'Stop' : 'My location'}
+        </button>
       </div>
+
+      {userOutside && (
+        <div className="px-4 py-2 text-sm flex items-center gap-2" style={{ background: '#fee2e2', color: '#b91c1c' }}>
+          ⚠ You are about{' '}
+          {Math.round(distanceKm(userPos!.lat, userPos!.lng, HOME_CENTER[0], HOME_CENTER[1]))} km
+          outside your collection area.
+        </div>
+      )}
+      {watching && userPos && !userOutside && (
+        <div className="px-4 py-1 text-xs flex items-center gap-2" style={{ background: '#dbeafe', color: '#1e40af' }}>
+          <Locate size={12} /> You are inside your collection area.
+        </div>
+      )}
 
       {placingFor && (
         <div className="px-4 py-2 text-sm flex items-center gap-2" style={{ background: '#fde68a', color: '#92400e' }}>
@@ -410,6 +492,17 @@ export default function MapView() {
               </Popup>
             </Marker>
           ))}
+
+          {userPos && (
+            <Marker position={[userPos.lat, userPos.lng]} icon={USER_ICON}>
+              <Popup>
+                <div className="text-sm" style={{ color: '#1d1d1f' }}>
+                  <b>You are here</b>
+                  {userOutside && <div style={{ color: '#b91c1c' }}>Outside your collection area</div>}
+                </div>
+              </Popup>
+            </Marker>
+          )}
         </MapContainer>
       </div>
 
