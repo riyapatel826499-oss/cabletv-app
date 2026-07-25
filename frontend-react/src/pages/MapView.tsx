@@ -563,6 +563,11 @@ export default function MapView() {
             url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={19}
+            opacity={0.55}
+          />
 
           <MapClickHandler enabled={!!placingFor} onPick={placeAt} />
 
