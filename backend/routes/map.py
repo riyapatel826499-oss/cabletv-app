@@ -56,21 +56,19 @@ def _in_area(lat, lng) -> bool:
     return _distance_km(lat, lng, AREA_CENTER_LAT, AREA_CENTER_LNG) <= AREA_RADIUS_KM
 
 
-def _stbs_for(conn, customer_ids):
-    """Return {customer_id: 'STB1,STB2'} for the given customers. Done in plain
-    SQL + Python (no GROUP_CONCAT/STRING_AGG) so it works on SQLite and Postgres."""
-    ids = [cid for cid in customer_ids if cid]
-    if not ids:
+def _all_stbs(conn):
+    """Return {customer_id: 'STB1,STB2'} for every customer. One plain query, no
+    IN clause, no GROUP_CONCAT/STRING_AGG — safe on SQLite and Postgres. Never
+    raises to the caller (returns {} on any problem) so it can't blank the list."""
+    try:
+        rows = conn.execute("SELECT customer_id, stb_no FROM connections").fetchall()
+    except Exception:
         return {}
-    placeholders = ",".join(["?"] * len(ids))
-    rows = conn.execute(
-        f"SELECT customer_id, stb_no FROM connections WHERE customer_id IN ({placeholders})",
-        ids,
-    ).fetchall()
     out: dict = {}
     for r in rows:
-        if r["stb_no"]:
-            out.setdefault(r["customer_id"], []).append(r["stb_no"])
+        cid, stb = r["customer_id"], r["stb_no"]
+        if cid and stb:
+            out.setdefault(cid, []).append(stb)
     return {k: ",".join(v) for k, v in out.items()}
 
 
@@ -186,7 +184,7 @@ def customers_map(
             })
 
         # Attach STB numbers per customer (engine-agnostic Python, not SQL aggregation).
-        stbmap = _stbs_for(conn, [c["customer_id"] for c in customers])
+        stbmap = _all_stbs(conn)
         for c in customers:
             c["stbs"] = stbmap.get(c["customer_id"])
 
@@ -220,7 +218,7 @@ def customers_without_location(current_user=Depends(get_current_user)):
         ).fetchall()
         result = [dict(customer_id=r["customer_id"], name=r["name"], phone=r["phone"],
                        phone2=r["phone2"], area=r["area"], address=r["address"]) for r in rows]
-        stbmap = _stbs_for(conn, [c["customer_id"] for c in result])
+        stbmap = _all_stbs(conn)
         for c in result:
             c["stbs"] = stbmap.get(c["customer_id"])
         return result
