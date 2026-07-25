@@ -129,14 +129,17 @@ function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
 }
 
 // A pin coloured by status. When `count` > 1 it shows the number of connections
-// at that spot (e.g. several houses in one building).
-function pinIcon(status: Status, count = 1) {
-  const size = count > 1 ? 26 : 18;
+// at that spot. When `highlight` is true it's enlarged with a gold pulsing ring so
+// you can spot the customer you just tapped "show" on.
+function pinIcon(status: Status, count = 1, highlight = false) {
+  const base = count > 1 ? 26 : 18;
+  const size = highlight ? base + 10 : base;
+  const border = highlight ? '3px solid #f59e0b' : '2px solid #fff';
   const label = count > 1 ? String(count) : '';
   return L.divIcon({
-    className: 'collection-pin',
+    className: highlight ? 'collection-pin collection-pin-hl' : 'collection-pin',
     html: `<div style="width:${size}px;height:${size}px;border-radius:50%;
-      background:${STATUS_COLOR[status]};border:2px solid #fff;
+      background:${STATUS_COLOR[status]};border:${border};
       box-shadow:0 0 3px rgba(0,0,0,.6);color:#fff;font-weight:700;font-size:12px;
       display:flex;align-items:center;justify-content:center">${label}</div>`,
     iconSize: [size, size],
@@ -285,6 +288,8 @@ export default function MapView() {
   const [filter, setFilter] = useState<Filter>('without');
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const highlightTimer = useRef<number | null>(null);
 
   // Live "my location"
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -444,8 +449,13 @@ export default function MapView() {
     );
   }
 
-  function flyTo(lat: number, lng: number) {
+  // "Show" a customer: fly to them AND highlight their pin for a few seconds so it
+  // stands out from the surrounding pins.
+  function showCustomer(id: string, lat: number, lng: number) {
     mapRef.current?.flyTo([lat, lng], 18);
+    setHighlightId(id);
+    if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
+    highlightTimer.current = window.setTimeout(() => setHighlightId(null), 6000);
   }
 
   function startVoice() {
@@ -529,6 +539,14 @@ export default function MapView() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <style>{`
+        @keyframes pinPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(245,158,11,.7); }
+          70%  { box-shadow: 0 0 0 16px rgba(245,158,11,0); }
+          100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+        }
+        .collection-pin-hl > div { animation: pinPulse 1.1s ease-out 4; }
+      `}</style>
       {/* ── Toolbar ── */}
       <div
         className="flex flex-wrap items-center gap-3 px-4 py-2"
@@ -636,11 +654,14 @@ export default function MapView() {
 
           <MapClickHandler enabled={!!placingFor} onPick={placeAt} />
 
-          {groups.map((g) => (
+          {groups.map((g) => {
+            const hl = highlightId != null && g.list.some((c) => c.customer_id === highlightId);
+            return (
             <Marker
               key={g.key}
               position={[g.lat, g.lng]}
-              icon={pinIcon(g.status, g.list.length)}
+              icon={pinIcon(g.status, g.list.length, hl)}
+              zIndexOffset={hl ? 1000 : 0}
             >
               <Popup>
                 {g.list.length === 1 ? (
@@ -689,7 +710,8 @@ export default function MapView() {
                 )}
               </Popup>
             </Marker>
-          ))}
+            );
+          })}
 
           {userPos && (
             <Marker position={[userPos.lat, userPos.lng]} icon={USER_ICON}>
@@ -784,7 +806,7 @@ export default function MapView() {
                   <button
                     className="text-xs flex items-center gap-1 px-2 py-1 rounded"
                     style={{ ...S.textLight, border: S.border }}
-                    onClick={() => flyTo(r.latitude!, r.longitude!)}
+                    onClick={() => showCustomer(r.customer_id, r.latitude!, r.longitude!)}
                     title="Show on map"
                   >
                     <Crosshair size={12} /> show
