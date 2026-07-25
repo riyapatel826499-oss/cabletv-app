@@ -58,7 +58,7 @@ def paid_customer_subquery(current_month):
             "  CAST(SUBSTR(MIN(month_year), 4, 4) AS INTEGER) * 12 + "
             "  CAST(SUBSTR(MIN(month_year), 1, 2) AS INTEGER) + "
             "  COALESCE(SUM(months_paid), 0) "
-            "  > "
+            "  >= "
             "  CAST(STRFTIME('%Y', 'now') AS INTEGER) * 12 + CAST(STRFTIME('%m', 'now') AS INTEGER)"
         )
 
