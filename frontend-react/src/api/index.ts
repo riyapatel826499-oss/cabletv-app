@@ -201,4 +201,6 @@ export const mapApi = {
   withoutLocation: () => api.get('/map/customers/without-location'),
   setLocation: (customerId: string, latitude: number, longitude: number) =>
     api.put(`/map/customers/${customerId}/location`, { latitude, longitude }),
+  clearLocation: (customerId: string) =>
+    api.delete(`/map/customers/${customerId}/location`),
 };

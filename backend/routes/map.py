@@ -3,8 +3,8 @@ Map routes — plot customers on an interactive map and show who's paid this mon
 
 Adds:
   GET  /api/map/customers?month=YYYY-MM   -> all located customers + is_paid flag
-  GET  /api/map/customers/without-location -> customers still needing a pin
   PUT  /api/map/customers/{customer_id}/location  -> save a house's lat/lng
+  DELETE /api/map/customers/{customer_id}/location -> clear a wrongly-placed pin
 
 Design notes
 ------------
@@ -15,12 +15,13 @@ Design notes
   Record-Payment flow — nothing extra to maintain.
 * Multi-tenant safe: every query is scoped with _op_flt(current_user), exactly
   like customers.py, so an operator only ever sees their own customers.
-* We deliberately DON'T record payments here — recording stays in the existing
-  payment flow (with bill/discount/expiry logic). This module is only about
-  *finding* customers on the map and saving their location.
+* Area guard blocks saving locations outside the collection area (e.g. GPS from
+  another city). Enforced both server-side and client-side.
 """
 
 import calendar
+import math
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -33,6 +34,25 @@ from audit import log_action
 from config import DB_ENGINE
 
 router = APIRouter(prefix="/api/map", tags=["Map"])
+
+# ── Collection-area guard ───────────────────────────────────────────────────
+AREA_CENTER_LAT = float(os.environ.get("AREA_CENTER_LAT", "11.0974473"))
+AREA_CENTER_LNG = float(os.environ.get("AREA_CENTER_LNG", "77.2013613"))
+AREA_RADIUS_KM = float(os.environ.get("AREA_RADIUS_KM", "10"))
+
+
+def _distance_km(lat1, lng1, lat2, lng2):
+    """Great-circle distance in km (haversine)."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _in_area(lat, lng) -> bool:
+    return _distance_km(lat, lng, AREA_CENTER_LAT, AREA_CENTER_LNG) <= AREA_RADIUS_KM
 
 
 class LocationIn(BaseModel):
@@ -72,7 +92,7 @@ def customers_map(
         paid_subq = paid_customer_subquery(current_month)
         paid_params = paid_subquery_params(month_start, month_end, current_month)
 
-        _of_c = _op_flt(current_user, "c.")
+        _of_c = _op_flt(current_user, "c.")  # "1=1" for master, else "c.operator_id = N"
 
         query = (
             "SELECT c.customer_id, c.name, c.phone, c.phone2, c.area, c.address, "
@@ -109,8 +129,7 @@ def customers_map(
                 "plan_amount": r["plan_amount"],
             })
 
-        # A small count of customers still missing a location, so the UI can
-        # nudge the user to place them.
+        # Count of customers still missing a location, so the UI can nudge.
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
         missing = conn.execute(
@@ -149,6 +168,15 @@ def set_customer_location(customer_id: str, loc: LocationIn, current_user=Depend
     if not (-90 <= loc.latitude <= 90 and -180 <= loc.longitude <= 180):
         raise HTTPException(status_code=400, detail="Invalid coordinates")
 
+    # Block anything outside the collection area (e.g. GPS from another city).
+    if not _in_area(loc.latitude, loc.longitude):
+        dist = _distance_km(loc.latitude, loc.longitude, AREA_CENTER_LAT, AREA_CENTER_LNG)
+        raise HTTPException(
+            status_code=422,
+            detail=(f"That point is about {dist:.0f} km from your collection area, "
+                    f"so it was not saved. Please place the pin inside your area."),
+        )
+
     with _get_conn() as conn:
         _of = _op_flt(current_user)
         of_and = "" if _of == "1=1" else f"AND {_of}"
@@ -171,3 +199,31 @@ def set_customer_location(customer_id: str, loc: LocationIn, current_user=Depend
             user=current_user,
         )
     return {"message": "Location saved", "latitude": loc.latitude, "longitude": loc.longitude}
+
+
+@router.delete("/customers/{customer_id}/location")
+def clear_customer_location(customer_id: str, current_user=Depends(get_current_user)):
+    """Remove a customer's saved location (sets it back to 'no location').
+    Use this to fix a pin that was placed in the wrong spot."""
+    with _get_conn() as conn:
+        _of = _op_flt(current_user)
+        of_and = "" if _of == "1=1" else f"AND {_of}"
+        existing = conn.execute(
+            f"SELECT latitude, longitude FROM customers WHERE customer_id = ? {of_and}",
+            [customer_id],
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        conn.execute(
+            f"UPDATE customers SET latitude = NULL, longitude = NULL WHERE customer_id = ? {of_and}",
+            [customer_id],
+        )
+        conn.commit()
+        log_action(
+            "customer_location_clear", "customers", customer_id,
+            old_value={"latitude": existing["latitude"], "longitude": existing["longitude"]},
+            new_value={"latitude": None, "longitude": None},
+            user=current_user,
+        )
+    return {"message": "Location cleared"}

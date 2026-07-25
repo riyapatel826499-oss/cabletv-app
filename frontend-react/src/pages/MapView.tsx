@@ -4,18 +4,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, Crosshair } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2 } from 'lucide-react';
 import { mapApi } from '../api';
 
 // ── Your collection area ───────────────────────────────────────────────────
-// Hardcoded so it always centers here (no env/rebuild needed). Change these two
-// numbers if your area ever moves. Right-click your area's centre in Google Maps
-// to copy the lat,lng.
 const HOME_CENTER: [number, number] = [
   Number(import.meta.env.VITE_HOME_LAT) || 11.0974473,
   Number(import.meta.env.VITE_HOME_LNG) || 77.2013613,
 ];
-// How far (km) the map may roam from the centre. Keeps you in your area.
 const AREA_RADIUS_KM = Number(import.meta.env.VITE_AREA_RADIUS_KM) || 3;
 
 const _latPad = AREA_RADIUS_KM / 111;
@@ -25,7 +21,22 @@ const MAX_BOUNDS: L.LatLngBoundsExpression = [
   [HOME_CENTER[0] + _latPad, HOME_CENTER[1] + _lngPad],
 ];
 
-// Theme-aware colours (follow the app's dark/light CSS variables).
+const AREA_SAVE_RADIUS_KM = Number(import.meta.env.VITE_AREA_SAVE_RADIUS_KM) || 10;
+
+function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const r = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(s));
+}
+
+function inArea(lat: number, lng: number) {
+  return distanceKm(lat, lng, HOME_CENTER[0], HOME_CENTER[1]) <= AREA_SAVE_RADIUS_KM;
+}
+
 const S = {
   panel: { background: 'var(--bg-card)', color: 'var(--text)' } as const,
   text: { color: 'var(--text)' } as const,
@@ -135,6 +146,15 @@ export default function MapView() {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
       qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
+    onError: () => alert('Could not save — that point may be outside your collection area.'),
+  });
+
+  const clearLocation = useMutation({
+    mutationFn: (id: string) => mapApi.clearLocation(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['map-customers'] });
+      qc.invalidateQueries({ queryKey: ['map-no-location'] });
+    },
   });
 
   const located = data?.customers ?? [];
@@ -164,18 +184,13 @@ export default function MapView() {
     const q = search.trim().toLowerCase();
     let base: ListRow[];
     if (q) {
-      // Search across ALL customers ignoring the tab filter,
-      // matching every word in any order against name + id + area.
       const words = q.split(/\s+/).filter(Boolean);
       base = [...withoutRows, ...withRows].filter((r) => {
         const hay = `${r.name} ${r.customer_id} ${r.area ?? ''}`.toLowerCase();
         return words.every((w) => hay.includes(w));
       });
     } else {
-      base =
-        filter === 'without' ? withoutRows :
-        filter === 'with' ? withRows :
-        [...withoutRows, ...withRows];
+      base = filter === 'without' ? withoutRows : filter === 'with' ? withRows : [...withoutRows, ...withRows];
     }
     return base.sort((a, b) => a.name.localeCompare(b.name));
   }, [located, unlocated, filter, search]);
@@ -200,6 +215,10 @@ export default function MapView() {
 
   function placeAt(lat: number, lng: number) {
     if (!placingFor) return;
+    if (!inArea(lat, lng)) {
+      alert('That point is outside your collection area, so it was not saved.');
+      return;
+    }
     saveLocation.mutate(
       { id: placingFor.customer_id, lat, lng },
       { onSuccess: () => setPlacingFor(null) },
@@ -212,11 +231,22 @@ export default function MapView() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) =>
+      (pos) => {
+        if (!inArea(pos.coords.latitude, pos.coords.longitude)) {
+          const km = Math.round(
+            distanceKm(pos.coords.latitude, pos.coords.longitude, HOME_CENTER[0], HOME_CENTER[1]),
+          );
+          alert(
+            `Your current location is about ${km} km from your collection area, so it was not saved. ` +
+              `Use GPS only while standing at the customer's house, or place the pin on the map.`,
+          );
+          return;
+        }
         saveLocation.mutate(
           { id: c.customer_id, lat: pos.coords.latitude, lng: pos.coords.longitude },
           { onSuccess: () => setPlacingFor(null) },
-        ),
+        );
+      },
       (err) => alert('Could not get GPS: ' + err.message),
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -312,7 +342,6 @@ export default function MapView() {
               }}
             >
               <Popup>
-                {/* Leaflet popups are always light — keep dark text here. */}
                 <div className="min-w-[170px] text-sm" style={{ color: '#1d1d1f' }}>
                   <div className="font-bold">{c.name}</div>
                   <div className="text-xs" style={{ color: '#6b7280' }}>{c.customer_id}</div>
@@ -323,7 +352,7 @@ export default function MapView() {
                   )}
                   {c.address && <div className="text-xs mt-1">{c.address}</div>}
                   <div className="mt-1">
-                    Plan: ₹{c.plan_amount ?? '\u2014'} —{' '}
+                    Plan: ₹{c.plan_amount ?? '—'} —{' '}
                     <b className={c.is_paid ? 'text-green-600' : 'text-red-600'}>
                       {c.is_paid ? 'PAID' : 'UNPAID'}
                     </b>
@@ -379,7 +408,7 @@ export default function MapView() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name or ID\u2026"
+              placeholder="Search name or ID…"
               className="text-sm outline-none w-44 bg-transparent"
               style={S.text}
             />
@@ -407,11 +436,20 @@ export default function MapView() {
                 <div className="text-sm font-medium truncate" style={S.text}>{r.name}</div>
                 <div className="text-xs truncate" style={S.textLight}>
                   {r.customer_id}
-                  {r.area ? ` \u00b7 ${r.area}` : ''}
+                  {r.area ? ` · ${r.area}` : ''}
                 </div>
               </div>
               {r.hasLocation ? (
                 <>
+                  {r.latitude != null && !inArea(r.latitude, r.longitude!) && (
+                    <span
+                      className="text-[11px] px-2 py-0.5 rounded-full"
+                      style={{ background: '#fee2e2', color: '#b91c1c' }}
+                      title="This pin is outside your collection area"
+                    >
+                      ⚠ outside area
+                    </span>
+                  )}
                   <button
                     className="text-xs flex items-center gap-1 px-2 py-1 rounded"
                     style={{ ...S.textLight, border: S.border }}
@@ -427,6 +465,17 @@ export default function MapView() {
                     title="Tap the map to move this pin"
                   >
                     <MapPin size={12} /> move
+                  </button>
+                  <button
+                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-red-500"
+                    style={{ border: S.border }}
+                    onClick={() => {
+                      if (confirm(`Remove ${r.name}'s location? They'll go back to "without location".`))
+                        clearLocation.mutate(r.customer_id);
+                    }}
+                    title="Remove this location"
+                  >
+                    <Trash2 size={12} /> clear
                   </button>
                 </>
               ) : (
