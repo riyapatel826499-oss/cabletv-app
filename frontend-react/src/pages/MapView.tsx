@@ -490,6 +490,29 @@ export default function MapView() {
     return () => recognitionRef.current?.stop();
   }, []);
 
+  // Fix Leaflet sizing: recalc the map size after mount, on window resize and
+  // orientation change. Without this the map can render grey / half-loaded and
+  // clicks map to the wrong spot (stale container size on mobile).
+  useEffect(() => {
+    const invalidate = () => mapRef.current?.invalidateSize();
+    const t1 = window.setTimeout(invalidate, 200);
+    const t2 = window.setTimeout(invalidate, 800);
+    window.addEventListener('resize', invalidate);
+    window.addEventListener('orientationchange', invalidate);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener('resize', invalidate);
+      window.removeEventListener('orientationchange', invalidate);
+    };
+  }, []);
+
+  // The banners above the map change its height — recalc when they toggle.
+  useEffect(() => {
+    const id = window.setTimeout(() => mapRef.current?.invalidateSize(), 150);
+    return () => window.clearTimeout(id);
+  }, [placingFor, userPos, watching, listening]);
+
   function startMyLocation() {
     if (!navigator.geolocation) {
       alert('This device has no GPS/location support.');
@@ -636,6 +659,7 @@ export default function MapView() {
           maxBounds={MAX_BOUNDS}
           maxBoundsViscosity={1.0}
           style={{ width: '100%', height: '100%' }}
+          whenReady={() => window.setTimeout(() => mapRef.current?.invalidateSize(), 0)}
         >
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
