@@ -730,15 +730,18 @@ export default function MapView() {
         })}
         <button
           onClick={() => (watching ? stopMyLocation() : startMyLocation())}
-          className="flex items-center gap-1 text-sm px-2 py-1 rounded"
-          style={
-            watching
+          className="flex items-center gap-1.5 text-sm"
+          style={{
+            padding: '6px 14px',
+            borderRadius: 999,
+            fontWeight: 500,
+            ...(watching
               ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
-              : { ...S.text, border: S.border }
-          }
+              : { ...S.text, background: 'var(--bg-secondary)', border: S.border }),
+          }}
           title="Show my current location on the map"
         >
-          <Locate size={14} /> {watching ? 'Stop' : 'My location'}
+          <Locate size={15} /> {watching ? 'Stop' : 'My location'}
         </button>
       </div>
 
@@ -876,46 +879,52 @@ export default function MapView() {
         </MapContainer>
       </div>
 
-      {/* ── Customer list panel ── */}
+      {/* ── Customer list panel (find + add locations) ── */}
       <div className="flex flex-col" style={{ height: '38vh', ...S.panel, borderTop: S.border }}>
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2" style={{ borderBottom: S.border }}>
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className="text-xs px-2 py-1 rounded-full"
-              style={
-                filter === f.key
-                  ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
-                  : { ...S.text, border: S.border, background: 'transparent' }
-              }
-            >
-              {f.label} ({f.count})
-            </button>
-          ))}
+        <div className="px-4 py-2 flex flex-col gap-2" style={{ borderBottom: S.border }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className="text-sm"
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 999,
+                  fontWeight: 500,
+                  ...(filter === f.key
+                    ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
+                    : { ...S.text, border: S.border, background: 'var(--bg-secondary)' }),
+                }}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
+          </div>
           <div
-            className="flex items-center gap-1 rounded px-2 py-1 ml-auto"
-            style={{ border: S.border, background: 'var(--bg-secondary)' }}
+            className="flex items-center gap-2"
+            style={{ border: S.border, background: 'var(--bg-secondary)', borderRadius: 999, padding: '8px 14px' }}
           >
-            <Search size={14} style={S.textLight} />
+            <Search size={17} style={S.textLight} />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={listening ? 'Listening…' : 'Search or tap mic 🎤'}
-              className="text-sm outline-none w-40 bg-transparent"
+              placeholder={listening ? 'Listening…' : 'Search name, phone or ID'}
+              className="text-sm outline-none flex-1 bg-transparent"
               style={S.text}
             />
             <button
               onClick={() => (listening ? stopVoice() : startVoice())}
               title="Voice search — tap and say the customer name"
-              className="flex items-center justify-center rounded-full"
+              className="flex items-center justify-center rounded-full shrink-0"
               style={{
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
+                border: 'none',
                 background: listening ? '#ef4444' : 'transparent',
               }}
             >
-              <Mic size={16} style={{ color: listening ? '#fff' : 'var(--text-light)' }} />
+              <Mic size={18} style={{ color: listening ? '#fff' : 'var(--text-light)' }} />
             </button>
           </div>
         </div>
@@ -954,46 +963,41 @@ export default function MapView() {
                     </span>
                   )}
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded"
-                    style={{ ...S.textLight, border: S.border }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'var(--bg-secondary)', color: 'var(--text-light)', border: S.border }}
                     onClick={() => showCustomer(r.customer_id, r.latitude!, r.longitude!)}
                     title="Show on map"
                   >
-                    <Crosshair size={12} /> show
+                    <Crosshair size={13} /> show
                   </button>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-blue-500"
-                    style={{ border: S.border }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(37,99,235,0.12)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.35)' }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: true })}
                     title="Tap the map to move this pin"
                   >
-                    <MapPin size={12} /> move
+                    <MapPin size={13} /> move
                   </button>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-red-500"
-                    style={{ border: S.border }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.35)' }}
                     onClick={() => {
                       if (confirm(`Remove ${r.name}'s location? They'll go back to "without location".`))
                         clearLocation.mutate(r.customer_id);
                     }}
                     title="Remove this location"
                   >
-                    <Trash2 size={12} /> clear
+                    <Trash2 size={13} /> clear
                   </button>
                 </>
               ) : (
                 <>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-blue-500"
-                    style={{ border: S.border }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(37,99,235,0.12)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.35)' }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
                     title="Tap the map to place this customer"
                   >
-                    <MapPin size={12} /> place
+                    <MapPin size={13} /> place
                   </button>
                   <button
-                    className="text-xs flex items-center gap-1 px-2 py-1 rounded text-green-500"
-                    style={{ border: S.border }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(34,197,94,0.12)', color: '#16a34a', border: '1px solid rgba(34,197,94,0.35)' }}
                     onClick={() => captureGps({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
                     title="Use my current GPS"
                   >
