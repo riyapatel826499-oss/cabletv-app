@@ -25,6 +25,7 @@ import Surrender from './pages/Surrender';
 import MyCollections from './pages/MyCollections';
 import Inventory from './pages/Inventory';
 import MapView from './pages/MapView';
+import Pay from './pages/Pay';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -110,6 +111,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/pay" element={<Pay />} />
       <Route
         path="/"
         element={
