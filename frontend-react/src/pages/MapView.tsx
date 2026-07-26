@@ -77,6 +77,9 @@ type MapCustomer = {
   paid_prev?: boolean;
   status: Status;
   plan_amount?: number | null;
+  reminder_count?: number;
+  last_reminder_at?: string | null;
+  last_reminder_by?: string | null;
 };
 
 // A customer that definitely has coordinates (after filtering).
@@ -116,25 +119,51 @@ function currentMonth() {
 const BUSINESS_NAME = 'Sree Selvanaayakki Amman Cables & Internet Services';
 const UPI_ID = 'selvanayakiammancables-3@okhdfcbank';
 
-// Build a WhatsApp reminder link with a ready payment message.
-function waReminderLink(c: MapCustomer, month: string) {
-  const digits = (c.phone || '').replace(/\D/g, '');
-  const phone = digits.length === 10 ? '91' + digits : digits; // India default
-  let monthLabel = month;
+function waPhone(c: MapCustomer) {
+  const d = (c.phone || '').replace(/\D/g, '');
+  return d.length === 10 ? '91' + d : d; // India default
+}
+function monthLabelOf(month: string) {
   try {
-    monthLabel = new Date(month + '-01').toLocaleDateString('en-IN', {
-      month: 'long',
-      year: 'numeric',
-    });
+    return new Date(month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   } catch {
-    /* keep raw month */
+    return month;
   }
+}
+function waUrl(c: MapCustomer, msg: string) {
+  return `https://wa.me/${waPhone(c)}?text=${encodeURIComponent(msg)}`;
+}
+
+// Template 1 — regular monthly reminder (pay before the 12th).
+function waRegularLink(c: MapCustomer, month: string) {
   const amt = c.plan_amount ? ` (₹${c.plan_amount})` : '';
   const msg =
-    `Dear ${c.name}, your cable TV subscription for ${monthLabel}${amt} is pending.\n\n` +
+    `Dear ${c.name}, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
+    `Kindly pay before the 12th to avoid disconnection.\n\n` +
     `Pay online via UPI: ${UPI_ID}\n\n` +
     `Thank you.\n- ${BUSINESS_NAME}`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  return waUrl(c, msg);
+}
+
+// Template 2 — reconnection reminder with pro-rata amount + date.
+function waReconnectLink(c: MapCustomer) {
+  const plan = c.plan_amount || 0;
+  const today = new Date();
+  const payDay = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const prorataDays = payDay <= 12 ? 13 - payDay : daysInMonth - payDay + 1;
+  const prorataAmt = Math.round(((prorataDays / daysInMonth) * plan) / 10) * 10;
+  const total = prorataAmt + plan;
+  const todayStr = today.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const msg =
+    `Dear ${c.name}, your cable TV connection is disconnected due to non-payment.\n\n` +
+    `To reconnect (as on ${todayStr}):\n` +
+    `₹${prorataAmt} — ${prorataDays} days pro-rata\n` +
+    `+ ₹${plan} — 1 month\n` +
+    `= ₹${total} total\n\n` +
+    `Pay online via UPI: ${UPI_ID}\n\n` +
+    `- ${BUSINESS_NAME}`;
+  return waUrl(c, msg);
 }
 
 // ── Voice search (browser Web Speech API — free, no key) ────────────────────
@@ -194,14 +223,17 @@ function CustomerBlock({
   month,
   onRecordPayment,
   onSaveNote,
+  onLogReminder,
 }: {
   c: MapCustomer;
   month: string;
   onRecordPayment: (id: string) => void;
   onSaveNote: (id: string, note: string) => void;
+  onLogReminder: (id: string, template: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.map_note ?? '');
+  const [showTpl, setShowTpl] = useState(false);
   return (
     <div className="text-sm" style={{ color: '#1d1d1f' }}>
       <div className="font-bold">{c.name}</div>
@@ -257,6 +289,12 @@ function CustomerBlock({
         Plan: ₹{c.plan_amount ?? '—'} —{' '}
         <b style={{ color: STATUS_COLOR[c.status] }}>{STATUS_LABEL[c.status]}</b>
       </div>
+      {(c.reminder_count ?? 0) > 0 && (
+        <div className="text-[11px] mt-1" style={{ color: '#b45309' }}>
+          Reminded {c.reminder_count}× this month
+          {c.last_reminder_by ? ` · last by ${c.last_reminder_by}` : ''}
+        </div>
+      )}
       <div className="flex gap-2 mt-2">
         <a
           className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white no-underline"
@@ -267,16 +305,14 @@ function CustomerBlock({
           <Navigation size={14} /> Navigate
         </a>
         {c.status !== 'paid' && c.phone && (
-          <a
-            className="flex items-center gap-1 px-2 py-1 rounded text-white no-underline"
+          <button
+            className="flex items-center gap-1 px-2 py-1 rounded text-white"
             style={{ background: '#25D366' }}
-            href={waReminderLink(c, month)}
-            target="_blank"
-            rel="noreferrer"
-            title="Send a WhatsApp payment reminder"
+            onClick={() => setShowTpl((v) => !v)}
+            title="Send a WhatsApp reminder"
           >
             <MessageCircle size={14} /> Remind
-          </a>
+          </button>
         )}
         {c.status !== 'paid' && (
           <button
@@ -287,6 +323,31 @@ function CustomerBlock({
           </button>
         )}
       </div>
+
+      {showTpl && c.phone && (
+        <div className="flex flex-col gap-1 mt-2">
+          <a
+            href={waRegularLink(c, month)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => onLogReminder(c.customer_id, 'monthly')}
+            className="text-xs px-2 py-1 rounded no-underline"
+            style={{ border: '1px solid #25D366', color: '#128C4B', background: 'rgba(37,211,102,0.10)' }}
+          >
+            Monthly reminder (before 12th)
+          </a>
+          <a
+            href={waReconnectLink(c)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => onLogReminder(c.customer_id, 'reconnection')}
+            className="text-xs px-2 py-1 rounded no-underline"
+            style={{ border: '1px solid #f59e0b', color: '#b45309', background: 'rgba(245,158,11,0.10)' }}
+          >
+            Reconnection reminder (pro-rata)
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -366,6 +427,11 @@ export default function MapView() {
 
   const saveNote = useMutation({
     mutationFn: (v: { id: string; note: string }) => mapApi.setNote(v.id, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
+  });
+
+  const logReminder = useMutation({
+    mutationFn: (v: { id: string; template: string }) => mapApi.logReminder(v.id, v.template, month),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
   });
 
@@ -741,6 +807,7 @@ export default function MapView() {
                       month={month}
                       onRecordPayment={(id) => navigate(`/customers/${id}`)}
                       onSaveNote={(id, note) => saveNote.mutate({ id, note })}
+                      onLogReminder={(id, template) => logReminder.mutate({ id, template })}
                     />
                     <button
                       className="text-xs mt-2 flex items-center gap-1 px-2 py-1 rounded"
@@ -775,6 +842,7 @@ export default function MapView() {
                           month={month}
                           onRecordPayment={(id) => navigate(`/customers/${id}`)}
                           onSaveNote={(id, note) => saveNote.mutate({ id, note })}
+                          onLogReminder={(id, template) => logReminder.mutate({ id, template })}
                         />
                       </div>
                     ))}

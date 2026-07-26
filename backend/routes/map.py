@@ -81,6 +81,50 @@ class NoteIn(BaseModel):
     note: Optional[str] = None  # e.g. "1st floor", "Ground floor - back"
 
 
+class ReminderIn(BaseModel):
+    customer_id: str
+    template: str  # 'monthly' | 'reconnection'
+    month: Optional[str] = None
+
+
+def _ensure_reminders_table(conn):
+    """Create the reminder log table if missing (so logging works even before the
+    migration runs). Engine-aware."""
+    if DB_ENGINE == "sqlite":
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS reminder_logs ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id TEXT, template TEXT, "
+            "sent_by INTEGER, sent_by_name TEXT, sent_at TEXT, month TEXT, operator_id INTEGER)"
+        )
+    else:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS reminder_logs ("
+            "id SERIAL PRIMARY KEY, customer_id TEXT, template TEXT, "
+            "sent_by INTEGER, sent_by_name TEXT, sent_at TEXT, month TEXT, operator_id INTEGER)"
+        )
+
+
+def _reminder_summary(conn, month, op_and):
+    """{customer_id: {count, last_at, last_by}} for reminders logged in `month`.
+    Never raises (returns {} if the table doesn't exist yet)."""
+    try:
+        rows = conn.execute(
+            "SELECT customer_id, sent_at, sent_by_name FROM reminder_logs WHERE month = ? " + op_and,
+            [month],
+        ).fetchall()
+    except Exception:
+        return {}
+    out: dict = {}
+    for r in rows:
+        cid = r["customer_id"]
+        d = out.setdefault(cid, {"count": 0, "last_at": None, "last_by": None})
+        d["count"] += 1
+        if d["last_at"] is None or (r["sent_at"] or "") > d["last_at"]:
+            d["last_at"] = r["sent_at"]
+            d["last_by"] = r["sent_by_name"]
+    return out
+
+
 def _month_range(month: Optional[str]):
     """Turn 'YYYY-MM' into (paid_from, paid_to) for get_date_range()."""
     if not month:
@@ -188,6 +232,17 @@ def customers_map(
         stbmap = _all_stbs(conn)
         for c in customers:
             c["stbs"] = stbmap.get(c["customer_id"])
+
+        # Attach reminder counts for the selected month.
+        sel_month = month or datetime.now().strftime("%Y-%m")
+        _ofp = _op_flt(current_user)
+        rem_op_and = "" if _ofp == "1=1" else f"AND {_ofp}"
+        remmap = _reminder_summary(conn, sel_month, rem_op_and)
+        for c in customers:
+            info = remmap.get(c["customer_id"])
+            c["reminder_count"] = info["count"] if info else 0
+            c["last_reminder_at"] = info["last_at"] if info else None
+            c["last_reminder_by"] = info["last_by"] if info else None
 
         _of_plain = _op_flt(current_user)
         of_and = "" if _of_plain == "1=1" else f"AND {_of_plain}"
@@ -315,3 +370,21 @@ def set_customer_note(customer_id: str, body: NoteIn, current_user=Depends(get_c
         )
         conn.commit()
     return {"message": "Note saved", "map_note": note}
+
+
+@router.post("/reminders")
+def log_reminder(body: ReminderIn, current_user=Depends(get_current_user)):
+    """Record that an agent sent a WhatsApp reminder to a customer (which template,
+    who, when). Counts as 'reminder triggered' — WhatsApp delivery can't be confirmed."""
+    month = body.month or datetime.now().strftime("%Y-%m")
+    name = current_user.get("name") or current_user.get("username") or "Agent"
+    with _get_conn() as conn:
+        _ensure_reminders_table(conn)
+        conn.execute(
+            "INSERT INTO reminder_logs (customer_id, template, sent_by, sent_by_name, sent_at, month, operator_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [body.customer_id, body.template, current_user.get("id"), name,
+             datetime.now().isoformat(), month, current_user.get("operator_id")],
+        )
+        conn.commit()
+    return {"ok": True}

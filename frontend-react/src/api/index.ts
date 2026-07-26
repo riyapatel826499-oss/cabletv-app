@@ -205,4 +205,6 @@ export const mapApi = {
     api.delete(`/map/customers/${customerId}/location`),
   setNote: (customerId: string, note: string) =>
     api.put(`/map/customers/${customerId}/note`, { note }),
+  logReminder: (customerId: string, template: string, month?: string) =>
+    api.post('/map/reminders', { customer_id: customerId, template, month }),
 };
