@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic, MessageCircle } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic, MessageCircle, Receipt } from 'lucide-react';
 import { mapApi } from '../api';
 import { calcPayAmount } from '../lib/prorata';
 
@@ -289,10 +289,10 @@ function CustomerBlock({
           {c.last_reminder_by ? ` · last by ${c.last_reminder_by}` : ''}
         </div>
       )}
-      <div className="flex flex-wrap gap-2 mt-2">
+      <div className="flex flex-col gap-2 mt-3">
         <a
-          className="flex items-center justify-center gap-1 px-3 rounded bg-blue-600 text-white no-underline text-sm"
-          style={{ minHeight: 40 }}
+          className="flex items-center justify-center gap-2 rounded-lg no-underline"
+          style={{ background: '#2563eb', color: '#fff', fontWeight: 600, fontSize: 14, minHeight: 44 }}
           href={`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`}
           target="_blank"
           rel="noreferrer"
@@ -301,21 +301,20 @@ function CustomerBlock({
         </a>
         {c.status !== 'paid' && c.phone && (
           <button
-            className="flex items-center justify-center gap-1 px-3 rounded text-white text-sm"
-            style={{ background: '#25D366', minHeight: 40 }}
+            className="flex items-center justify-center gap-2 rounded-lg"
+            style={{ background: '#25D366', color: '#fff', fontWeight: 600, fontSize: 14, minHeight: 44, border: 'none' }}
             onClick={() => setShowTpl((v) => !v)}
-            title="Send a WhatsApp reminder"
           >
             <MessageCircle size={16} /> Remind
           </button>
         )}
         {c.status !== 'paid' && (
           <button
-            className="px-3 rounded bg-green-600 text-white text-sm"
-            style={{ minHeight: 40 }}
+            className="flex items-center justify-center gap-2 rounded-lg"
+            style={{ background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontWeight: 600, fontSize: 14, minHeight: 44, border: 'none' }}
             onClick={() => onRecordPayment(c.customer_id)}
           >
-            Record payment
+            <Receipt size={16} /> Record payment
           </button>
         )}
       </div>
@@ -705,17 +704,30 @@ export default function MapView() {
           className="text-sm rounded px-2 py-1"
           style={{ ...S.text, background: 'var(--bg-secondary)', border: S.border }}
         />
-        {(['paid', 'due', 'overdue'] as Status[]).map((s) => (
-          <label key={s} className="flex items-center gap-1 text-sm cursor-pointer" style={S.text}>
-            <input
-              type="checkbox"
-              checked={visible[s]}
-              onChange={(e) => setVisible((v) => ({ ...v, [s]: e.target.checked }))}
-            />
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR[s] }} />
-            {s === 'paid' ? 'Paid' : s === 'due' ? 'Not renewed' : 'Overdue'}
-          </label>
-        ))}
+        {(['paid', 'due', 'overdue'] as Status[]).map((s) => {
+          const on = visible[s];
+          const label = s === 'paid' ? 'Paid' : s === 'due' ? 'Not renewed' : 'Overdue';
+          return (
+            <button
+              key={s}
+              onClick={() => setVisible((v) => ({ ...v, [s]: !v[s] }))}
+              className="inline-flex items-center gap-1.5 text-sm rounded-full"
+              style={{
+                padding: '5px 12px',
+                border: `1px solid ${on ? STATUS_COLOR[s] : 'var(--border)'}`,
+                background: on ? `${STATUS_COLOR[s]}22` : 'transparent',
+                color: on ? 'var(--text)' : 'var(--text-light)',
+                fontWeight: 500,
+              }}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ background: STATUS_COLOR[s], opacity: on ? 1 : 0.4 }}
+              />
+              {label}
+            </button>
+          );
+        })}
         <button
           onClick={() => (watching ? stopMyLocation() : startMyLocation())}
           className="flex items-center gap-1 text-sm px-2 py-1 rounded"
@@ -766,9 +778,11 @@ export default function MapView() {
           maxZoom={19}
           maxBounds={MAX_BOUNDS}
           maxBoundsViscosity={1.0}
+          zoomControl={false}
           style={{ width: '100%', height: '100%' }}
           whenReady={() => window.setTimeout(() => mapRef.current?.invalidateSize(), 0)}
         >
+          <ZoomControl position="bottomright" />
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             attribution="Tiles &copy; Esri, Maxar, Earthstar Geographics"
