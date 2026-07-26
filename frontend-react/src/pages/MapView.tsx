@@ -139,7 +139,7 @@ function waUrl(c: MapCustomer, msg: string) {
 function waRegularLink(c: MapCustomer, month: string) {
   const amt = c.plan_amount ? ` (₹${c.plan_amount})` : '';
   const msg =
-    `Dear ${c.name}, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
+    `Dear Customer, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
     `Kindly pay before the 12th to avoid disconnection.\n\n` +
     `Pay online via UPI: ${UPI_ID}\n\n` +
     `Thank you.\n- ${BUSINESS_NAME}`;
@@ -153,9 +153,8 @@ function waReconnectLink(c: MapCustomer, month: string) {
   const amount = Math.round(calc.netAmount);
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const msg =
-    `Dear ${c.name}, your cable TV connection is disconnected due to non-payment.\n\n` +
-    `To reconnect (as on ${todayStr}): ₹${amount}\n` +
-    `${calc.note}\n\n` +
+    `Dear Customer, your cable TV connection is disconnected due to non-payment.\n\n` +
+    `Amount to reconnect: ₹${amount} (as on ${todayStr})\n\n` +
     `Pay online via UPI: ${UPI_ID}\n\n` +
     `- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
@@ -290,28 +289,30 @@ function CustomerBlock({
           {c.last_reminder_by ? ` · last by ${c.last_reminder_by}` : ''}
         </div>
       )}
-      <div className="flex gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 mt-2">
         <a
-          className="flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white no-underline"
+          className="flex items-center justify-center gap-1 px-3 rounded bg-blue-600 text-white no-underline text-sm"
+          style={{ minHeight: 40 }}
           href={`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`}
           target="_blank"
           rel="noreferrer"
         >
-          <Navigation size={14} /> Navigate
+          <Navigation size={16} /> Navigate
         </a>
         {c.status !== 'paid' && c.phone && (
           <button
-            className="flex items-center gap-1 px-2 py-1 rounded text-white"
-            style={{ background: '#25D366' }}
+            className="flex items-center justify-center gap-1 px-3 rounded text-white text-sm"
+            style={{ background: '#25D366', minHeight: 40 }}
             onClick={() => setShowTpl((v) => !v)}
             title="Send a WhatsApp reminder"
           >
-            <MessageCircle size={14} /> Remind
+            <MessageCircle size={16} /> Remind
           </button>
         )}
         {c.status !== 'paid' && (
           <button
-            className="px-2 py-1 rounded bg-green-600 text-white"
+            className="px-3 rounded bg-green-600 text-white text-sm"
+            style={{ minHeight: 40 }}
             onClick={() => onRecordPayment(c.customer_id)}
           >
             Record payment
@@ -320,26 +321,26 @@ function CustomerBlock({
       </div>
 
       {showTpl && c.phone && (
-        <div className="flex flex-col gap-1 mt-2">
+        <div className="flex flex-col gap-2 mt-2">
           <a
             href={waRegularLink(c, month)}
             target="_blank"
             rel="noreferrer"
             onClick={() => onLogReminder(c.customer_id, 'monthly')}
-            className="text-xs px-2 py-1 rounded no-underline"
-            style={{ border: '1px solid #25D366', color: '#128C4B', background: 'rgba(37,211,102,0.10)' }}
+            className="block text-center text-sm px-3 rounded no-underline"
+            style={{ minHeight: 42, lineHeight: '42px', fontWeight: 500, border: '1px solid #25D366', color: '#128C4B', background: 'rgba(37,211,102,0.12)' }}
           >
-            Monthly reminder (before 12th)
+            Monthly reminder
           </a>
           <a
             href={waReconnectLink(c, month)}
             target="_blank"
             rel="noreferrer"
             onClick={() => onLogReminder(c.customer_id, 'reconnection')}
-            className="text-xs px-2 py-1 rounded no-underline"
-            style={{ border: '1px solid #f59e0b', color: '#b45309', background: 'rgba(245,158,11,0.10)' }}
+            className="block text-center text-sm px-3 rounded no-underline"
+            style={{ minHeight: 42, lineHeight: '42px', fontWeight: 500, border: '1px solid #f59e0b', color: '#b45309', background: 'rgba(245,158,11,0.12)' }}
           >
-            Reconnection reminder (pro-rata)
+            Reconnection reminder
           </a>
         </div>
       )}
