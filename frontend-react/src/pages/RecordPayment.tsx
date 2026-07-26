@@ -453,7 +453,6 @@ export default function RecordPayment() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
       setSuccess(true);
-      setTimeout(() => navigate('/'), 2000);
     } catch {
       setError('Failed to record payment. Please try again.');
     } finally {
@@ -462,15 +461,59 @@ export default function RecordPayment() {
   };
 
   if (success) {
+    const digits = (selectedCustomer?.phone || '').replace(/\D/g, '');
+    const waPhone = digits.length === 10 ? '91' + digits : digits;
+    let monthLabel = month;
+    try {
+      monthLabel = new Date(month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    } catch { /* keep raw */ }
+    const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const receiptMsg =
+      `*Sree Selvanaayakki Amman Cables & Internet Services*\n` +
+      `Payment Receipt\n` +
+      `-----------------------------\n` +
+      `Customer: ${selectedCustomer?.name} (${selectedCustomer?.customer_id})\n` +
+      `Amount paid: ₹${fmtRs(finalAmount)}\n` +
+      `For: ${monthLabel}${months > 1 ? ` (${months} months)` : ''}\n` +
+      `Mode: ${mode}\n` +
+      `Date: ${dateStr}\n` +
+      `-----------------------------\n` +
+      `Thank you for your payment.\n` +
+      `UPI for next time: selvanayakiammancables-3@okhdfcbank`;
+    const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(receiptMsg)}`;
+    const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem', padding: '4px 0' };
     return (
-      <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div className="glass-card" style={{ padding: 48, textAlign: 'center', maxWidth: 360 }}>
-          <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>Payment Recorded!</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
-            {selectedPlan && payCalc ? `₹${fmtRs(finalAmount)} from ${selectedCustomer?.name} via ${mode}` : ''}
-          </p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 12 }}>Redirecting to dashboard...</p>
+      <div className="animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="glass-card" style={{ padding: 26, maxWidth: 380, width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: 14 }}>
+            <CheckCircle style={{ width: 44, height: 44, color: '#34c759', margin: '0 auto 10px' }} />
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text)' }}>Payment recorded</h2>
+          </div>
+          <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0', margin: '6px 0 16px' }}>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>Customer</span><span style={{ color: 'var(--text)', fontWeight: 500, textAlign: 'right' }}>{selectedCustomer?.name}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>Amount</span><span style={{ color: 'var(--text)', fontWeight: 600 }}>₹{fmtRs(finalAmount)}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>For</span><span style={{ color: 'var(--text)' }}>{monthLabel}{months > 1 ? ` (${months} mo)` : ''}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>Mode</span><span style={{ color: 'var(--text)' }}>{mode}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>Date</span><span style={{ color: 'var(--text)' }}>{dateStr}</span></div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {waPhone && (
+              <a href={waLink} target="_blank" rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 'var(--radius-sm)', background: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>
+                <Receipt style={{ width: 18, height: 18 }} /> Send receipt on WhatsApp
+              </a>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => navigate('/')}
+                style={{ flex: 1, padding: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)', cursor: 'pointer', fontWeight: 500, fontSize: '0.88rem' }}>
+                Done
+              </button>
+              <button onClick={() => window.location.assign('/app/payments/new')}
+                style={{ flex: 1, padding: '11px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem' }}>
+                New payment
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic } from 'lucide-react';
+import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic, MessageCircle } from 'lucide-react';
 import { mapApi } from '../api';
 
 // ── Your collection area ───────────────────────────────────────────────────
@@ -112,6 +112,31 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+// Business details shown in WhatsApp messages.
+const BUSINESS_NAME = 'Sree Selvanaayakki Amman Cables & Internet Services';
+const UPI_ID = 'selvanayakiammancables-3@okhdfcbank';
+
+// Build a WhatsApp reminder link with a ready payment message.
+function waReminderLink(c: MapCustomer, month: string) {
+  const digits = (c.phone || '').replace(/\D/g, '');
+  const phone = digits.length === 10 ? '91' + digits : digits; // India default
+  let monthLabel = month;
+  try {
+    monthLabel = new Date(month + '-01').toLocaleDateString('en-IN', {
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    /* keep raw month */
+  }
+  const amt = c.plan_amount ? ` (₹${c.plan_amount})` : '';
+  const msg =
+    `Dear ${c.name}, your cable TV subscription for ${monthLabel}${amt} is pending.\n\n` +
+    `Pay online via UPI: ${UPI_ID}\n\n` +
+    `Thank you.\n- ${BUSINESS_NAME}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+}
+
 // ── Voice search (browser Web Speech API — free, no key) ────────────────────
 interface SpeechResultEvent {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
@@ -162,14 +187,16 @@ function worstStatus(list: { status: Status }[]): Status {
   if (list.some((c) => c.status === 'due')) return 'due';
   return 'paid';
 }
-
-// One customer's details, shown in popups. Includes an editable floor/unit label.
+// One customer's details, shown in popups. Includes an editable floor/unit label
+// (useful when several connections are stacked in a multi-floor building).
 function CustomerBlock({
   c,
+  month,
   onRecordPayment,
   onSaveNote,
 }: {
   c: MapCustomer;
+  month: string;
   onRecordPayment: (id: string) => void;
   onSaveNote: (id: string, note: string) => void;
 }) {
@@ -239,6 +266,18 @@ function CustomerBlock({
         >
           <Navigation size={14} /> Navigate
         </a>
+        {c.status !== 'paid' && c.phone && (
+          <a
+            className="flex items-center gap-1 px-2 py-1 rounded text-white no-underline"
+            style={{ background: '#25D366' }}
+            href={waReminderLink(c, month)}
+            target="_blank"
+            rel="noreferrer"
+            title="Send a WhatsApp payment reminder"
+          >
+            <MessageCircle size={14} /> Remind
+          </a>
+        )}
         {c.status !== 'paid' && (
           <button
             className="px-2 py-1 rounded bg-green-600 text-white"
@@ -699,6 +738,7 @@ export default function MapView() {
                   <div className="min-w-[180px]">
                     <CustomerBlock
                       c={g.list[0]}
+                      month={month}
                       onRecordPayment={(id) => navigate(`/customers/${id}`)}
                       onSaveNote={(id, note) => saveNote.mutate({ id, note })}
                     />
@@ -732,6 +772,7 @@ export default function MapView() {
                       >
                         <CustomerBlock
                           c={c}
+                          month={month}
                           onRecordPayment={(id) => navigate(`/customers/${id}`)}
                           onSaveNote={(id, note) => saveNote.mutate({ id, note })}
                         />
