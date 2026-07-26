@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic, MessageCircle } from 'lucide-react';
 import { mapApi } from '../api';
+import { calcPayAmount } from '../lib/prorata';
 
 // ── Your collection area ───────────────────────────────────────────────────
 const HOME_CENTER: [number, number] = [
@@ -145,22 +146,16 @@ function waRegularLink(c: MapCustomer, month: string) {
   return waUrl(c, msg);
 }
 
-// Template 2 — reconnection reminder with pro-rata amount + date.
-function waReconnectLink(c: MapCustomer) {
-  const plan = c.plan_amount || 0;
-  const today = new Date();
-  const payDay = today.getDate();
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-  const prorataDays = payDay <= 12 ? 13 - payDay : daysInMonth - payDay + 1;
-  const prorataAmt = Math.round(((prorataDays / daysInMonth) * plan) / 10) * 10;
-  const total = prorataAmt + plan;
-  const todayStr = today.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+// Template 2 — reconnection reminder. Uses the SAME calculation as the Record
+// Payment screen (via ../lib/prorata) so the amount always matches what's charged.
+function waReconnectLink(c: MapCustomer, month: string) {
+  const calc = calcPayAmount(c.plan_amount || 0, 1, month, true);
+  const amount = Math.round(calc.netAmount);
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const msg =
     `Dear ${c.name}, your cable TV connection is disconnected due to non-payment.\n\n` +
-    `To reconnect (as on ${todayStr}):\n` +
-    `₹${prorataAmt} — ${prorataDays} days pro-rata\n` +
-    `+ ₹${plan} — 1 month\n` +
-    `= ₹${total} total\n\n` +
+    `To reconnect (as on ${todayStr}): ₹${amount}\n` +
+    `${calc.note}\n\n` +
     `Pay online via UPI: ${UPI_ID}\n\n` +
     `- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
@@ -337,7 +332,7 @@ function CustomerBlock({
             Monthly reminder (before 12th)
           </a>
           <a
-            href={waReconnectLink(c)}
+            href={waReconnectLink(c, month)}
             target="_blank"
             rel="noreferrer"
             onClick={() => onLogReminder(c.customer_id, 'reconnection')}
