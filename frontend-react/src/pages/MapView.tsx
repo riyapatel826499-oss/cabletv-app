@@ -135,11 +135,16 @@ function waUrl(c: MapCustomer, msg: string) {
   return `https://wa.me/${waPhone(c)}?text=${encodeURIComponent(msg)}`;
 }
 
-// Public pay page link (opens the GPay/PhonePe UPI chooser with amount pre-filled).
-function payPageLink(amount: number | string) {
+// Public pay-page link (Razorpay checkout + UPI fallback). Includes customer id and
+// month so a successful payment auto-confirms against the right customer.
+function payPageLink(amount: number | string, customerId?: string, month?: string) {
   const base = typeof window !== 'undefined' ? window.location.origin : '';
-  const amt = amount === '' || amount == null ? '' : `?amt=${amount}`;
-  return `${base}/app/pay${amt}`;
+  const p = new URLSearchParams();
+  if (amount !== '' && amount != null) p.set('amt', String(amount));
+  if (customerId) p.set('cid', customerId);
+  if (month) p.set('month', month);
+  const qs = p.toString();
+  return `${base}/app/pay${qs ? `?${qs}` : ''}`;
 }
 
 // Template 1 — regular monthly reminder (pay before the 12th).
@@ -148,7 +153,7 @@ function waRegularLink(c: MapCustomer, month: string) {
   const msg =
     `Dear Customer, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
     `Kindly pay before the 12th to avoid disconnection.\n\n` +
-    `Pay now (GPay/PhonePe): ${payPageLink(c.plan_amount ?? '')}\n` +
+    `Pay now (GPay/PhonePe): ${payPageLink(c.plan_amount ?? '', c.customer_id, month)}\n` +
     `UPI: ${UPI_ID}\n\n` +
     `Thank you.\n- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
@@ -163,7 +168,7 @@ function waReconnectLink(c: MapCustomer, month: string) {
   const msg =
     `Dear Customer, your cable TV connection is disconnected due to non-payment.\n\n` +
     `Amount to reconnect: ₹${amount} (as on ${todayStr})\n\n` +
-    `Pay now (GPay/PhonePe): ${payPageLink(amount)}\n` +
+    `Pay now (GPay/PhonePe): ${payPageLink(amount, c.customer_id, month)}\n` +
     `UPI: ${UPI_ID}\n\n` +
     `- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
