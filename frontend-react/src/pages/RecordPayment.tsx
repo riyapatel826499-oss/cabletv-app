@@ -82,12 +82,10 @@ function calcPayAmount(
   let note = '';
 
   if (months === 12) {
-    // Yearly: 12 months, pay for 11
     discount = fullAmt;
     netAmt = fullAmt * 11;
     note = `Yearly Pack: 12 months, pay for 11 — 1 month FREE! (₹${fmtRs(fullAmt)} saved)`;
   } else if (isDisconnected && payDay <= 12) {
-    // Reconnecting between 1st-12th: prorata remaining days + 1 full month
     const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
     const prorataDays = 13 - payDay;
     const prorataAmt = (prorataDays / daysInMonth) * fullAmt;
@@ -96,14 +94,12 @@ function calcPayAmount(
     fullDisplay = netAmt;
     note = `Reconnect: ${prorataDays} days prorata (₹${fmtRs(roundedProrata)}) + 1 full month (₹${fmtRs(fullAmt)}) = ₹${fmtRs(netAmt)}`;
   } else if (payDay > 20 && months >= 1) {
-    // After 20th: current month prorata
     const selDate = new Date(monthVal + '-01');
     const selMonth = selDate.getMonth();
     const selYear = selDate.getFullYear();
     const isCurrentMonth = payYear === selYear && payMonth === selMonth;
 
     if (isCurrentMonth && months === 1) {
-      // Single current month after 20th: prorata for remaining days
       const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
       const nextYear = payMonth === 11 ? payYear + 1 : payYear;
       const targetDate = new Date(nextYear, nextMonth, 16);
@@ -117,7 +113,6 @@ function calcPayAmount(
       const targetStr = targetDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
       note = `Prorata: ${remainingDays} days (today → ${targetStr}) × ₹${fmtRs(fullAmt)} ÷ ${daysInMonth} = ₹${fmtRs(roundedAmt)}`;
     } else if (isCurrentMonth && months > 1) {
-      // Gap payment: past months full + current month prorata
       const nextMonth = payMonth === 11 ? 0 : payMonth + 1;
       const nextYear = payMonth === 11 ? payYear + 1 : payYear;
       const targetDate = new Date(nextYear, nextMonth, 16);

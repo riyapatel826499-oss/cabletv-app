@@ -9,10 +9,14 @@ import { mapApi } from '../api';
 import { calcPayAmount } from '../lib/prorata';
 
 // ── Your collection area ───────────────────────────────────────────────────
+// Hardcoded so it always centers here (no env/rebuild needed). Change these two
+// numbers if your area ever moves. Right-click your area's centre in Google Maps
+// to copy the lat,lng.
 const HOME_CENTER: [number, number] = [
   Number(import.meta.env.VITE_HOME_LAT) || 11.0974473,
   Number(import.meta.env.VITE_HOME_LNG) || 77.2013613,
 ];
+// How far (km) the map may roam from the centre. Keeps you in your area.
 const AREA_RADIUS_KM = Number(import.meta.env.VITE_AREA_RADIUS_KM) || 3;
 
 const _latPad = AREA_RADIUS_KM / 111;
@@ -22,6 +26,8 @@ const MAX_BOUNDS: L.LatLngBoundsExpression = [
   [HOME_CENTER[0] + _latPad, HOME_CENTER[1] + _lngPad],
 ];
 
+// A location can't be saved further than this from the centre (blocks GPS points
+// from other cities). A bit larger than the view lock, so edge houses still fit.
 const AREA_SAVE_RADIUS_KM = Number(import.meta.env.VITE_AREA_SAVE_RADIUS_KM) || 10;
 
 function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number) {
@@ -38,6 +44,8 @@ function inArea(lat: number, lng: number) {
   return distanceKm(lat, lng, HOME_CENTER[0], HOME_CENTER[1]) <= AREA_SAVE_RADIUS_KM;
 }
 
+// Theme-aware colours (follow the app's dark/light CSS variables) with the same
+// frosted-glass treatment as the rest of the app.
 const S = {
   panel: {
     background: 'var(--bg-card)',
@@ -53,9 +61,9 @@ const S = {
 type Status = 'paid' | 'due' | 'overdue';
 
 const STATUS_COLOR: Record<Status, string> = {
-  paid: '#22c55e',
-  due: '#eab308',
-  overdue: '#ef4444',
+  paid: '#22c55e', // green
+  due: '#eab308', // yellow
+  overdue: '#ef4444', // red
 };
 const STATUS_LABEL: Record<Status, string> = {
   paid: 'PAID',
@@ -147,6 +155,30 @@ function payPageLink(amount: number | string, customerId?: string, month?: strin
   return `${base}/app/pay${qs ? `?${qs}` : ''}`;
 }
 
+// Short customer-portal login link (wasool.co.in/my).
+function portalLink() {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/my`;
+}
+// The first STB number, used as the portal login ID.
+function firstStb(c: MapCustomer): string {
+  const raw = (c.stbs || '').trim();
+  if (!raw) return '';
+  return raw.split(/[,/|]/)[0].trim().split(/\s+/)[0].trim();
+}
+// "Recharge yourself" block: portal link + login credentials (STB + own mobile).
+function selfRechargeBlock(c: MapCustomer): string {
+  const stb = firstStb(c);
+  const cred = stb
+    ? `STB No: ${stb}  |  Mobile: your registered number`
+    : `STB number + your registered mobile number`;
+  return (
+    `Or recharge yourself online:\n` +
+    `Login: ${portalLink()}\n` +
+    `${cred}\n\n`
+  );
+}
+
 // Template 1 — regular monthly reminder (pay before the 12th).
 function waRegularLink(c: MapCustomer, month: string) {
   const amt = c.plan_amount ? ` (₹${c.plan_amount})` : '';
@@ -155,6 +187,7 @@ function waRegularLink(c: MapCustomer, month: string) {
     `Kindly pay before the 12th to avoid disconnection.\n\n` +
     `Pay now (GPay/PhonePe): ${payPageLink(c.plan_amount ?? '', c.customer_id, month)}\n` +
     `UPI: ${UPI_ID}\n\n` +
+    selfRechargeBlock(c) +
     `Thank you.\n- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
 }
@@ -170,6 +203,7 @@ function waReconnectLink(c: MapCustomer, month: string) {
     `Amount to reconnect: ₹${amount} (as on ${todayStr})\n\n` +
     `Pay now (GPay/PhonePe): ${payPageLink(amount, c.customer_id, month)}\n` +
     `UPI: ${UPI_ID}\n\n` +
+    selfRechargeBlock(c) +
     `- ${BUSINESS_NAME}`;
   return waUrl(c, msg);
 }
@@ -224,6 +258,7 @@ function worstStatus(list: { status: Status }[]): Status {
   if (list.some((c) => c.status === 'due')) return 'due';
   return 'paid';
 }
+
 // One customer's details, shown in popups. Includes an editable floor/unit label
 // (useful when several connections are stacked in a multi-floor building).
 function CustomerBlock({
@@ -423,6 +458,7 @@ export default function MapView() {
       mapApi.setLocation(v.id, v.lat, v.lng),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
+      qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
     onError: () => alert('Could not save — that point may be outside your collection area.'),
   });
@@ -431,17 +467,26 @@ export default function MapView() {
     mutationFn: (id: string) => mapApi.clearLocation(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
+      qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
-  });
-
-  const saveNote = useMutation({
-    mutationFn: (v: { id: string; note: string }) => mapApi.setNote(v.id, v.note),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
   });
 
   const logReminder = useMutation({
     mutationFn: (v: { id: string; template: string }) => mapApi.logReminder(v.id, v.template, month),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
+  });
+
+  const saveNote = useMutation({
+    mutationFn: (v: { id: string; note: string }) => mapApi.setNote(v.id, v.note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['map-customers'] }),
+    onError: (err) => {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      alert(
+        'Could not save the floor/unit.\n' +
+          (detail ??
+            'If this keeps happening, the map_note database column may be missing — run migrate_customer_map_note.py on the server.'),
+      );
+    },
   });
 
   // ONE source of truth: all active customers come from a single query, then we
@@ -455,8 +500,8 @@ export default function MapView() {
     [located, visible],
   );
 
-  // Group customers that share (almost) the same location into numbered pins.
-  // ~4 decimals ≈ 11 m resolution.
+  // Group customers that share (almost) the same location — e.g. several houses
+  // in one building — into a single numbered pin. ~4 decimals ≈ 11 m.
   const groups = useMemo(() => {
     const m = new Map<string, LocatedCustomer[]>();
     for (const c of markers) {
@@ -499,6 +544,8 @@ export default function MapView() {
     const q = search.trim().toLowerCase();
     let base: ListRow[];
     if (q) {
+      // While searching, look across ALL customers (ignore the tab) and match
+      // every word in any order against name + id + area.
       const words = q.split(/\s+/).filter(Boolean);
       base = [...withoutRows, ...withRows].filter((r) => {
         const hay = `${r.name} ${r.customer_id} ${r.area ?? ''} ${r.phone ?? ''} ${
@@ -586,13 +633,14 @@ export default function MapView() {
       return;
     }
     const rec = new SR();
-    rec.lang = 'en-IN';
+    rec.lang = 'en-IN'; // Indian English
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.continuous = false;
     rec.onresult = (e) => {
-      setSearch(e.results[0][0].transcript);
-      setFilter('all');
+      const text = e.results[0][0].transcript;
+      setSearch(text);
+      setFilter('all'); // search across every tab so any match shows
     };
     rec.onerror = () => setListening(false);
     rec.onend = () => setListening(false);
@@ -645,6 +693,8 @@ export default function MapView() {
       (pos) => {
         const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserPos(p);
+        // Center on the user once, only if they're inside the area (the map is
+        // locked to the area, so we can't pan to an outside point anyway).
         if (!centeredRef.current && inArea(p.lat, p.lng)) {
           centeredRef.current = true;
           mapRef.current?.flyTo([p.lat, p.lng], 17);
@@ -667,6 +717,7 @@ export default function MapView() {
     setUserPos(null);
   }
 
+  // Stop watching when leaving the page.
   useEffect(() => {
     return () => {
       if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
@@ -809,14 +860,11 @@ export default function MapView() {
             url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"
-            maxZoom={19}
-            opacity={0.55}
-          />
 
           <MapClickHandler enabled={!!placingFor} onPick={placeAt} />
 
+          {/* Pins are NOT draggable — moving is an explicit action only, so a
+              stray drag can never silently misplace a customer. */}
           {groups.map((g) => {
             const hl = highlightId != null && g.list.some((c) => c.customer_id === highlightId);
             return (

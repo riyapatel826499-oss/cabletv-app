@@ -163,7 +163,7 @@ export default function Pay() {
             disabled={busy}
             style={{ ...btn, background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)', color: '#fff', opacity: busy ? 0.7 : 1, marginBottom: 16 }}
           >
-            {busy ? 'Please wait\u2026' : `Pay \u20b9${amt} securely`}
+            {busy ? 'Please wait…' : `Pay ₹${amt} securely`}
           </button>
         )}
 
@@ -177,7 +177,7 @@ export default function Pay() {
           <div style={{ fontSize: '0.72rem', color: '#86868b' }}>Or pay to this UPI ID</div>
           <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1d1d1f', wordBreak: 'break-all', margin: '2px 0 8px' }}>{VPA}</div>
           <button onClick={copy} style={{ ...btn, padding: '10px', background: '#e8eefc', color: '#2563eb' }}>
-            {copied ? 'Copied \u2713' : 'Copy UPI ID'}
+            {copied ? 'Copied ✓' : 'Copy UPI ID'}
           </button>
         </div>
       </div>
