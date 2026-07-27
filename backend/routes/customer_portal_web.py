@@ -91,24 +91,46 @@ class ComplaintIn(BaseModel):
 # ── Quick login ──────────────────────────────────────────────────────────────
 @router.post("/customer/quick-login")
 def quick_login(body: LoginIn):
-    cid = body.customer_id.strip().upper()
+    """Log in with STB number (primary) or Customer ID (fallback) + registered mobile."""
+    raw = body.customer_id.strip().upper()
     phone = body.phone.strip()
+    customer_id = None
+
     with _get_conn() as conn:
+        # 1. Try STB number (primary — printed on the box)
+        row = conn.execute(
+            "SELECT customer_id FROM connections WHERE UPPER(stb_no) = ? AND status = 'Active' LIMIT 1",
+            [raw],
+        ).fetchone()
+        if row:
+            customer_id = row["customer_id"]
+
+        # 2. Try as Customer ID directly
+        if not customer_id:
+            row = conn.execute(
+                "SELECT customer_id FROM customers WHERE customer_id = ?", [raw]
+            ).fetchone()
+            if row:
+                customer_id = row["customer_id"]
+
+        if not customer_id:
+            raise HTTPException(status_code=401, detail="STB / Customer ID not found")
+
+        # Verify phone matches
         row = conn.execute(
             "SELECT customer_id, name FROM customers WHERE customer_id = ? AND phone = ?",
-            [cid, phone],
+            [customer_id, phone],
         ).fetchone()
         if not row:
-            # Try phone2 as fallback
             row = conn.execute(
                 "SELECT customer_id, name FROM customers WHERE customer_id = ? AND phone2 = ?",
-                [cid, phone],
+                [customer_id, phone],
             ).fetchone()
         if not row:
-            raise HTTPException(status_code=401, detail="Customer ID and phone do not match")
+            raise HTTPException(status_code=401, detail="STB / Customer ID and phone do not match")
 
-    token = _gen_token(cid)
-    return {"token": token, "name": row["name"], "customer_id": cid}
+    token = _gen_token(customer_id)
+    return {"token": token, "name": row["name"], "customer_id": customer_id}
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────
