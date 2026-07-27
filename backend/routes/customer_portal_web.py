@@ -17,6 +17,7 @@ Register in main.py:
 
 import os
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -119,17 +120,32 @@ def quick_login(body: LoginIn):
         if not customer_id:
             raise HTTPException(status_code=401, detail="STB / Customer ID not found")
 
-        # Verify phone matches
-        row = conn.execute(
-            "SELECT customer_id, name, phone, area FROM customers WHERE customer_id = ? AND phone = ?",
-            [customer_id, phone],
+        # Fetch customer record (has masked phone)
+        cust = conn.execute(
+            "SELECT customer_id, name, phone, phone2, area FROM customers WHERE customer_id = ?",
+            [customer_id],
         ).fetchone()
-        if not row:
-            row = conn.execute(
-                "SELECT customer_id, name, phone, area FROM customers WHERE customer_id = ? AND phone2 = ?",
-                [customer_id, phone],
-            ).fetchone()
-        if not row:
+        if not cust:
+            raise HTTPException(status_code=404, detail="Customer not found")
+
+        # Verify phone matches — DB phones may be masked (+919****5094)
+        # so use LIKE with * converted to % wildcard instead of exact match.
+        def _phone_matches(input_phone: str, db_phone: str | None) -> bool:
+            if not db_phone:
+                return False
+            pattern = db_phone.replace("*", "%")
+            # Try full match
+            r = conn.execute("SELECT 1 WHERE ? LIKE ?", [input_phone, pattern]).fetchone()
+            if r:
+                return True
+            # Try without country code prefix
+            local_in = input_phone.removeprefix("+91").removeprefix("+")
+            local_pat = pattern.removeprefix("+91").removeprefix("+")
+            r = conn.execute("SELECT 1 WHERE ? LIKE ?", [local_in, local_pat]).fetchone()
+            return r is not None
+
+        phone_match = _phone_matches(phone, cust["phone"]) or _phone_matches(phone, cust["phone2"])
+        if not phone_match:
             raise HTTPException(status_code=401, detail="STB / Customer ID and phone do not match")
 
     token = _gen_token(customer_id)
@@ -137,10 +153,10 @@ def quick_login(body: LoginIn):
         "access_token": token,
         "token": token,
         "customer": {
-            "customer_id": row["customer_id"],
-            "name": row["name"],
-            "phone": row["phone"],
-            "area": row["area"],
+            "customer_id": cust["customer_id"],
+            "name": cust["name"],
+            "phone": cust["phone"],
+            "area": cust["area"],
         },
     }
 
