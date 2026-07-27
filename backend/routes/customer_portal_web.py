@@ -79,7 +79,8 @@ def _today() -> str:
 
 
 class LoginIn(BaseModel):
-    customer_id: str
+    stb_no: Optional[str] = None
+    customer_id: Optional[str] = None
     phone: str
 
 
@@ -92,8 +93,10 @@ class ComplaintIn(BaseModel):
 @router.post("/customer/quick-login")
 def quick_login(body: LoginIn):
     """Log in with STB number (primary) or Customer ID (fallback) + registered mobile."""
-    raw = body.customer_id.strip().upper()
+    raw = (body.stb_no or body.customer_id or "").strip().upper()
     phone = body.phone.strip()
+    if not raw:
+        raise HTTPException(status_code=422, detail="Provide stb_no or customer_id")
     customer_id = None
 
     with _get_conn() as conn:
@@ -118,19 +121,28 @@ def quick_login(body: LoginIn):
 
         # Verify phone matches
         row = conn.execute(
-            "SELECT customer_id, name FROM customers WHERE customer_id = ? AND phone = ?",
+            "SELECT customer_id, name, phone, area FROM customers WHERE customer_id = ? AND phone = ?",
             [customer_id, phone],
         ).fetchone()
         if not row:
             row = conn.execute(
-                "SELECT customer_id, name FROM customers WHERE customer_id = ? AND phone2 = ?",
+                "SELECT customer_id, name, phone, area FROM customers WHERE customer_id = ? AND phone2 = ?",
                 [customer_id, phone],
             ).fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="STB / Customer ID and phone do not match")
 
     token = _gen_token(customer_id)
-    return {"token": token, "name": row["name"], "customer_id": customer_id}
+    return {
+        "access_token": token,
+        "token": token,
+        "customer": {
+            "customer_id": row["customer_id"],
+            "name": row["name"],
+            "phone": row["phone"],
+            "area": row["area"],
+        },
+    }
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────
