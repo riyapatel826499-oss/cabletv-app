@@ -82,7 +82,7 @@ export default function PortalHistory() {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: '1rem' }}>\u20b9{Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span style={{ fontWeight: 700, fontSize: '1rem' }}>₹{Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 <span
                   style={{
                     fontSize: '0.7rem', fontWeight: 600, padding: '2px 8px', borderRadius: 999,

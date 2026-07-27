@@ -75,7 +75,7 @@ export default function PortalHome() {
           {data.is_paid ? '\u2705 Paid' : '\u26a0 Due'}
         </div>
         <div style={{ fontSize: '2rem', fontWeight: 700, margin: '4px 0' }}>
-          \u20b9{amt}
+          ₹{amt}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#3a3a3c' }}>
           {data.plan_name || 'Cable TV'} plan
@@ -93,7 +93,7 @@ export default function PortalHome() {
               fontSize: '1rem', textDecoration: 'none',
             }}
           >
-            Pay \u20b9{amt} now
+            Pay ₹{amt} now
           </a>
         )}
       </div>
@@ -109,7 +109,7 @@ export default function PortalHome() {
               fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none',
             }}
           >
-            Pay now (\u20b9{amt})
+            Pay now (₹{amt})
           </a>
         )}
         <a href="/app/portal/history"
