@@ -104,6 +104,7 @@ _routers = {
     "laya": ("routes.laya", "router"),
     "map": ("routes.map", "router"),
     "site": ("routes.site", "router"),
+    "customer_portal_web": ("routes.customer_portal_web", "router"),
     "razorpay_pay": ("routes.razorpay_pay", "router"),
     "internal": ("routes.internal", "router"),
 }

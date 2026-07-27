@@ -26,6 +26,11 @@ import MyCollections from './pages/MyCollections';
 import Inventory from './pages/Inventory';
 import MapView from './pages/MapView';
 import OnlinePayments from './pages/OnlinePayments';
+import PortalLogin from './portal/PortalLogin';
+import PortalLayout from './portal/PortalLayout';
+import PortalHome from './portal/PortalHome';
+import PortalHistory from './portal/PortalHistory';
+import PortalSupport from './portal/PortalSupport';
 import Pay from './pages/Pay';
 import './index.css';
 
@@ -114,6 +119,12 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/pay" element={<Pay />} />
+      <Route path="/portal" element={<PortalLogin />} />
+      <Route element={<PortalLayout />}>
+        <Route path="/portal/home" element={<PortalHome />} />
+        <Route path="/portal/history" element={<PortalHistory />} />
+        <Route path="/portal/support" element={<PortalSupport />} />
+      </Route>
       <Route
         path="/"
         element={

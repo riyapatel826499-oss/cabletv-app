@@ -9,7 +9,7 @@ Routes: /  /about  /contact  /terms  /privacy  /refund
 """
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 router = APIRouter(tags=["Public site"])
 
@@ -215,3 +215,13 @@ def refund():
   </div>
 </div>"""
     return page("Refund & Cancellation Policy", body)
+
+
+@router.get("/my")
+def my_portal():
+    return RedirectResponse(url="/app/portal")
+
+
+@router.get("/my/{rest:path}")
+def my_portal_catch(rest: str):
+    return RedirectResponse(url="/app/portal/" + rest)
