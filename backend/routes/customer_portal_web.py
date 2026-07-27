@@ -205,7 +205,7 @@ def portal_dashboard(authorization: str = Header(None)):
         subq = paid_customer_subquery(cm)
         paid_row = conn.execute(
             f"SELECT customer_id FROM ({subq}) p WHERE p.customer_id = ?",
-            [customer_id],
+            [customer_id] + paid_params,
         ).fetchone()
         is_paid = paid_row is not None
 
