@@ -25,6 +25,7 @@ import Surrender from './pages/Surrender';
 import MyCollections from './pages/MyCollections';
 import Inventory from './pages/Inventory';
 import MapView from './pages/MapView';
+import OnlinePayments from './pages/OnlinePayments';
 import Pay from './pages/Pay';
 import './index.css';
 
@@ -79,6 +80,7 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
   '/inventory':           ['master', 'admin', 'support'],
+  '/online-payments':     ['master', 'admin'],
   '/settings':            ['master', 'admin'],
   '/audit':               ['master', 'admin'],
   '/employees':           ['master', 'admin'],
@@ -141,6 +143,7 @@ function AppRoutes() {
         <Route path="inventory" element={<RoleRoute path="/inventory" element={<Inventory />} />} />
         <Route path="my-collections" element={<RoleRoute path="/my-collections" element={<MyCollections />} />} />
         <Route path="map" element={<RoleRoute path="/map" element={<MapView />} />} />
+        <Route path="online-payments" element={<RoleRoute path="/online-payments" element={<OnlinePayments />} />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -32,6 +32,7 @@ import {
   ChevronRight,
   RefreshCw,
   MapPin,
+  Globe,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { useState, useEffect, useRef } from 'react';
@@ -65,6 +66,7 @@ const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   '/reminders':           ['master', 'admin'],
   '/connections':         ['master', 'admin'],
   '/surrender':           ['master', 'admin'],
+  '/online-payments':     ['master', 'admin'],
   '/inventory':           ['master', 'admin', 'support'],
   // Master only
   '/settings':            ['master', 'admin'],
@@ -106,6 +108,7 @@ const navGroups: NavGroup[] = [
       { to: '/payments/new',   label: 'Record Payment', icon: CreditCard },
       { to: '/my-collections', label: 'My Collections', icon: Wallet },
       { to: '/payments',       label: 'Payments',       icon: Receipt },
+      { to: '/online-payments', label: 'Online Payments', icon: Globe },
     ],
   },
   {

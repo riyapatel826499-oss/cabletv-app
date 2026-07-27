@@ -27,10 +27,11 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from conn import get_conn as _get_conn
+from deps_orm import get_current_user, _op_flt
 
 router = APIRouter(prefix="/api", tags=["Razorpay"])
 
@@ -200,6 +201,41 @@ def _record_online_payment(payment_id, order_id, customer_id, month, amount_pais
              status, err, datetime.now().isoformat()],
         )
         conn.commit()
+
+
+# ── Online Payments list (master/admin) ─────────────────────────────────────
+@router.get("/online-payments")
+def list_online_payments(
+    current_user=Depends(get_current_user),
+):
+    role = (current_user or {}).get("role", "")
+    if role not in ("master", "admin"):
+        raise HTTPException(status_code=403, detail="Only master/admin can view online payments")
+
+    with _get_conn() as conn:
+        _ensure_online_table(conn)
+        _of = _op_flt(current_user, "c.")
+        of_and = "" if _of == "1=1" else f"AND {_of}"
+
+        sql = (
+            "SELECT op.razorpay_payment_id, op.razorpay_order_id, op.customer_id, "
+            "c.name AS customer_name, op.month, op.amount, op.status, op.error, op.created_at "
+            "FROM online_payments op "
+            "LEFT JOIN customers c ON op.customer_id = c.customer_id "
+            "WHERE 1=1 " + of_and + " "
+            "ORDER BY op.created_at DESC"
+        )
+        rows = conn.execute(sql).fetchall()
+        payments = [dict(row) for row in rows]
+        summary: dict = {}
+        for p in payments:
+            s = p["status"]
+            summary[s] = summary.get(s, 0) + 1
+        return {
+            "count": len(payments),
+            "summary": summary,
+            "payments": payments,
+        }
 
 
 @router.post("/razorpay/webhook")

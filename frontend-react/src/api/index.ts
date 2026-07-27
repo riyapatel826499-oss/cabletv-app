@@ -208,3 +208,8 @@ export const mapApi = {
   logReminder: (customerId: string, template: string, month?: string) =>
     api.post('/map/reminders', { customer_id: customerId, template, month }),
 };
+
+// ── Online Payments (Razorpay webhook log) ─────────────────────────────────
+export const onlinePaymentsApi = {
+  list: () => api.get('/online-payments'),
+};
