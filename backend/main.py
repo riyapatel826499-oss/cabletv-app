@@ -103,6 +103,7 @@ _routers = {
     "gtpl": ("routes.gtpl", "router"),
     "laya": ("routes.laya", "router"),
     "map": ("routes.map", "router"),
+    "site": ("routes.site", "router"),
     "internal": ("routes.internal", "router"),
 }
 
@@ -839,11 +840,6 @@ if os.path.exists(_REACT_INDEX):
 
 if FRONTEND_DIR:
     print(f"Serving frontend from: {FRONTEND_DIR}")
-
-    @app.get("/")
-    async def serve_root():
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/app/")
 
     # Legacy vanilla routes — all redirect to React app
     @app.get("/dashboard")
