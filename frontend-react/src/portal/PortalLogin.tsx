@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tv, ArrowRight, Loader2 } from 'lucide-react';
 import portalApi, { setPortalSession, getPortalToken, isValidToken } from './portalApi';
@@ -14,6 +14,14 @@ export default function PortalLogin() {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [settings, setSettings] = useState<{business_name?: string; phone?: string; care_phone?: string}>({});
+
+  useEffect(() => {
+    fetch('/api/portal/settings')
+      .then(r => r.json())
+      .then(d => setSettings(d))
+      .catch(() => {});
+  }, []);
 
   // Redirect if already logged in
   const existing = getPortalToken();
@@ -62,7 +70,7 @@ export default function PortalLogin() {
             width: 56, height: 56, borderRadius: 16, background: '#e8eefc',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--wp-accent)', marginBottom: 10,
           }}><Tv size={28} /></div>
-          <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>Sree Selvanaayakki Amman</div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>{settings.business_name?.split(' ').slice(0, 2).join(' ') || 'Sree Selvanaayakki Amman'}</div>
           <div style={{ color: 'var(--wp-muted)', fontSize: '.85rem' }}>Cable TV · Internet</div>
         </div>
 
@@ -109,7 +117,7 @@ export default function PortalLogin() {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 18, fontSize: '.78rem', color: 'var(--wp-muted)', lineHeight: 1.6 }}>
-          உதவி தேவையா? <a href="tel:+917708551139" style={{ color: 'var(--wp-accent)', fontWeight: 700 }}>77085 51139</a>
+          உதவி தேவையா? <a href={`tel:+91${settings.care_phone || '7708551139'}`} style={{ color: 'var(--wp-accent)', fontWeight: 700 }}>{settings.phone || '77085 51139'}</a>
           <br /><span className="wp-en">Need help? Call us</span>
         </div>
       </div>

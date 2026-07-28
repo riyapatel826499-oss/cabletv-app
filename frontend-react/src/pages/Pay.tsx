@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -6,9 +6,6 @@ import { QRCodeSVG } from 'qrcode.react';
 //   https://wasool.co.in/app/pay?amt=180
 // Primary method is Razorpay Standard Checkout (cards/UPI/GPay/PhonePe, no payee
 // restrictions). QR + UPI ID are kept as fallbacks.
-
-const VPA = 'selvanayakiammancables-3@okhdfcbank';
-const BUSINESS = 'Sree Selvanaayakki Amman Cables & Internet Services';
 
 type RazorpayResponse = {
   razorpay_payment_id: string;
@@ -42,19 +39,42 @@ type PayStatus = 'idle' | 'success' | 'failed' | 'cancelled' | 'error';
 export default function Pay() {
   const [sp] = useSearchParams();
   const amt = (sp.get('amt') || '').replace(/[^\d.]/g, '');
-  const cid = sp.get('cid') || undefined; // customer id (for auto-confirmation)
-  const payMonth = sp.get('month') || undefined; // YYYY-MM
+  const cid = sp.get('cid') || undefined;
+  const payMonth = sp.get('month') || undefined;
+  const [settings, setSettings] = useState<{business_name?: string; vpa?: string}>({
+    business_name: 'Sree Selvanaayakki Amman Cables & Internet Services',
+    vpa: 'selvanayakiammancables-3@okhdfcbank',
+  });
+
+  // Load settings from URL params (preferred) or public API
+  useEffect(() => {
+    const urlBusiness = sp.get('name');
+    const urlUpi = sp.get('upi');
+    if (urlBusiness || urlUpi) {
+      setSettings({
+        business_name: urlBusiness ? decodeURIComponent(urlBusiness.replace(/\+/g, ' ')) : undefined,
+        vpa: urlUpi || undefined,
+      });
+    } else {
+      fetch('/api/portal/settings').then(r => r.json()).then(d => {
+        setSettings({
+          business_name: d.business_name || settings.business_name,
+          vpa: d.upi_reconnect_id || d.upi_id || settings.vpa,
+        });
+      }).catch(() => {});
+    }
+  }, []);
   const paise = amt ? Math.round(Number(amt) * 100) : 0;
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<PayStatus>('idle');
 
-  const pn = encodeURIComponent(BUSINESS);
+  const pn = encodeURIComponent(settings.business_name || '');
   const am = amt ? `&am=${encodeURIComponent(amt)}` : '';
-  const upi = `upi://pay?pa=${VPA}&pn=${pn}${am}&cu=INR`;
+  const upi = `upi://pay?pa=${settings.vpa}&pn=${pn}${am}&cu=INR`;
 
   const copy = () => {
-    navigator.clipboard?.writeText(VPA).then(() => {
+    navigator.clipboard?.writeText(settings.vpa || '').then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -85,7 +105,7 @@ export default function Pay() {
         amount: order.amount,
         currency: order.currency,
         order_id: order.order_id,
-        name: BUSINESS,
+        name: settings.business_name || 'Wasool',
         description: 'Cable TV payment',
         theme: { color: '#5aa2ff' },
         handler: async (resp: RazorpayResponse) => {
@@ -141,7 +161,7 @@ export default function Pay() {
           boxShadow: '0 16px 50px rgba(0,0,0,0.12)', padding: 26, textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1d1d1f', lineHeight: 1.4 }}>{BUSINESS}</div>
+        <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1d1d1f', lineHeight: 1.4 }}>{settings.business_name}</div>
         <div style={{ fontSize: '0.8rem', color: '#86868b', margin: '2px 0 16px' }}>Cable TV payment</div>
 
         {amt && (
@@ -175,7 +195,7 @@ export default function Pay() {
 
         <div style={{ marginTop: 16, padding: '12px 14px', background: '#f6f7fb', borderRadius: 12 }}>
           <div style={{ fontSize: '0.72rem', color: '#86868b' }}>Or pay to this UPI ID</div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1d1d1f', wordBreak: 'break-all', margin: '2px 0 8px' }}>{VPA}</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1d1d1f', wordBreak: 'break-all', margin: '2px 0 8px' }}>{settings.vpa}</div>
           <button onClick={copy} style={{ ...btn, padding: '10px', background: '#e8eefc', color: '#2563eb' }}>
             {copied ? 'Copied ✓' : 'Copy UPI ID'}
           </button>

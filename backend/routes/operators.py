@@ -14,6 +14,7 @@ from deps import get_current_user, op_id
 from deps_orm import _op_flt
 from conn import get_conn, insert_and_get_id
 from utils import hash_password
+from utils.operator_settings import ensure_settings_column
 
 router = APIRouter(prefix="/api/operators", tags=["Operators"])
 
@@ -227,6 +228,13 @@ def run_migration(user=Depends(require_master)):
     if "customer_prefix" not in op_cols:
         conn.execute("ALTER TABLE operators ADD COLUMN customer_prefix TEXT DEFAULT ''")
         results.append("Added customer_prefix to operators")
+
+    # Ensure settings column exists
+    if "settings" not in op_cols:
+        conn.execute("ALTER TABLE operators ADD COLUMN settings TEXT DEFAULT '{}'")
+        results.append("Added settings column to operators")
+    else:
+        results.append("settings column already exists")
 
     # Create notification_settings with composite PK
     conn.execute("""CREATE TABLE IF NOT EXISTS notification_settings (

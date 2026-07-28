@@ -32,6 +32,15 @@ export default function PortalHome() {
     refetchInterval: 30_000,
   });
 
+  const { data: settings } = useQuery<{phone?: string; care_phone?: string; email?: string}>({
+    queryKey: ['portal-settings'],
+    queryFn: async () => {
+      const r = await fetch('/api/portal/settings');
+      return r.json();
+    },
+    staleTime: 300_000,
+  });
+
   if (isLoading) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#86868b' }}>
@@ -139,8 +148,8 @@ export default function PortalHome() {
           padding: '14px', fontSize: '0.8rem', color: '#6b7280',
         }}
       >
-        Need help? Call <b>77085 51139</b> or email
-        selvanayakiammancables@gmail.com
+        Need help? Call <b>{settings?.phone || '77085 51139'}</b> or email
+        {settings?.email || 'selvanayakiammancables@gmail.com'}
       </div>
     </div>
   );

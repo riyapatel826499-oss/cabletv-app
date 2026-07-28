@@ -124,9 +124,17 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-// Business details shown in WhatsApp messages.
-const BUSINESS_NAME = 'Sree Selvanaayakki Amman Cables & Internet Services';
-const UPI_ID = 'selvanayakiammancables-3@okhdfcbank';
+// Business details shown in WhatsApp messages — loaded from operator settings.
+let _bizName = 'Sree Selvanaayakki Amman Cables & Internet Services';
+let _upiId = 'selvanayakiammancables-3@okhdfcbank';
+const BUSINESS_NAME = () => _bizName;
+const UPI_ID = () => _upiId;
+
+// Async init: fetch operator settings once
+fetch('/api/portal/settings').then(r => r.json()).then(d => {
+  if (d.business_name) _bizName = d.business_name;
+  if (d.upi_reconnect_id) _upiId = d.upi_reconnect_id;
+}).catch(() => {});
 
 function waPhone(c: MapCustomer) {
   const d = (c.phone || '').replace(/\D/g, '');
@@ -186,9 +194,9 @@ function waRegularLink(c: MapCustomer, month: string) {
     `Dear Customer, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
     `Kindly pay before the 12th to avoid disconnection.\n\n` +
     `Pay now (GPay/PhonePe): ${payPageLink(c.plan_amount ?? '', c.customer_id, month)}\n` +
-    `UPI: ${UPI_ID}\n\n` +
+    `UPI: ${UPI_ID()}\n\n` +
     selfRechargeBlock(c) +
-    `Thank you.\n- ${BUSINESS_NAME}`;
+    `Thank you.\n- ${BUSINESS_NAME()}`;
   return waUrl(c, msg);
 }
 
@@ -202,9 +210,9 @@ function waReconnectLink(c: MapCustomer, month: string) {
     `Dear Customer, your cable TV connection is disconnected due to non-payment.\n\n` +
     `Amount to reconnect: ₹${amount} (as on ${todayStr})\n\n` +
     `Pay now (GPay/PhonePe): ${payPageLink(amount, c.customer_id, month)}\n` +
-    `UPI: ${UPI_ID}\n\n` +
+    `UPI: ${UPI_ID()}\n\n` +
     selfRechargeBlock(c) +
-    `- ${BUSINESS_NAME}`;
+    `- ${BUSINESS_NAME()}`;
   return waUrl(c, msg);
 }
 

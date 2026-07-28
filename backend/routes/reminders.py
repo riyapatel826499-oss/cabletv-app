@@ -77,20 +77,32 @@ BODY_PARTS = [
     "please clear your cable TV subscription of Rs.{amount}",
     "a friendly reminder — your cable TV bill Rs.{amount} is due",
 ]
-CLOSINGS = [
-    "Thank you!\n— Sree Selvanaayakki Amman Cables",
-    "Thanks for your continued support.\n— Sree Selvanaayakki Amman Cables",
-    "Please pay at the earliest.\n— Sree Selvanaayakki Amman Cables",
-    "Namaste.\n— Sree Selvanaayakki Amman Cables",
-    "Thank you for choosing us.\n— Sree Selvanaayakki Amman Cables",
-]
+CLOSINGS = []  # built dynamically from operator settings
+
+def _closings(business_name: str) -> list:
+    return [
+        f"Thank you!\\n— {business_name}",
+        f"Thanks for your continued support.\\n— {business_name}",
+        f"Please pay at the earliest.\\n— {business_name}",
+        f"Namaste.\\n— {business_name}",
+        f"Thank you for choosing us.\\n— {business_name}",
+    ]
 
 
-def _generate_message(name: str, amount: float) -> str:
+def _generate_message(name: str, amount: float, business_name: str = None) -> str:
     """Generate a unique-looking reminder message."""
+    if business_name is None:
+        from utils.operator_settings import get_settings
+        from conn import get_conn
+        try:
+            with get_conn() as conn:
+                business_name = get_settings(conn, 1).get("business_name", "Sree Selvanaayakki Amman Cables")
+        except Exception:
+            business_name = "Sree Selvanaayakki Amman Cables"
     greeting = random.choice(GREETINGS).format(name=name.split()[0])
     body = random.choice(BODY_PARTS).format(amount=int(amount))
-    closing = random.choice(CLOSINGS)
+    closings = _closings(business_name)
+    closing = random.choice(closings)
     return f"{greeting}, {body}.\n\n{closing}"
 
 

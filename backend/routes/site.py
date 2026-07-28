@@ -11,17 +11,27 @@ Routes: /  /about  /contact  /terms  /privacy  /refund
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from conn import get_conn
+from utils.operator_settings import get_settings
+
 router = APIRouter(tags=["Public site"])
 
-# ── Business details (from GST registration) ────────────────────────────────
-BUSINESS = "Sree Selvanaayakki Amman Cables & Internet Services"
-LEGAL = "Indhumathi"
-GSTIN = "33AFMPI1642D1ZW"
-ADDRESS = ("SF No 459/2, D.No 127, Perumal Kovil Street, Karumathampatti, "
-           "Sulur, Coimbatore, Tamil Nadu \u2013 641659")
-PHONE = "+91 77085 51139"
-EMAIL = "selvanayakiammancables@gmail.com"
-UPI = "selvanayakiammancables-3@okhdfcbank"
+# ── Load from operator settings ────────────────────────────────
+def _load_settings():
+    try:
+        with get_conn() as conn:
+            return get_settings(conn, operator_id=1)
+    except Exception:
+        return {}
+
+_S = _load_settings()
+BUSINESS = _S.get("business_name", "Wasool")
+LEGAL = _S.get("legal_name", "Business")
+GSTIN = _S.get("gstin", "")
+ADDRESS = _S.get("address", "")
+PHONE = _S.get("phone", "")
+EMAIL = _S.get("email", "")
+UPI = _S.get("upi_reconnect_id", "")
 
 
 def page(title: str, body: str) -> HTMLResponse:

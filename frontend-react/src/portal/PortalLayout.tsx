@@ -1,7 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getPortalToken, clearToken } from './portalApi';
-
-const BUSINESS = 'Sree Selvanaayakki Amman Cables & Internet Services';
 
 const tabStyle = (active: boolean): React.CSSProperties => ({
   flex: 1, textAlign: 'center', padding: '8px 0', fontSize: '0.75rem',
@@ -53,6 +52,14 @@ export function PortalStyle() {
 export default function PortalLayout() {
   const loc = useLocation();
   const token = getPortalToken();
+  const [businessName, setBusinessName] = useState('Sree Selvanaayakki Amman Cables & Internet Services');
+
+  useEffect(() => {
+    fetch('/api/portal/settings')
+      .then(r => r.json())
+      .then(d => { if (d.business_name) setBusinessName(d.business_name); })
+      .catch(() => {});
+  }, []);
 
   if (!token) {
     return <Navigate to="/app/portal" replace />;
@@ -83,7 +90,7 @@ export default function PortalLayout() {
         }}
       >
         <div style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>
-          {BUSINESS}
+          {businessName}
         </div>
         <button
           onClick={() => { clearToken(); window.location.href = '/app/portal'; }}

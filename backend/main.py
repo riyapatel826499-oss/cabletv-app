@@ -96,6 +96,7 @@ _routers = {
     "reminders": ("routes.reminders", "router"),
     "paypakka_sync": ("routes.paypakka_sync", "router"),
     "settings": ("routes.settings", "router"),
+    "operator_settings": ("routes.operator_settings", "router"),
     "service_requests": ("routes.service_requests", "router"),
     "operators": ("routes.operators", "router"),
     "push": ("routes.push", "router"),

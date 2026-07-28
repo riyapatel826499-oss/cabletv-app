@@ -248,6 +248,16 @@ export default function RecordPayment() {
   });
   const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
+  // Operator settings for business name on receipts
+  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string}>({
+    queryKey: ['operator-settings-public'],
+    queryFn: async () => {
+      const r = await fetch('/api/portal/settings');
+      return r.json();
+    },
+    staleTime: 300_000,
+  });
+
   // Search customers
   const { data: searchResults, isFetching } = useQuery({
     queryKey: ['customer-search', searchTerm],
@@ -464,7 +474,7 @@ export default function RecordPayment() {
     } catch { /* keep raw */ }
     const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const receiptMsg =
-      `*Sree Selvanaayakki Amman Cables & Internet Services*\n` +
+      `*${opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services'}*\n` +
       `Payment Receipt\n` +
       `-----------------------------\n` +
       `Customer: ${selectedCustomer?.name} (${selectedCustomer?.customer_id})\n` +
@@ -474,7 +484,7 @@ export default function RecordPayment() {
       `Date: ${dateStr}\n` +
       `-----------------------------\n` +
       `Thank you for your payment.\n` +
-      `UPI for next time: selvanayakiammancables-3@okhdfcbank`;
+      `UPI for next time: ${opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank'}`;
     const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(receiptMsg)}`;
     const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem', padding: '4px 0' };
     return (
