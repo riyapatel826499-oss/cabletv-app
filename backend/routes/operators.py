@@ -12,7 +12,7 @@ from datetime import datetime
 
 from deps import get_current_user, op_id
 from deps_orm import _op_flt
-from conn import get_conn
+from conn import get_conn, insert_and_get_id
 from utils import hash_password
 
 router = APIRouter(prefix="/api/operators", tags=["Operators"])
@@ -97,12 +97,11 @@ def create_operator(data: OperatorCreate, user=Depends(require_master)):
             raise HTTPException(400, f"Prefix '{prefix}' already used by {existing_prefix['business_name']}")
 
         # Create operator
-        conn.execute(
+        new_op_id = insert_and_get_id(conn,
             """INSERT INTO operators (business_name, owner_name, phone, email, area, mso, notes, customer_prefix)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (data.business_name, data.owner_name, data.phone, data.email, data.area, data.mso, data.notes, prefix),
         )
-        new_op_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
         # Create admin user for this operator
         conn.execute(
@@ -241,9 +240,11 @@ def run_migration(user=Depends(require_master)):
     # Seed default operator if not exists
     op_count = conn.execute("SELECT COUNT(*) FROM operators").fetchone()[0]
     if op_count == 0:
-        conn.execute("""INSERT INTO operators (business_name, owner_name, phone, area, mso, customer_prefix)
-            VALUES ('SSN Cables', 'Prabhu', '9787225577', 'Tirupur', 'GTPL', 'SSA')""")
-        op_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        op_id = insert_and_get_id(conn,
+            """INSERT INTO operators (business_name, owner_name, phone, area, mso, customer_prefix)
+               VALUES ('SSN Cables', 'Prabhu', '9787225577', 'Tirupur', 'GTPL', 'SSA')""",
+            (),
+        )
         results.append(f"Created default operator 'SSN Cables' (id={op_id})")
 
         # Assign all existing data to this operator

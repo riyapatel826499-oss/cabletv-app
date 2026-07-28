@@ -27,6 +27,14 @@ def get_conn():
         conn.close()
 
 
+def insert_and_get_id(conn, sql: str, params: tuple | list) -> int:
+    """INSERT and return the new row ID (works on both SQLite and PostgreSQL)."""
+    if DB_ENGINE == "postgresql":
+        return conn.execute(sql + " RETURNING id", params).fetchone()[0]
+    conn.execute(sql, params)
+    return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+
 class _Row(dict):
     """Dict that also supports integer indexing: row[0], row["col"]."""
     def __init__(self, columns, values):

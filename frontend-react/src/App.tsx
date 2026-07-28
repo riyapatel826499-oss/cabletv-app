@@ -32,6 +32,7 @@ import PortalHome from './portal/PortalHome';
 import PortalHistory from './portal/PortalHistory';
 import PortalSupport from './portal/PortalSupport';
 import Pay from './pages/Pay';
+import Register from './pages/Register';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -118,6 +119,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/pay" element={<Pay />} />
       <Route path="/portal" element={<PortalLogin />} />
       <Route element={<PortalLayout />}>

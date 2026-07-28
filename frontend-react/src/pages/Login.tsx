@@ -187,6 +187,9 @@ export default function Login() {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 22, fontSize: '0.78rem', color: '#7e839a' }}>
+          New? <a href="/app/register" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>Create account</a>
+        </p>
+        <p style={{ textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: '#7e839a' }}>
           © {new Date().getFullYear()} Wasool. All rights reserved.
         </p>
       </div>
