@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, layaApi } from '../api';
+import api from '../api/client';
 import {
   Settings as SettingsIcon, Bell, Send, Check, Unlink,
   Shield, Loader2, RefreshCw, Wifi, Upload,
@@ -422,6 +423,10 @@ export default function Settings() {
           </label>
         </div>
       </div>
+
+      {/* ── Branding / White-label Settings ── */}
+      <BrandingSection />
+
     </div>
   );
 }
@@ -444,5 +449,130 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (chec
         transition: 'left 0.2s',
       }} />
     </button>
+  );
+}
+
+const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string }[] = [
+  { key: 'business_name', label: 'Business Name', type: 'text' },
+  { key: 'phone', label: 'Display Phone', type: 'text', hint: 'e.g. +91 77085 51139' },
+  { key: 'care_phone', label: 'Care Phone', type: 'text', hint: 'e.g. 7708551139' },
+  { key: 'email', label: 'Email', type: 'email' },
+  { key: 'gstin', label: 'GSTIN', type: 'text' },
+  { key: 'address', label: 'Address', type: 'textarea' },
+  { key: 'upi_id', label: 'Monthly UPI ID', type: 'text', hint: 'For regular monthly payments' },
+  { key: 'upi_reconnect_id', label: 'Reconnection UPI ID', type: 'text', hint: 'For reconnection & receipt' },
+  { key: 'map_lat', label: 'Map Latitude', type: 'number', hint: 'e.g. 11.0974473' },
+  { key: 'map_lng', label: 'Map Longitude', type: 'number', hint: 'e.g. 77.2013613' },
+  { key: 'map_radius_km', label: 'Map Radius (km)', type: 'number', hint: 'e.g. 3' },
+  { key: 'app_name', label: 'App Name', type: 'text', hint: 'e.g. Wasool' },
+];
+
+function BrandingSection() {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<Record<string, string | number>>({});
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const { data, isLoading } = useQuery<Record<string, string | number>>({
+    queryKey: ['operator-settings'],
+    queryFn: async () => (await api.get('/operator-settings')).data,
+  });
+
+  useEffect(() => {
+    if (data) setForm({ ...data });
+  }, [data]);
+
+  const set = (key: string, v: string) => {
+    const field = BRANDING_FIELDS.find(f => f.key === key);
+    setForm(p => ({ ...p, [key]: field?.type === 'number' ? Number(v) || 0 : v }));
+  };
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (api as any).patch('/operator-settings', { updates: form });
+      setMsg({ ok: true, text: 'Branding saved!' });
+      queryClient.invalidateQueries({ queryKey: ['operator-settings'] });
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.response?.data?.detail || 'Failed to save' });
+    }
+    setSaving(false);
+    setTimeout(() => setMsg(null), 4000);
+  }
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)',
+    fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', background: 'var(--bg-secondary)',
+    color: 'var(--text)',
+  };
+
+  return (
+    <div className="glass-card" style={{ padding: '24px' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: '1.1rem' }}>🎨</span> Branding / White-label
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: 18 }}>
+        These appear on the public website, customer portal, staff panels, and WhatsApp messages.
+      </p>
+
+      {isLoading ? (
+        <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>Loading…</div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {BRANDING_FIELDS.map(f => (
+              <div key={f.key} style={f.type === 'textarea' ? { gridColumn: '1 / -1' } : undefined}>
+                <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                  {f.label}
+                </label>
+                {f.type === 'textarea' ? (
+                  <textarea
+                    value={String(form[f.key] ?? '')}
+                    onChange={e => set(f.key, e.target.value)}
+                    rows={3}
+                    style={{ ...inp, resize: 'vertical' }}
+                  />
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    step={f.type === 'number' ? 'any' : undefined}
+                    value={String(form[f.key] ?? '')}
+                    onChange={e => set(f.key, e.target.value)}
+                    style={inp}
+                  />
+                )}
+                {f.hint && <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>{f.hint}</div>}
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={save}
+            disabled={saving}
+            style={{
+              marginTop: 20, padding: '12px 24px', borderRadius: 12, border: 'none',
+              background: saving ? 'var(--text-light)' : '#2563eb', color: '#fff', fontWeight: 600, fontSize: '0.9rem',
+              cursor: saving ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+            {saving ? 'Saving…' : 'Save Branding'}
+          </button>
+
+          {msg && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6,
+              background: msg.ok ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)',
+              color: msg.ok ? '#34c759' : '#ff3b30', fontSize: '0.82rem', fontWeight: 500,
+            }}>
+              {msg.ok ? <Check size={16} /> : <Shield size={16} />}
+              {msg.text}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
