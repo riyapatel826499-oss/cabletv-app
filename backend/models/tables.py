@@ -26,6 +26,7 @@ class Operator(Base):
     created_at: Mapped[Optional[str]] = mapped_column(String(100))
     notes: Mapped[Optional[str]] = mapped_column(String(500))
     customer_prefix: Mapped[Optional[str]] = mapped_column(String(20))
+    settings: Mapped[Optional[str]] = mapped_column(Text, server_default="{}")
 
     # relationships
     users: Mapped[List["User"]] = relationship(back_populates="operator")

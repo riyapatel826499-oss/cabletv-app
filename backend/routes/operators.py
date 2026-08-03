@@ -229,12 +229,14 @@ def run_migration(user=Depends(require_master)):
         conn.execute("ALTER TABLE operators ADD COLUMN customer_prefix TEXT DEFAULT ''")
         results.append("Added customer_prefix to operators")
 
-    # Ensure settings column exists
-    if "settings" not in op_cols:
-        conn.execute("ALTER TABLE operators ADD COLUMN settings TEXT DEFAULT '{}'")
-        results.append("Added settings column to operators")
-    else:
-        results.append("settings column already exists")
+    # Ensure settings column exists (dual-engine helper)
+    try:
+        if ensure_settings_column(conn):
+            results.append("Added settings column to operators")
+        else:
+            results.append("settings column already exists")
+    except Exception as e:
+        results.append(f"settings column: {e}")
 
     # Create notification_settings with composite PK
     conn.execute("""CREATE TABLE IF NOT EXISTS notification_settings (

@@ -153,6 +153,17 @@ async def lifespan(app: FastAPI):
             # Production (Postgres): schema is managed by the Alembic release step
             # (migrate.py via railway preDeployCommand), NOT by startup DDL.
             _log.info("Startup: DATABASE_URL set — skipping startup DDL (Alembic release step manages schema)")
+            # Ensure operators.settings exists (idempotent; protects against
+            # deploy-to-old-DB race where the Alembic release step hasn't run yet)
+            try:
+                from utils.operator_settings import ensure_settings_column
+                from conn import get_conn
+                with get_conn() as conn:
+                    ensure_settings_column(conn)
+                    conn.commit()
+                _log.info("Startup: operators.settings ensured")
+            except Exception as se:
+                _log.warning(f"Startup: operators.settings ensure failed (non-fatal): {se}")
             # Run the Collection Map location columns migration (idempotent)
             if migrate_customer_location:
                 try:
@@ -167,6 +178,14 @@ async def lifespan(app: FastAPI):
                 init_db()
             if run_migrations:
                 run_migrations()
+            # Ensure operators.settings column exists on the local SQLite dev DB too
+            try:
+                from utils.operator_settings import ensure_settings_column
+                with get_conn() as conn:
+                    ensure_settings_column(conn)
+                    conn.commit()
+            except Exception:
+                pass
             if migrate_customer_location:
                 try:
                     migrate_customer_location()

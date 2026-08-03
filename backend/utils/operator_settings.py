@@ -6,6 +6,8 @@ import json
 from datetime import datetime
 from typing import Any
 
+from config import DB_ENGINE
+
 DEFAULT_SETTINGS = {
     "app_name": "Wasool",
     "business_name": "Sree Selvanaayakki Amman Cables & Internet Services",
@@ -63,7 +65,12 @@ def update_settings(conn, operator_id: int, updates: dict) -> dict:
 
 
 def ensure_settings_column(conn):
-    """Migration: add settings column if missing."""
+    """Migration: add settings column if missing (SQLite + PostgreSQL)."""
+    if DB_ENGINE == "postgresql":
+        conn.execute(
+            "ALTER TABLE operators ADD COLUMN IF NOT EXISTS settings TEXT DEFAULT '{}'"
+        )
+        return True
     cols = [r[1] for r in conn.execute("PRAGMA table_info(operators)").fetchall()]
     if "settings" not in cols:
         conn.execute(
