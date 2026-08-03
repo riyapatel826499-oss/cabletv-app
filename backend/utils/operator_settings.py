@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     "map_lng": 77.2013613,
     "map_radius_km": 3,
     "care_phone": "7708551139",
+    "prorata_enabled": True,
     "primary_color": "#5aa2ff",
     "secondary_color": "#8b5cff",
 }

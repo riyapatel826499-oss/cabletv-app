@@ -16,6 +16,7 @@ export function calcPayAmount(
   months: number,
   monthVal: string, // YYYY-MM
   isDisconnected: boolean,
+  prorataEnabled = true,
 ): PayCalc {
   const fullAmt = planAmount || 0;
   const today = new Date();
@@ -32,7 +33,7 @@ export function calcPayAmount(
     discount = fullAmt;
     netAmt = fullAmt * 11;
     note = `Yearly Pack: 12 months, pay for 11 — 1 month FREE! (₹${fmtRs(fullAmt)} saved)`;
-  } else if (isDisconnected && payDay <= 12) {
+  } else if (prorataEnabled && isDisconnected && payDay <= 12) {
     const daysInMonth = new Date(payYear, payMonth + 1, 0).getDate();
     const prorataDays = 13 - payDay;
     const prorataAmt = (prorataDays / daysInMonth) * fullAmt;
@@ -40,7 +41,7 @@ export function calcPayAmount(
     netAmt = roundedProrata + fullAmt;
     fullDisplay = netAmt;
     note = `Reconnect: ${prorataDays} days prorata (₹${fmtRs(roundedProrata)}) + 1 full month (₹${fmtRs(fullAmt)}) = ₹${fmtRs(netAmt)}`;
-  } else if (payDay > 20 && months >= 1) {
+  } else if (prorataEnabled && payDay > 20 && months >= 1) {
     const selDate = new Date(monthVal + '-01');
     const selMonth = selDate.getMonth();
     const selYear = selDate.getFullYear();

@@ -127,13 +127,16 @@ function currentMonth() {
 // Business details shown in WhatsApp messages — loaded from operator settings.
 let _bizName = 'Sree Selvanaayakki Amman Cables & Internet Services';
 let _upiId = 'selvanayakiammancables-3@okhdfcbank';
+let _prorataEnabled = true;
 const BUSINESS_NAME = () => _bizName;
 const UPI_ID = () => _upiId;
+const PRORATA_ENABLED = () => _prorataEnabled;
 
 // Async init: fetch operator settings once
 fetch('/api/portal/settings').then(r => r.json()).then(d => {
   if (d.business_name) _bizName = d.business_name;
   if (d.upi_reconnect_id) _upiId = d.upi_reconnect_id;
+  if (typeof d.prorata_enabled === 'boolean') _prorataEnabled = d.prorata_enabled;
 }).catch(() => {});
 
 function waPhone(c: MapCustomer) {
@@ -203,7 +206,7 @@ function waRegularLink(c: MapCustomer, month: string) {
 // Template 2 — reconnection reminder. Uses the SAME calculation as the Record
 // Payment screen (via ../lib/prorata) so the amount always matches what's charged.
 function waReconnectLink(c: MapCustomer, month: string) {
-  const calc = calcPayAmount(c.plan_amount || 0, 1, month, true);
+  const calc = calcPayAmount(c.plan_amount || 0, 1, month, true, PRORATA_ENABLED());
   const amount = Math.round(calc.netAmount);
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const msg =

@@ -11,6 +11,7 @@ export interface OperatorSettings {
   map_lat: number;
   map_lng: number;
   map_radius_km: number;
+  prorata_enabled: boolean;
   primary_color: string;
   secondary_color: string;
 }
@@ -23,6 +24,7 @@ export interface PortalSettings {
   app_name: string;
   upi_id: string;
   upi_reconnect_id: string;
+  prorata_enabled: boolean;
 }
 
 let _settingsCache: { data: any; ts: number } | null = null;

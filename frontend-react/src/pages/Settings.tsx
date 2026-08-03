@@ -469,7 +469,7 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
 
 function BrandingSection() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<Record<string, string | number>>({});
+  const [form, setForm] = useState<Record<string, string | number | boolean>>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -546,6 +546,32 @@ function BrandingSection() {
                 {f.hint && <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>{f.hint}</div>}
               </div>
             ))}
+          </div>
+
+          {/* Prorata toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 18, padding: '14px 16px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>Prorata billing</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+                ON = partial-month charges on reconnection & late-month payments (SSN style).<br />
+                OFF = always charge full month(s), no day-based splits.
+              </div>
+            </div>
+            <button
+              onClick={() => setForm(p => ({ ...p, prorata_enabled: !(p.prorata_enabled ?? true) }))}
+              style={{
+                minWidth: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: (form.prorata_enabled ?? true) ? '#22c55e' : '#94a3b8',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+              aria-label="Toggle prorata"
+            >
+              <span style={{
+                position: 'absolute', top: 3, left: (form.prorata_enabled ?? true) ? 27 : 3,
+                width: 24, height: 24, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </button>
           </div>
 
           <button

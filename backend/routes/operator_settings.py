@@ -51,4 +51,5 @@ def public_portal_settings():
         "app_name": settings.get("app_name", DEFAULT_SETTINGS["app_name"]),
         "upi_id": settings.get("upi_id", DEFAULT_SETTINGS["upi_id"]),
         "upi_reconnect_id": settings.get("upi_reconnect_id", DEFAULT_SETTINGS["upi_reconnect_id"]),
+        "prorata_enabled": settings.get("prorata_enabled", DEFAULT_SETTINGS["prorata_enabled"]),
     }
