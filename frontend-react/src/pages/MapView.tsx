@@ -128,15 +128,23 @@ function currentMonth() {
 let _bizName = 'Sree Selvanaayakki Amman Cables & Internet Services';
 let _upiId = 'selvanayakiammancables-3@okhdfcbank';
 let _prorataEnabled = true;
+let _prorataBillingDay: number | undefined;
+let _prorataTargetDay: number | undefined;
 const BUSINESS_NAME = () => _bizName;
 const UPI_ID = () => _upiId;
-const PRORATA_ENABLED = () => _prorataEnabled;
+const PRORATA_OPTS = () => ({
+  enabled: _prorataEnabled,
+  billingDay: _prorataBillingDay,
+  targetDay: _prorataTargetDay,
+});
 
 // Async init: fetch operator settings once
 fetch('/api/portal/settings').then(r => r.json()).then(d => {
   if (d.business_name) _bizName = d.business_name;
   if (d.upi_reconnect_id) _upiId = d.upi_reconnect_id;
   if (typeof d.prorata_enabled === 'boolean') _prorataEnabled = d.prorata_enabled;
+  if (typeof d.prorata_billing_day === 'number') _prorataBillingDay = d.prorata_billing_day;
+  if (typeof d.prorata_target_day === 'number') _prorataTargetDay = d.prorata_target_day;
 }).catch(() => {});
 
 function waPhone(c: MapCustomer) {
@@ -206,7 +214,7 @@ function waRegularLink(c: MapCustomer, month: string) {
 // Template 2 — reconnection reminder. Uses the SAME calculation as the Record
 // Payment screen (via ../lib/prorata) so the amount always matches what's charged.
 function waReconnectLink(c: MapCustomer, month: string) {
-  const calc = calcPayAmount(c.plan_amount || 0, 1, month, true, PRORATA_ENABLED());
+  const calc = calcPayAmount(c.plan_amount || 0, 1, month, true, PRORATA_OPTS());
   const amount = Math.round(calc.netAmount);
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const msg =

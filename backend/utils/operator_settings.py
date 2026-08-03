@@ -24,6 +24,8 @@ DEFAULT_SETTINGS = {
     "map_radius_km": 3,
     "care_phone": "7708551139",
     "prorata_enabled": True,
+    "prorata_billing_day": 13,
+    "prorata_target_day": 16,
     "primary_color": "#5aa2ff",
     "secondary_color": "#8b5cff",
 }
@@ -39,7 +41,7 @@ def get_settings(conn=None, operator_id: int = 1) -> dict:
         row = conn.execute(
             "SELECT settings FROM operators WHERE id = ?", (operator_id,)
         ).fetchone()
-        if row and row.get("settings"):
+        if row and row["settings"]:
             stored = json.loads(row["settings"])
             settings.update(stored)
     except Exception:

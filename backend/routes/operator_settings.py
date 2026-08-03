@@ -5,18 +5,32 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from deps import get_current_user, op_id, require_master
+from deps import get_current_user, op_id, require_role
 from conn import get_conn
 from utils.operator_settings import get_settings, update_settings, DEFAULT_SETTINGS
 
 router = APIRouter(prefix="/api", tags=["Settings"])
 
 
+def _target_operator(user: dict, operator_id: Optional[int]) -> int:
+    """Resolve operator to read/write settings for.
+    Operator admins use their own operator_id; master scopes via ?operator_id=."""
+    oid = operator_id or op_id(user)
+    if oid is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No operator context — master must pass ?operator_id=N",
+        )
+    return oid
+
+
 @router.get("/operator-settings")
-def read_operator_settings(user=Depends(get_current_user), operator_id: int = Depends(op_id)):
+def read_operator_settings(
+    user=Depends(get_current_user), operator_id: Optional[int] = None
+):
     """Get current operator's white-label settings."""
     with get_conn() as conn:
-        settings = get_settings(conn, operator_id)
+        settings = get_settings(conn, _target_operator(user, operator_id))
     return settings
 
 
@@ -27,12 +41,12 @@ class SettingsUpdate(BaseModel):
 @router.patch("/operator-settings")
 def patch_operator_settings(
     data: SettingsUpdate,
-    user=Depends(require_master),
-    operator_id: int = Depends(op_id),
+    user=Depends(require_role("admin", "master")),
+    operator_id: Optional[int] = None,
 ):
-    """Update operator settings (master only)."""
+    """Update operator settings (admin or master of this operator)."""
     with get_conn() as conn:
-        updated = update_settings(conn, operator_id, data.updates)
+        updated = update_settings(conn, _target_operator(user, operator_id), data.updates)
         conn.commit()
     return {"ok": True, "settings": updated}
 
@@ -52,4 +66,6 @@ def public_portal_settings():
         "upi_id": settings.get("upi_id", DEFAULT_SETTINGS["upi_id"]),
         "upi_reconnect_id": settings.get("upi_reconnect_id", DEFAULT_SETTINGS["upi_reconnect_id"]),
         "prorata_enabled": settings.get("prorata_enabled", DEFAULT_SETTINGS["prorata_enabled"]),
+        "prorata_billing_day": settings.get("prorata_billing_day", DEFAULT_SETTINGS["prorata_billing_day"]),
+        "prorata_target_day": settings.get("prorata_target_day", DEFAULT_SETTINGS["prorata_target_day"]),
     }

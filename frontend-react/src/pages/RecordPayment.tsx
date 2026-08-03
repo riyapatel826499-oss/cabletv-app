@@ -162,7 +162,7 @@ export default function RecordPayment() {
   const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
   // Operator settings for business name on receipts
-  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; prorata_enabled?: boolean}>({
+  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
     queryKey: ['operator-settings-public'],
     queryFn: async () => {
       const r = await fetch('/api/portal/settings');
@@ -287,9 +287,13 @@ export default function RecordPayment() {
       months,
       month,
       isDisconnected,
-      opSettings?.prorata_enabled !== false,
+      {
+        enabled: opSettings?.prorata_enabled !== false,
+        billingDay: opSettings?.prorata_billing_day,
+        targetDay: opSettings?.prorata_target_day,
+      },
     );
-  }, [selectedPlan, months, month, isDisconnected, opSettings?.prorata_enabled]);
+  }, [selectedPlan, months, month, isDisconnected, opSettings?.prorata_enabled, opSettings?.prorata_billing_day, opSettings?.prorata_target_day]);
 
   // Discount amount (parsed from input)
   const discountAmt = useMemo(() => {

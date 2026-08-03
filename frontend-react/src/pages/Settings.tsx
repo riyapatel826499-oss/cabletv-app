@@ -574,6 +574,43 @@ function BrandingSection() {
             </button>
           </div>
 
+          {(form.prorata_enabled ?? true) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
+              <div>
+                <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                  Billing cycle day
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={String(form.prorata_billing_day ?? 13)}
+                  onChange={e => setForm(p => ({ ...p, prorata_billing_day: Number(e.target.value) || 13 }))}
+                  style={inp}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                  Reconnect prorata counts days till this − 1. Default 13 (cycle 13th–12th).
+                </div>
+              </div>
+              <div>
+                <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                  Prorata-until day
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={String(form.prorata_target_day ?? 16)}
+                  onChange={e => setForm(p => ({ ...p, prorata_target_day: Number(e.target.value) || 16 }))}
+                  style={inp}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                  Late-month payments charge till this day of next month. Default 16.
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={save}
             disabled={saving}

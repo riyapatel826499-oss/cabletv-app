@@ -12,6 +12,8 @@ export interface OperatorSettings {
   map_lng: number;
   map_radius_km: number;
   prorata_enabled: boolean;
+  prorata_billing_day: number;
+  prorata_target_day: number;
   primary_color: string;
   secondary_color: string;
 }
@@ -25,6 +27,8 @@ export interface PortalSettings {
   upi_id: string;
   upi_reconnect_id: string;
   prorata_enabled: boolean;
+  prorata_billing_day: number;
+  prorata_target_day: number;
 }
 
 let _settingsCache: { data: any; ts: number } | null = null;
