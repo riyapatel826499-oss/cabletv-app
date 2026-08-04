@@ -67,18 +67,7 @@ export default function Settings() {
     setTimeout(() => setStatusMsg(null), 4000);
   }
 
-  if (isLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div style={{ width: 40, height: 40, border: '4px solid rgba(0,113,227,0.2)', borderTopColor: '#0071e3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      </div>
-    );
-  }
-
-  const telegramLinked = notifSettings?.telegram_linked;
-  const chatCount = notifSettings?.telegram_chat_count ?? 0;
-
-  // ── Laya state ──
+  // ── Laya state (hooks MUST stay above any early return) ──
   const [layaMsg, setLayaMsg] = useState('');
 
   const layaSyncMut = useMutation({
@@ -105,6 +94,18 @@ export default function Settings() {
     };
     reader.readAsText(file);
   };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div style={{ width: 40, height: 40, border: '4px solid rgba(0,113,227,0.2)', borderTopColor: '#0071e3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    );
+  }
+
+  const telegramLinked = notifSettings?.telegram_linked;
+  const chatCount = notifSettings?.telegram_chat_count ?? 0;
+
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 700 }}>
