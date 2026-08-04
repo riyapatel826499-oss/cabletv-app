@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Wifi, Tv, AlertTriangle, XCircle, RefreshCw, Zap } from 'lucide-react';
 import { notificationsApi } from '../api';
+import { playNotificationSound } from '../lib/sound';
 import { useT, translate } from '../lib/i18n';
 
 interface Notification {
@@ -53,12 +54,27 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
+  const seenIdsRef = useRef<Set<number>>(new Set());
+  const isFirstFetchRef = useRef(true);
 
   const fetchNotifications = async () => {
     try {
       const res = await notificationsApi.list({ limit: 50 });
-      setNotifications(res.data.notifications || []);
+      const items: Notification[] = res.data.notifications || [];
+      setNotifications(items);
       setUnreadCount(res.data.unread_count || 0);
+      // First fetch = baseline (no sound for pre-existing unread).
+      // Later fetches: play sound only for NEW unread notifications.
+      if (isFirstFetchRef.current) {
+        items.forEach(n => seenIdsRef.current.add(n.id));
+        isFirstFetchRef.current = false;
+      } else {
+        const newUnread = items.filter(n => !n.is_read && !seenIdsRef.current.has(n.id));
+        if (newUnread.length > 0) {
+          playNotificationSound();
+          items.forEach(n => seenIdsRef.current.add(n.id));
+        }
+      }
     } catch { /* silently fail */ }
   };
 
