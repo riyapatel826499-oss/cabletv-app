@@ -5,6 +5,7 @@ import { fmtRs, fmtDateTime } from '../lib/format';
 import StbCopy from '../components/StbCopy';
 import Rs from '../components/Rs';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../lib/i18n';
 import {
   FileBarChart,
   Download,
@@ -61,6 +62,7 @@ interface PaymentRow {
 }
 
 export default function Reports() {
+  const { t } = useT();
   const [tab, setTab] = useState<Tab>('paid');
   const [from, setFrom] = useState(monthRange().from);
   const [to, setTo] = useState(monthRange().to);
@@ -95,7 +97,7 @@ export default function Reports() {
       queryClient.invalidateQueries({ queryKey: ['reports-paid'] });
     },
     onError: () => {
-      alert('Failed to delete payment. Please try again.');
+      alert(t('Failed to delete payment. Please try again.'));
       setDeleteTarget(null);
     },
   });
@@ -168,7 +170,7 @@ export default function Reports() {
         (p) => paymentsApi.list({ date_from: from, date_to: to, page: String(p), per_page: '500', ...(search ? { q: search } : {}), ...(collectedBy ? { collected_by: collectedBy } : {}) }),
         'payments',
       );
-      if (!allPayments.length) { alert('No transactions to export'); return; }
+      if (!allPayments.length) { alert(t('No transactions to export')); return; }
       downloadCSV(
         `transactions-${from}_to_${to}${search ? '_filtered' : ''}.csv`,
         allPayments.map((p) => ({
@@ -185,7 +187,7 @@ export default function Reports() {
         })),
       );
     } catch {
-      alert('Failed to export. Please try again.');
+      alert(t('Failed to export. Please try again.'));
     } finally {
       setExporting(false);
     }
@@ -198,7 +200,7 @@ export default function Reports() {
         (p) => customersApi.list({ payment_filter: 'unpaid', status: '', per_page: '500', page: String(p), ...(search ? { q: search } : {}) }),
         'customers',
       );
-      if (!allUnpaid.length) { alert('No unpaid customers to export'); return; }
+      if (!allUnpaid.length) { alert(t('No unpaid customers to export')); return; }
       downloadCSV(
         `unpaid-customers${search ? '_filtered' : ''}.csv`,
         allUnpaid.map((c) => ({
@@ -212,7 +214,7 @@ export default function Reports() {
         })),
       );
     } catch {
-      alert('Failed to export. Please try again.');
+      alert(t('Failed to export. Please try again.'));
     } finally {
       setExporting(false);
     }
@@ -233,10 +235,10 @@ export default function Reports() {
             gap: 8,
           }}
         >
-          <FileBarChart style={{ width: 28, height: 28 }} /> Reports
+          <FileBarChart style={{ width: 28, height: 28 }} /> {t('Reports')}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Paid transactions and Unpaid customers
+          {t('Paid transactions and Unpaid customers')}
         </p>
       </div>
 
@@ -259,7 +261,7 @@ export default function Reports() {
           {/* Filters */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} style={inputStyle} />
-            <span style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>to</span>
+            <span style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>{t('to')}</span>
             <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} style={inputStyle} />
             {[0, 1].map((m) => {
               const r = monthRange(m);
@@ -279,7 +281,7 @@ export default function Reports() {
                     cursor: 'pointer',
                   }}
                 >
-                  {m === 0 ? 'This Month' : 'Last Month'}
+                  {m === 0 ? t('This Month') : t('Last Month')}
                 </button>
               );
             })}
@@ -292,7 +294,7 @@ export default function Reports() {
                   className="glass-input"
                   style={{ padding: '7px 12px', fontSize: '0.82rem', minWidth: 160, cursor: 'pointer' }}
                 >
-                  <option value="">All Employees</option>
+                  <option value="">{t('All Employees')}</option>
                   {employeesQ.data
                     ?.filter((e) => e.status === 'Active')
                     .map((e) => (
@@ -306,7 +308,7 @@ export default function Reports() {
               <input
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Search name, ID, STB..."
+                placeholder={t('Search name, ID, STB...')}
                 className="glass-input"
                 style={{ padding: '7px 12px 7px 36px', fontSize: '0.82rem', width: 220 }}
               />
@@ -323,7 +325,7 @@ export default function Reports() {
                 opacity: (!paidPayments.length || exporting) ? 0.5 : 1,
               }}
             >
-              <Download style={{ width: 14, height: 14 }} /> {exporting ? 'Exporting...' : 'CSV'}
+              <Download style={{ width: 14, height: 14 }} /> {exporting ? t('Exporting...') : 'CSV'}
             </button>
           </div>
 
@@ -331,7 +333,7 @@ export default function Reports() {
           {paidQ.isLoading ? (
             <Spinner />
           ) : paidPayments.length === 0 ? (
-            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No transactions in this period</div>
+            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>{t('No transactions in this period')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {paidPayments.map((p, i) => (
@@ -360,14 +362,14 @@ export default function Reports() {
                       <button
                         onClick={() => { setDeleteTarget(p); setDeleteReason(''); setDeleteResult(null); }}
                         style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex', marginLeft: 4 }}
-                        title="Delete transaction"
+                        title={t('Delete transaction')}
                       >
                         <Trash2 style={{ width: 15, height: 15, color: '#ff3b30' }} />
                       </button>
                     )}
                   </div>
                   {p.collector && (
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 6 }}>Collected by {p.collector}</p>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 6 }}>{t('Collected by {name}', { name: p.collector })}</p>
                   )}
                 </div>
               ))}
@@ -397,7 +399,7 @@ export default function Reports() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search..."
+                placeholder={t('Search...')}
                 className="glass-input"
                 style={{ padding: '7px 12px 7px 36px', fontSize: '0.82rem', width: 220 }}
               />
@@ -414,7 +416,7 @@ export default function Reports() {
                 opacity: (!unpaidCustomers.length || exporting) ? 0.5 : 1,
               }}
             >
-              <Download style={{ width: 14, height: 14 }} /> {exporting ? 'Exporting...' : 'CSV'}
+              <Download style={{ width: 14, height: 14 }} /> {exporting ? t('Exporting...') : 'CSV'}
             </button>
           </div>
 
@@ -422,7 +424,7 @@ export default function Reports() {
           {unpaidQ.isLoading ? (
             <Spinner />
           ) : unpaidCustomers.length === 0 ? (
-            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>No unpaid customers found</div>
+            <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>{t('No unpaid customers found')}</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {unpaidCustomers
@@ -490,16 +492,16 @@ export default function Reports() {
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(52,199,89,0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                     <CheckCircle2 style={{ width: 28, height: 28, color: '#34c759' }} />
                   </div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>Transaction Deleted</h3>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('Transaction Deleted')}</h3>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{deleteTarget.customer_name} - <Rs amount={deleteTarget.amount} /></p>
                 </div>
                 <div className="glass-card" style={{ padding: 16, marginBottom: 20, background: 'rgba(0,113,227,0.04)' }}>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 6 }}>Expiry date updated automatically:</p>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 6 }}>{t('Expiry date updated automatically:')}</p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center' }}>
                     <span style={{ fontSize: '0.85rem', textDecoration: 'line-through', color: 'var(--text-light)' }}>{deleteResult.old}</span>
                     <span style={{ color: 'var(--text-light)' }}>→</span>
                     <span style={{ fontSize: '0.9rem', fontWeight: 600, color: deleteResult.new ? '#ff3b30' : '#86868b' }}>
-                      {deleteResult.new || 'Expired (no payments left)'}
+                      {deleteResult.new || t('Expired (no payments left)')}
                     </span>
                   </div>
                 </div>
@@ -511,7 +513,7 @@ export default function Reports() {
                     border: 'none', cursor: 'pointer',
                   }}
                 >
-                  Done
+                  {t('Done')}
                 </button>
               </>
             ) : (
@@ -522,7 +524,7 @@ export default function Reports() {
                     <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,59,48,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <AlertTriangle style={{ width: 20, height: 20, color: '#ff3b30' }} />
                     </div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)' }}>Delete Transaction?</h3>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)' }}>{t('Delete Transaction?')}</h3>
                   </div>
                   <button onClick={() => setDeleteTarget(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4 }}>
                     <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
@@ -531,35 +533,35 @@ export default function Reports() {
 
                 <div className="glass-card" style={{ padding: 14, marginBottom: 16, background: 'rgba(0,0,0,0.02)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Customer</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Customer')}</span>
                     <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{deleteTarget.customer_name}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Amount</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Amount')}</span>
                     <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#34c759' }}><Rs amount={deleteTarget.amount} /></span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Date</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Date')}</span>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text)' }}>{fmtDateTime(deleteTarget.date)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Mode</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Mode')}</span>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text)' }}>{deleteTarget.payment_mode}</span>
                   </div>
                 </div>
 
                 <p style={{ fontSize: '0.8rem', color: '#ff3b30', marginBottom: 12, lineHeight: 1.5 }}>
-                  The customer's expiry date will be recalculated based on remaining payments.
+                  {t("The customer's expiry date will be recalculated based on remaining payments.")}
                 </p>
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', display: 'block', marginBottom: 6 }}>
-                    Reason (optional)
+                    {t('Reason (optional)')}
                   </label>
                   <textarea
                     value={deleteReason}
                     onChange={(e) => setDeleteReason(e.target.value)}
-                    placeholder="e.g. Duplicate entry, wrong amount..."
+                    placeholder={t('e.g. Duplicate entry, wrong amount...')}
                     className="glass-input"
                     style={{ width: '100%', padding: '10px 12px', fontSize: '0.85rem', minHeight: 60, resize: 'vertical' }}
                   />
@@ -575,7 +577,7 @@ export default function Reports() {
                       color: 'var(--text)', fontSize: '0.88rem', fontWeight: 500, cursor: 'pointer',
                     }}
                   >
-                    Cancel
+                    {t('Cancel')}
                   </button>
                   <button
                     onClick={() => deleteMutation.mutate({ id: deleteTarget.id, reason: deleteReason })}
@@ -587,7 +589,7 @@ export default function Reports() {
                       opacity: deleteMutation.isPending ? 0.6 : 1,
                     }}
                   >
-                    {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                    {deleteMutation.isPending ? t('Deleting...') : t('Delete')}
                   </button>
                 </div>
               </>
@@ -600,6 +602,7 @@ export default function Reports() {
 }
 
 function TabButton({ active, onClick, icon: Icon, label, color }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string; color: string }) {
+  const { t } = useT();
   return (
     <button
       onClick={onClick}
@@ -613,19 +616,20 @@ function TabButton({ active, onClick, icon: Icon, label, color }: { active: bool
       }}
     >
       <Icon style={{ width: 16, height: 16 }} />
-      {label}
+      {t(label)}
     </button>
   );
 }
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: React.ReactNode; color: string }) {
+  const { t } = useT();
   return (
     <div className="glass-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ padding: 10, borderRadius: 'var(--radius-xs)', background: `${color}1a` }}>
         <Icon style={{ width: 20, height: 20, color }} />
       </div>
       <div>
-        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+        <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t(label)}</p>
         <p style={{ fontSize: '1.2rem', fontWeight: 700, color, marginTop: 2 }}>{value}</p>
       </div>
     </div>
@@ -633,6 +637,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 function Pagination({ page, totalPages, total, setPage }: { page: number; totalPages: number; total: number; setPage: (n: number) => void }) {
+  const { t } = useT();
   return (
     <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'center' }}>
       <button
@@ -640,17 +645,17 @@ function Pagination({ page, totalPages, total, setPage }: { page: number; totalP
         disabled={page <= 1}
         style={pageNumBtn(page > 1)}
       >
-        Previous
+        {t('Previous')}
       </button>
       <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-        Page {page} of {totalPages} ({total} total)
+        {t('Page {p} of {t} ({n} total)', { p: page, t: totalPages, n: total })}
       </span>
       <button
         onClick={() => setPage(Math.min(totalPages, page + 1))}
         disabled={page >= totalPages}
         style={pageNumBtn(page < totalPages)}
       >
-        Next
+        {t('Next')}
       </button>
     </div>
   );

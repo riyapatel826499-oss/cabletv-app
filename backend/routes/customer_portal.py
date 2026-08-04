@@ -61,7 +61,7 @@ def portal_login(request: Request, body: PortalLoginRequest):
            (body.customer_id,),
        ).fetchone()
        if not customer:
-           raise HTTPException(status_code=401, detail="Invalid Customer ID")
+           raise HTTPException(status_code=401, detail="Invalid Customer ID · தவறான வாடிக்கையாளர் ஐடி")
        auth = conn.execute(
            "SELECT id, password FROM customer_auth WHERE customer_id = ?",
            (customer["customer_id"],),
@@ -72,7 +72,7 @@ def portal_login(request: Request, body: PortalLoginRequest):
                detail="Account not set up. Please contact support to register.",
            )
        if not verify_password(body.password, auth["password"]):
-           raise HTTPException(status_code=401, detail="Incorrect password")
+           raise HTTPException(status_code=401, detail="Incorrect password · தவறான கடவுச்சொல்")
        # Auto-upgrade legacy SHA256 → bcrypt
        if needs_rehash(auth["password"]):
            conn.execute(
@@ -100,7 +100,7 @@ def customer_mobile_verify(request: Request, body: MobileVerifyRequest):
    """Step 1: Verify mobile exists. Returns customer_id, name, has_pin."""
    mobile = body.mobile.strip()
    if len(mobile) != 10 or not mobile.isdigit():
-       raise HTTPException(status_code=400, detail="Enter valid 10-digit mobile number")
+       raise HTTPException(status_code=400, detail="Enter valid 10-digit mobile number · சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்")
    with get_conn() as conn:
        customer = find_customer_by_phone(conn, mobile)
        if not customer:
@@ -186,7 +186,7 @@ def customer_login_pin(request: Request, body: LoginPinRequest):
    mobile = body.mobile.strip()
    pin = body.pin.strip()
    if len(mobile) != 10 or not mobile.isdigit():
-       raise HTTPException(status_code=400, detail="Enter valid 10-digit mobile number")
+       raise HTTPException(status_code=400, detail="Enter valid 10-digit mobile number · சரியான 10 இலக்க மொபைல் எண்ணை உள்ளிடவும்")
    if len(pin) != PIN_LENGTH or not pin.isdigit():
        raise HTTPException(
            status_code=400,

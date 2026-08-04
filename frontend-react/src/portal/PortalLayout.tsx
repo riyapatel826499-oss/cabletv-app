@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getPortalToken, clearToken } from './portalApi';
+import LangToggle from '../components/LangToggle';
+import { useT } from '../lib/i18n';
 
 const tabStyle = (active: boolean): React.CSSProperties => ({
   flex: 1, textAlign: 'center', padding: '8px 0', fontSize: '0.75rem',
@@ -52,6 +54,7 @@ export function PortalStyle() {
 export default function PortalLayout() {
   const loc = useLocation();
   const token = getPortalToken();
+  const { t } = useT();
   const [businessName, setBusinessName] = useState('Sree Selvanaayakki Amman Cables & Internet Services');
 
   useEffect(() => {
@@ -68,9 +71,9 @@ export default function PortalLayout() {
   const path = loc.pathname.replace('/app/portal', '') || '/home';
 
   const tabs = [
-    { path: '/home', label: 'Home', href: '/app/portal/home' },
-    { path: '/history', label: 'History', href: '/app/portal/history' },
-    { path: '/support', label: 'Support', href: '/app/portal/support' },
+    { path: '/home', label: t('Home'), href: '/app/portal/home' },
+    { path: '/history', label: t('History'), href: '/app/portal/history' },
+    { path: '/support', label: t('Support'), href: '/app/portal/support' },
   ];
 
   return (
@@ -92,15 +95,18 @@ export default function PortalLayout() {
         <div style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2 }}>
           {businessName}
         </div>
-        <button
-          onClick={() => { clearToken(); window.location.href = '/app/portal'; }}
-          style={{
-            background: 'rgba(255,255,255,0.12)', border: 'none', color: '#cfd6ea',
-            padding: '6px 12px', borderRadius: 8, fontSize: '0.75rem', cursor: 'pointer',
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <LangToggle dark />
+          <button
+            onClick={() => { clearToken(); window.location.href = '/app/portal'; }}
+            style={{
+              background: 'rgba(255,255,255,0.12)', border: 'none', color: '#cfd6ea',
+              padding: '6px 12px', borderRadius: 8, fontSize: '0.75rem', cursor: 'pointer',
+            }}
+          >
+            {t('Logout')}
+          </button>
+        </div>
       </div>
 
       {/* Content */}

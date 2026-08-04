@@ -3,6 +3,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { auditApi } from '../api';
 import { fmtDate } from '../lib/format';
 import { ScrollText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 const PER_PAGE = 50;
 
@@ -41,6 +42,7 @@ function actionColor(action: string): { bg: string; color: string } {
 function summarizeChange(
   oldRaw?: string | null,
   newRaw?: string | null,
+  t?: (key: string, vars?: Record<string, string | number>) => string,
 ): string {
   if (!oldRaw && !newRaw) return '--';
 
@@ -69,7 +71,7 @@ function summarizeChange(
         changes.push(`${k}: ${truncate(ov)} → ${truncate(nv)}`);
       }
     }
-    return changes.length ? changes.slice(0, 3).join(', ') + (changes.length > 3 ? ` (+${changes.length - 3} more)` : '') : 'no changes';
+    return changes.length ? changes.slice(0, 3).join(', ') + (changes.length > 3 ? ` ${t?.('(+{n} more)', { n: changes.length - 3 }) ?? `(+${changes.length - 3} more)`}` : '') : (t?.('no changes') ?? 'no changes');
   }
 
   // Pure scalar swap.
@@ -87,6 +89,7 @@ function truncate(s: string, max = 30): string {
 }
 
 export default function AuditLog() {
+  const { t } = useT();
   const [page, setPage] = useState(1);
   const [entity, setEntity] = useState('');
   const [action, setAction] = useState('');
@@ -125,10 +128,10 @@ export default function AuditLog() {
           }}
         >
           <ScrollText style={{ width: 28, height: 28 }} />
-          Audit Log
+          {t('Audit Log')}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-          {total} {total === 1 ? 'entry' : 'entries'} recorded
+          {t('{n} entries recorded', { n: total })}
         </p>
       </div>
 
@@ -145,7 +148,7 @@ export default function AuditLog() {
         >
           {ENTITY_OPTIONS.map((e) => (
             <option key={e} value={e}>
-              {e || 'All Entities'}
+              {e ? t(e) : t('All Entities')}
             </option>
           ))}
         </select>
@@ -160,7 +163,7 @@ export default function AuditLog() {
         >
           {ACTION_OPTIONS.map((a) => (
             <option key={a} value={a}>
-              {a || 'All Actions'}
+              {a ? t(a) : t('All Actions')}
             </option>
           ))}
         </select>
@@ -171,19 +174,19 @@ export default function AuditLog() {
         {entries.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             <ScrollText style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
-            {isFetching ? 'Loading...' : 'No audit entries found'}
+            {isFetching ? t('Loading...') : t('No audit entries found')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Action</th>
-                  <th>Entity</th>
-                  <th>Entity ID</th>
-                  <th>Changes</th>
-                  <th>User</th>
-                  <th>Timestamp</th>
+                  <th>{t('Action')}</th>
+                  <th>{t('Entity')}</th>
+                  <th>{t('Entity ID')}</th>
+                  <th>{t('Changes')}</th>
+                  <th>{t('User')}</th>
+                  <th>{t('Timestamp')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -206,10 +209,10 @@ export default function AuditLog() {
                           {e.action || '--'}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 500 }}>{e.entity || '--'}</td>
+                      <td style={{ fontWeight: 500 }}>{e.entity ? t(e.entity) : '--'}</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{e.entity_id ?? '--'}</td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-light)', maxWidth: 320 }}>
-                        {summarizeChange(e.old_value, e.new_value)}
+                        {summarizeChange(e.old_value, e.new_value, t)}
                       </td>
                       <td style={{ fontSize: '0.82rem' }}>{e.user_name || '--'}</td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>{fmtDate(e.created_at)}</td>
@@ -250,10 +253,10 @@ export default function AuditLog() {
                 fontSize: '0.82rem',
               }}
             >
-              <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+              <ChevronLeft style={{ width: 16, height: 16 }} /> {t('Prev')}
             </button>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', padding: '0 12px' }}>
-              Page {page} of {totalPages}
+              {t('Page {p} of {t}', { p: page, t: totalPages })}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
@@ -272,7 +275,7 @@ export default function AuditLog() {
                 fontSize: '0.82rem',
               }}
             >
-              Next <ChevronRight style={{ width: 16, height: 16 }} />
+              {t('Next')} <ChevronRight style={{ width: 16, height: 16 }} />
             </button>
           </div>
         )}

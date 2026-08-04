@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 
 /**
  * STB number badge with click-to-copy functionality.
@@ -14,6 +15,7 @@ export default function StbCopy({
   small?: boolean;
   prefix?: string;
 }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   if (!stb) return null;
@@ -60,7 +62,7 @@ export default function StbCopy({
         whiteSpace: 'nowrap',
         touchAction: 'manipulation',
       }}
-      title="Tap to copy"
+      title={t('Tap to copy')}
     >
       {prefix && <span style={{ opacity: 0.6 }}>{prefix}</span>}
       {stb}

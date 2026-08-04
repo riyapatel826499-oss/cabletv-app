@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { DashboardInsights } from '../types';
 import Rs from '../components/Rs';
+import { useT } from '../lib/i18n';
 
 // ── Mini Stat Card ─────────────────────────────────────────────────────────
 function MiniStat({ icon: Icon, label, value, color, sub, onClick }: {
@@ -85,6 +86,7 @@ function MiniBars({ data, height = 40 }: { data: { month: string; total: number 
 // ── Main Dashboard Component ───────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t } = useT();
 
   const { data: insights, isLoading, isError } = useQuery<DashboardInsights>({
     queryKey: ['dashboard-insights'],
@@ -156,8 +158,8 @@ export default function Dashboard() {
   const [layaMsg, setLayaMsg] = useState('');
   const layaSyncMut = useMutation({
     mutationFn: () => layaApi.syncSubscribers(),
-    onSuccess: (r) => setLayaMsg(`Synced: ${r.data.created} new, ${r.data.updated} updated`),
-    onError: (e: any) => setLayaMsg(`Error: ${e?.response?.data?.detail || 'failed'}`),
+    onSuccess: (r) => setLayaMsg(t('Synced: {new} new, {updated} updated', { new: r.data.created, updated: r.data.updated })),
+    onError: (e: any) => setLayaMsg(t('Error: {detail}', { detail: e?.response?.data?.detail || 'failed' })),
   });
 
   if (isLoading) {
@@ -172,7 +174,7 @@ export default function Dashboard() {
     return (
       <div className="glass-card animate-fade-in" style={{ padding: 24, textAlign: 'center', color: 'var(--text-light)' }}>
         <AlertCircle style={{ width: 32, height: 32, marginBottom: 8, color: '#ff3b30' }} />
-        <p>Unable to load dashboard data. Please try again.</p>
+        <p>{t('Unable to load dashboard data. Please try again.')}</p>
       </div>
     );
   }
@@ -186,7 +188,7 @@ export default function Dashboard() {
     return clean;
   };
   const waLink = (phone: string, name: string, amount: number) => {
-    const msg = encodeURIComponent(`Hi ${name}, your cable TV payment of ₹${Math.round(amount)} is pending. Please pay before 12th to avoid disconnection. Thank you - SSN Cables`);
+    const msg = encodeURIComponent(t('Hi {name}, your cable TV payment of ₹{amount} is pending. Please pay before 12th to avoid disconnection. Thank you - SSN Cables', { name, amount: Math.round(amount) }));
     return `https://wa.me/${waPhone(phone)}?text=${msg}`;
   };
 
@@ -210,9 +212,9 @@ export default function Dashboard() {
         }}>
           <AlertCircle style={{ width: 20, height: 20, color: '#ff3b30', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <span style={{ fontWeight: 600, color: '#ff3b30' }}>GTPL Wallet Low</span>
+            <span style={{ fontWeight: 600, color: '#ff3b30' }}>{t('GTPL Wallet Low')}</span>
             <span style={{ color: 'var(--text-light)', marginLeft: 6 }}>
-              Balance: ₹{walletData.balance?.toFixed(2)} — renewals will fail. Recharge needed.
+              {t('Balance: ₹{bal} — renewals will fail. Recharge needed.', { bal: walletData.balance?.toFixed(2) })}
             </span>
           </div>
         </div>
@@ -220,7 +222,7 @@ export default function Dashboard() {
       {walletData?.success && !walletData.low && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: 'var(--text-light)' }}>
           <Zap style={{ width: 14, height: 14, color: '#34c759' }} />
-          GTPL Wallet: ₹{walletData.balance?.toFixed(2)}
+          {t('GTPL Wallet: ₹{bal}', { bal: walletData.balance?.toFixed(2) })}
         </div>
       )}
 
@@ -232,7 +234,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Collection
+              {t('{month} Collection', { month: new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) })}
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
               <Rs amount={ins.month_collected} />
@@ -282,25 +284,25 @@ export default function Dashboard() {
             flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
             background: '#34c75908', cursor: 'pointer',
           }} onClick={() => navigate('/payments')}>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Collected</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('Collected')}</div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}><Rs amount={ins.month_collected} /></div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} payments today</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{t('{n} payments today', { n: ins.today_count })}</div>
           </div>
           <div style={{
             flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
             background: '#ff9f0a08', cursor: 'pointer',
           }} onClick={() => navigate('/unpaid')}>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('Pending')}</div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: '#ff9f0a' }}><Rs amount={ins.month_target - ins.month_collected} /></div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.total_unpaid_count} customers</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{t('{n} customers', { n: ins.total_unpaid_count })}</div>
           </div>
           <div style={{
             flex: 1, minWidth: 100, padding: '8px 12px', borderRadius: 'var(--radius-sm)',
             background: '#0071e308', cursor: 'pointer',
           }} onClick={() => navigate('/payments')}>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Today</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('Today')}</div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0071e3' }}><Rs amount={ins.today_collected} /></div>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{ins.today_count} collected</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{t('{n} collected', { n: ins.today_count })}</div>
           </div>
           {/* MSO Deadline */}
           <div style={{
@@ -309,22 +311,22 @@ export default function Dashboard() {
             textAlign: 'center', cursor: 'pointer',
           }} onClick={() => navigate('/reports')}>
             <Zap style={{ width: 16, height: 16, color: deadlineColor, margin: '0 auto 2px' }} />
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>MSO Deadline</div>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{t('MSO Deadline')}</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: deadlineColor }}>
-              {daysToDeadline > 0 ? `${daysToDeadline}d` : 'DUE!'}
+              {daysToDeadline > 0 ? `${daysToDeadline}d` : t('DUE!')}
             </div>
           </div>
         </div>
 
         {/* Quick Stats Row */}
         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
-          <MiniStat icon={AlertCircle} label="Unpaid" value={String(ins.total_unpaid_count)} color="#ff9f0a"
+          <MiniStat icon={AlertCircle} label={t('Unpaid')} value={String(ins.total_unpaid_count)} color="#ff9f0a"
             sub={<Rs amount={ins.total_pending} />} onClick={() => navigate('/unpaid')} />
-          <MiniStat icon={TrendingUp} label="New This Month" value={String(todayData.new_customers_this_month || 0)} color="#0071e3"
+          <MiniStat icon={TrendingUp} label={t('New This Month')} value={String(todayData.new_customers_this_month || 0)} color="#0071e3"
             onClick={() => navigate('/customers')} />
-          <MiniStat icon={Wifi} label="Temp DC" value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
+          <MiniStat icon={Wifi} label={t('Temp DC')} value={String(todayData.temp_disconnected || 0)} color="#ff3b30"
             onClick={() => navigate('/connections')} />
-          <MiniStat icon={Clock} label="Yesterday" value={<Rs amount={todayData.yesterday_collected || 0} />} color="#5856d6"
+          <MiniStat icon={Clock} label={t('Yesterday')} value={<Rs amount={todayData.yesterday_collected || 0} />} color="#5856d6"
             onClick={() => navigate('/payments')} />
         </div>
       </div>
@@ -337,16 +339,16 @@ export default function Dashboard() {
         <div className="glass-card animate-fade-in" style={{ padding: 20, borderColor: '#ff9f0a40' }}>
           <SectionHeader
             icon={AlertCircle}
-            title={`Follow Up Today (${priorityData.total})`}
+            title={t('Follow Up Today ({n})', { n: priorityData.total })}
             color="#ff9f0a"
             action={
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                Paid {priorityData.last_month}, not {priorityData.this_month} · <Rs amount={priorityData.total_pending} />
+                {t('Paid {m1}, not {m2}', { m1: priorityData.last_month, m2: priorityData.this_month })} · <Rs amount={priorityData.total_pending} />
               </span>
             }
           />
           <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: 10 }}>
-            These customers paid last month but haven't renewed. Call or WhatsApp them first.
+            {t("These customers paid last month but haven't renewed. Call or WhatsApp them first.")}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {priorityData.customers.slice(0, 10).map((c: any, i: number) => {
@@ -372,7 +374,7 @@ export default function Dashboard() {
                       <Rs amount={c.pending_amount} />
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-                      <Rs amount={c.plan_amount} /> plan
+                      <Rs amount={c.plan_amount} /> {t('plan')}
                     </div>
                   </div>
                   {/* Action buttons */}
@@ -404,7 +406,7 @@ export default function Dashboard() {
                 onClick={() => navigate('/customers/not-renewed')}
                 style={{ background: 'none', border: 'none', color: '#0071e3', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
-                View All {priorityData.total} <ArrowRight style={{ width: 14, height: 14 }} />
+                {t('View All {n}', { n: priorityData.total })} <ArrowRight style={{ width: 14, height: 14 }} />
               </button>
             </div>
           )}
@@ -420,11 +422,11 @@ export default function Dashboard() {
           <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 300 }}>
             <SectionHeader
               icon={Trophy}
-              title="Collector Leaderboard"
+              title={t('Collector Leaderboard')}
               color="#ff9f0a"
               action={
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                  {leaderboardData.month} · <Rs amount={leaderboardData.total_collected} /> total
+                  {leaderboardData.month} · <Rs amount={leaderboardData.total_collected} /> {t('total')}
                 </span>
               }
             />
@@ -445,8 +447,8 @@ export default function Dashboard() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{c.name}</div>
                       <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'flex', gap: 6 }}>
-                        <span>{c.count} payments</span>
-                        {c.today_count > 0 && <span style={{ color: '#34c759' }}>↑ {c.today_count} today</span>}
+                        <span>{t('{n} payments', { n: c.count })}</span>
+                        {c.today_count > 0 && <span style={{ color: '#34c759' }}>{t('↑ {n} today', { n: c.today_count })}</span>}
                         {c.areas && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {c.areas}</span>}
                       </div>
                     </div>
@@ -454,7 +456,7 @@ export default function Dashboard() {
                       <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34c759' }}>
                         <Rs amount={c.collected} />
                       </div>
-                      <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{pct}% of total</div>
+                      <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>{t('{pct}% of total', { pct })}</div>
                     </div>
                   </div>
                 );
@@ -468,11 +470,11 @@ export default function Dashboard() {
           <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 260 }}>
             <SectionHeader
               icon={CreditCard}
-              title="Payment Modes"
+              title={t('Payment Modes')}
               color="#5856d6"
               action={
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                  {paymentModesData.total_count} payments
+                  {t('{n} payments', { n: paymentModesData.total_count })}
                 </span>
               }
             />
@@ -504,7 +506,7 @@ export default function Dashboard() {
                           }} />
                         </div>
                         <div style={{ fontSize: '0.68rem', color: 'var(--text-light)', marginTop: 2 }}>
-                          {data.count} payments
+                          {t('{n} payments', { n: data.count })}
                         </div>
                       </div>
                     );
@@ -523,7 +525,7 @@ export default function Dashboard() {
         <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
           <SectionHeader
             icon={TrendingUp}
-            title="Cash → Digital Migration"
+            title={t('Cash → Digital Migration')}
             color="#34c759"
             action={
               <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
@@ -536,13 +538,13 @@ export default function Dashboard() {
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
             <div style={{ flex: 1, minWidth: 120, textAlign: 'center', padding: 16, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {transitionData.last_month} Digital
+                {t('{month} Digital', { month: transitionData.last_month })}
               </div>
               <div style={{ fontSize: '2rem', fontWeight: 800, color: '#5856d6' }}>
                 {transitionData.summary.digital_pct_last}%
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                {transitionData.last_month_split.digital}/{transitionData.last_month_split.total} customers
+                {t('{a}/{b} customers', { a: transitionData.last_month_split.digital, b: transitionData.last_month_split.total })}
               </div>
             </div>
 
@@ -553,7 +555,7 @@ export default function Dashboard() {
 
             <div style={{ flex: 1, minWidth: 120, textAlign: 'center', padding: 16, borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary, #f5f5f7)' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {transitionData.this_month} Digital
+                {t('{month} Digital', { month: transitionData.this_month })}
               </div>
               <div style={{
                 fontSize: '2rem', fontWeight: 800,
@@ -562,7 +564,7 @@ export default function Dashboard() {
                 {transitionData.summary.digital_pct_this}%
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                {transitionData.this_month_split.digital}/{transitionData.this_month_split.total} customers
+                {t('{a}/{b} customers', { a: transitionData.this_month_split.digital, b: transitionData.this_month_split.total })}
               </div>
             </div>
 
@@ -592,13 +594,13 @@ export default function Dashboard() {
             gap: 10, marginBottom: 16,
           }}>
             {(() => {
-              const t = transitionData.transitions;
-              const total = t.cash_to_cash.count + t.cash_to_digital.count + t.digital_to_cash.count + t.digital_to_digital.count;
+              const trans = transitionData.transitions;
+              const total = trans.cash_to_cash.count + trans.cash_to_digital.count + trans.digital_to_cash.count + trans.digital_to_digital.count;
               const buckets = [
-                { key: 'cash_to_digital', label: '💵→📱 Cash to Digital', color: '#34c759', icon: '🎉', data: t.cash_to_digital, good: true },
-                { key: 'digital_to_digital', label: '📱→📱 Stable Digital', color: '#0071e3', icon: '✓', data: t.digital_to_digital, good: true },
-                { key: 'cash_to_cash', label: '💵→💵 Stable Cash', color: '#ff9f0a', icon: '', data: t.cash_to_cash, good: false },
-                { key: 'digital_to_cash', label: '📱→💵 Digital to Cash', color: '#ff3b30', icon: '⚠️', data: t.digital_to_cash, good: false },
+                { key: 'cash_to_digital', label: t('💵→📱 Cash to Digital'), color: '#34c759', icon: '🎉', data: trans.cash_to_digital, good: true },
+                { key: 'digital_to_digital', label: t('📱→📱 Stable Digital'), color: '#0071e3', icon: '✓', data: trans.digital_to_digital, good: true },
+                { key: 'cash_to_cash', label: t('💵→💵 Stable Cash'), color: '#ff9f0a', icon: '', data: trans.cash_to_cash, good: false },
+                { key: 'digital_to_cash', label: t('📱→💵 Digital to Cash'), color: '#ff3b30', icon: '⚠️', data: trans.digital_to_cash, good: false },
               ];
               return buckets.map((b) => {
                 const pct = total > 0 ? Math.round((b.data.count / total) * 100) : 0;
@@ -621,7 +623,7 @@ export default function Dashboard() {
                       {b.data.count}
                     </div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>
-                      {pct}% of repeat customers
+                      {t('{pct}% of repeat customers', { pct })}
                     </div>
                   </div>
                 );
@@ -633,7 +635,7 @@ export default function Dashboard() {
           {transitionData.trend && transitionData.trend.length > 1 && (
             <div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginBottom: 8, fontWeight: 500 }}>
-                📊 6-Month Digital Payment % Trend
+                {t('📊 6-Month Digital Payment % Trend')}
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 80 }}>
                 {transitionData.trend.map((t, i) => {
@@ -672,7 +674,7 @@ export default function Dashboard() {
             }}>
               {transitionData.summary.converted > 0 && (
                 <span style={{ color: '#34c759', fontWeight: 600 }}>
-                  ✅ {transitionData.summary.converted} customer{transitionData.summary.converted !== 1 ? 's' : ''} shifted to Digital
+                  ✅ {t('{n} customers shifted to Digital', { n: transitionData.summary.converted })}
                 </span>
               )}
               {transitionData.summary.converted > 0 && transitionData.summary.lost > 0 && (
@@ -680,7 +682,7 @@ export default function Dashboard() {
               )}
               {transitionData.summary.lost > 0 && (
                 <span style={{ color: '#ff3b30', fontWeight: 600 }}>
-                  ⚠️ {transitionData.summary.lost} went back to Cash
+                  ⚠️ {t('{n} went back to Cash', { n: transitionData.summary.lost })}
                 </span>
               )}
             </div>
@@ -695,21 +697,21 @@ export default function Dashboard() {
         onClick={(e) => { if ((e.target as HTMLElement).closest('a, button')) return; navigate('/unpaid'); }}>
         <SectionHeader
           icon={AlertCircle}
-          title={`Due & Overdue (${ins.total_unpaid_count} customers)`}
+          title={t('Due & Overdue ({n} customers)', { n: ins.total_unpaid_count })}
           color="#ff9f0a"
           action={
             <button
               onClick={() => navigate('/customers?filter=unpaid')}
               style={{ background: 'none', border: 'none', color: '#0071e3', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              View All <ArrowRight style={{ width: 14, height: 14 }} />
+              {t('View All')} <ArrowRight style={{ width: 14, height: 14 }} />
             </button>
           }
         />
         {ins.top_unpaid.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-light)' }}>
             <CheckCircle2 style={{ width: 32, height: 32, marginBottom: 8, color: '#34c759' }} />
-            <p>All customers have paid this month!</p>
+            <p>{t('All customers have paid this month!')}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -727,7 +729,7 @@ export default function Dashboard() {
                     background: `${gapColor}15`, display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: gapColor }}>{c.gap_months === 0 ? 'DUE' : `${c.gap_months}m`}</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: gapColor }}>{c.gap_months === 0 ? t('DUE') : `${c.gap_months}m`}</span>
                   </div>
 
                   {/* Name + details */}
@@ -747,7 +749,7 @@ export default function Dashboard() {
                       <Rs amount={c.pending_amount} />
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-                      {c.gap_months > 0 ? <>{c.gap_months + 1}m @ <Rs amount={c.plan_amount} /></> : <><Rs amount={c.plan_amount} /> plan</>}
+                      {c.gap_months > 0 ? <>{c.gap_months + 1}m @ <Rs amount={c.plan_amount} /></> : <><Rs amount={c.plan_amount} /> {t('plan')}</>}
                     </div>
                   </div>
 
@@ -781,7 +783,7 @@ export default function Dashboard() {
                   borderRadius: 'var(--radius-sm)', color: '#0071e3', fontSize: '0.85rem', cursor: 'pointer',
                 }}
               >
-                + {ins.total_unpaid_count - 8} more unpaid customers →
+                {t('+ {n} more unpaid customers →', { n: ins.total_unpaid_count - 8 })}
               </button>
             )}
           </div>
@@ -792,7 +794,7 @@ export default function Dashboard() {
           SECTION 3: MSO PROFITABILITY
       ══════════════════════════════════════════════════════════════════ */}
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
-        <SectionHeader icon={Tv} title="MSO Profitability" color="#5856d6" />
+        <SectionHeader icon={Tv} title={t('MSO Profitability')} color="#5856d6" />
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {ins.mso_profitability.map((m, i) => {
             const marginColor = m.margin_pct >= 50 ? '#34c759' : m.margin_pct >= 30 ? '#ff9f0a' : '#ff3b30';
@@ -813,29 +815,29 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
                   <div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>Boxes</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>{t('Boxes')}</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{m.active_boxes}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>ARPU</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>{t('ARPU')}</div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600 }}><Rs amount={m.arpu} /></div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>Revenue</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>{t('Revenue')}</div>
                     <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#34c759' }}><Rs amount={m.monthly_revenue} /></div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>MSO Cost</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>{t('MSO Cost')}</div>
                     <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ff3b30' }}><Rs amount={m.total_cost} /></div>
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>Net Profit</div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase' }}>{t('Net Profit')}</div>
                     <div style={{ fontSize: '1.2rem', fontWeight: 700, color: marginColor }}><Rs amount={m.profit} /></div>
                   </div>
                 </div>
                 {m.cost_per_box > 0 && (
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 6 }}>
-                    <Rs amount={m.cost_per_box} />/box MSO cost
+                    <Rs amount={m.cost_per_box} />{t('/box MSO cost')}
                   </div>
                 )}
               </div>
@@ -848,9 +850,9 @@ export default function Dashboard() {
           SECTION 3.5: LAYA INTERNET SYNC
       ══════════════════════════════════════════════════════════════════ */}
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
-        <SectionHeader icon={Wifi} title="Laya Internet" color="#5e5ce6" />
+        <SectionHeader icon={Wifi} title={t('Laya Internet')} color="#5e5ce6" />
         <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 12 }}>
-          Sync subscribers from Laya CRM
+          {t('Sync subscribers from Laya CRM')}
         </p>
         {layaMsg && (
           <div style={{
@@ -871,7 +873,7 @@ export default function Dashboard() {
             opacity: layaSyncMut.isPending ? 0.6 : 1,
           }}
         >
-          {layaSyncMut.isPending ? 'Syncing...' : 'Sync Subscribers from CRM'}
+          {layaSyncMut.isPending ? t('Syncing...') : t('Sync Subscribers from CRM')}
         </button>
       </div>
 
@@ -881,7 +883,7 @@ export default function Dashboard() {
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {/* MRR Trend */}
         <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 280 }}>
-          <SectionHeader icon={BarChart3} title="6-Month Revenue Trend" color="#0071e3" />
+          <SectionHeader icon={BarChart3} title={t('6-Month Revenue Trend')} color="#0071e3" />
           {ins.mrr_trend.length > 0 ? (
             <>
               <MiniBars data={ins.mrr_trend} height={50} />
@@ -897,20 +899,20 @@ export default function Dashboard() {
               </div>
             </>
           ) : (
-            <p style={{ color: 'var(--text-light)', textAlign: 'center', padding: 20 }}>No trend data</p>
+            <p style={{ color: 'var(--text-light)', textAlign: 'center', padding: 20 }}>{t('No trend data')}</p>
           )}
         </div>
 
         {/* Aging Buckets */}
         <div className="glass-card animate-fade-in" style={{ padding: 20, flex: 1, minWidth: 260 }}>
-          <SectionHeader icon={Clock} title="Overdue Aging" color="#ff9f0a" />
+          <SectionHeader icon={Clock} title={t('Overdue Aging')} color="#ff9f0a" />
           {(() => {
             const a = ins.aging;
             const buckets = [
-              { label: 'Current', count: a.current, amt: a.current_amt, color: '#34c759' },
-              { label: '1-2 months', count: a.b1_2, amt: a.b1_2_amt, color: '#ff9f0a' },
-              { label: '3-5 months', count: a.b3_5, amt: a.b3_5_amt, color: '#ff6b00' },
-              { label: '6+ months', count: a.b6plus, amt: a.b6plus_amt, color: '#ff3b30' },
+              { label: t('Current'), count: a.current, amt: a.current_amt, color: '#34c759' },
+              { label: t('1-2 months'), count: a.b1_2, amt: a.b1_2_amt, color: '#ff9f0a' },
+              { label: t('3-5 months'), count: a.b3_5, amt: a.b3_5_amt, color: '#ff6b00' },
+              { label: t('6+ months'), count: a.b6plus, amt: a.b6plus_amt, color: '#ff3b30' },
             ];
             const maxCount = Math.max(...buckets.map(b => b.count), 1);
             return (
@@ -941,14 +943,14 @@ export default function Dashboard() {
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
         <SectionHeader
           icon={Package}
-          title="STB Inventory Health"
+          title={t('STB Inventory Health')}
           color="#5856d6"
           action={
             <button
               onClick={() => navigate('/inventory')}
               style={{ background: 'none', border: 'none', color: '#0071e3', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
             >
-              Manage <ArrowRight style={{ width: 14, height: 14 }} />
+              {t('Manage')} <ArrowRight style={{ width: 14, height: 14 }} />
             </button>
           }
         />
@@ -962,8 +964,8 @@ export default function Dashboard() {
                 faulty: '#ff3b30', with_mso: '#ff9f0a',
               };
               const labels: Record<string, string> = {
-                available: 'Available', spare: 'Spare Stock', assigned: 'Assigned',
-                faulty: 'Faulty/Repair', with_mso: 'With MSO',
+                available: t('Available'), spare: t('Spare Stock'), assigned: t('Assigned'),
+                faulty: t('Faulty/Repair'), with_mso: t('With MSO'),
               };
               const color = colors[status] || '#999';
               const pct = totalStb > 0 ? Math.round((count / totalStb) * 100) : 0;
@@ -985,7 +987,7 @@ export default function Dashboard() {
               );
             })
           ) : (
-            <p style={{ color: 'var(--text-light)' }}>No STB inventory data</p>
+            <p style={{ color: 'var(--text-light)' }}>{t('No STB inventory data')}</p>
           )}
         </div>
       </div>

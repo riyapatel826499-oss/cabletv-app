@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../lib/i18n';
+import LangToggle from '../components/LangToggle';
 import { Loader2, Tv, AlertCircle } from 'lucide-react';
 
 export default function Login() {
@@ -11,6 +13,7 @@ export default function Login() {
   const [focus, setFocus] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useT();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +23,7 @@ export default function Login() {
       await login(username, password);
       navigate('/');
     } catch {
-      setError('Invalid credentials. Please try again.');
+      setError(t('Invalid username or password'));
     } finally {
       setLoading(false);
     }
@@ -63,6 +66,10 @@ export default function Login() {
       }}
     >
       <div style={{ width: '100%', maxWidth: 390 }}>
+        {/* Language toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <LangToggle dark />
+        </div>
         {/* Brand */}
         <div className="text-center animate-fade-in" style={{ marginBottom: 30 }}>
           <div
@@ -84,7 +91,7 @@ export default function Login() {
             Wasool
           </h1>
           <p style={{ color: '#aab0c2', marginTop: 4, fontSize: '0.9rem' }}>
-            Cable TV Management System
+            {t('Cable TV Management')}
           </p>
         </div>
 
@@ -124,7 +131,7 @@ export default function Login() {
 
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 18 }}>
-              <label style={label}>Username</label>
+              <label style={label}>{t('Username')}</label>
               <input
                 type="text"
                 value={username}
@@ -132,14 +139,14 @@ export default function Login() {
                 onFocus={() => setFocus('username')}
                 onBlur={() => setFocus(null)}
                 style={inputStyle('username')}
-                placeholder="Enter your username"
+                placeholder={t('Enter your username')}
                 required
                 autoFocus
               />
             </div>
 
             <div style={{ marginBottom: 24 }}>
-              <label style={label}>Password</label>
+              <label style={label}>{t('Password')}</label>
               <input
                 type="password"
                 value={password}
@@ -147,7 +154,7 @@ export default function Login() {
                 onFocus={() => setFocus('password')}
                 onBlur={() => setFocus(null)}
                 style={inputStyle('password')}
-                placeholder="Enter your password"
+                placeholder={t('Enter your password')}
                 required
               />
             </div>
@@ -177,20 +184,21 @@ export default function Login() {
               {loading ? (
                 <>
                   <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
-                  Signing in…
+                  {t('Logging in…')}
                 </>
               ) : (
-                'Sign in'
+                t('Sign in')
               )}
             </button>
           </form>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 22, fontSize: '0.78rem', color: '#7e839a' }}>
-          New? <a href="/app/register" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>Create account</a>
+          {t('New?')}{' '}
+          <a href="/app/register" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>{t('Create account')}</a>
         </p>
         <p style={{ textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: '#7e839a' }}>
-          © {new Date().getFullYear()} Wasool. All rights reserved.
+          © {new Date().getFullYear()} Wasool. {t('All rights reserved.')}
         </p>
       </div>
     </div>

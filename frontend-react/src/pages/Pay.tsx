@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { useT } from '../lib/i18n';
 
 // Public payment page (no login). Opened from the WhatsApp reminder link:
 //   https://wasool.co.in/app/pay?amt=180
@@ -37,6 +38,7 @@ function loadCheckout(): Promise<void> {
 type PayStatus = 'idle' | 'success' | 'failed' | 'cancelled' | 'error';
 
 export default function Pay() {
+  const { t } = useT();
   const [sp] = useSearchParams();
   const amt = (sp.get('amt') || '').replace(/[^\d.]/g, '');
   const cid = sp.get('cid') || undefined;
@@ -82,7 +84,7 @@ export default function Pay() {
 
   async function payNow() {
     if (!amt || paise < 100) {
-      alert('Invalid amount.');
+      alert(t('Invalid amount.'));
       return;
     }
     setBusy(true);
@@ -106,7 +108,7 @@ export default function Pay() {
         currency: order.currency,
         order_id: order.order_id,
         name: settings.business_name || 'Wasool',
-        description: 'Cable TV payment',
+        description: t('Cable TV payment'),
         theme: { color: '#5aa2ff' },
         handler: async (resp: RazorpayResponse) => {
           try {
@@ -162,19 +164,19 @@ export default function Pay() {
         }}
       >
         <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1d1d1f', lineHeight: 1.4 }}>{settings.business_name}</div>
-        <div style={{ fontSize: '0.8rem', color: '#86868b', margin: '2px 0 16px' }}>Cable TV payment</div>
+        <div style={{ fontSize: '0.8rem', color: '#86868b', margin: '2px 0 16px' }}>{t('Cable TV payment')}</div>
 
         {amt && (
           <>
-            <div style={{ fontSize: '0.8rem', color: '#86868b' }}>Amount to pay</div>
+            <div style={{ fontSize: '0.8rem', color: '#86868b' }}>{t('Amount to pay')}</div>
             <div style={{ fontSize: '2.3rem', fontWeight: 700, color: '#1d1d1f', margin: '2px 0 16px' }}>₹{amt}</div>
           </>
         )}
 
-        {status === 'success' && banner('#e7f8ee', '#137a3f', 'Payment successful. Thank you!')}
-        {status === 'failed' && banner('#fdeaea', '#b91c1c', 'Payment failed. Please try again.')}
-        {status === 'cancelled' && banner('#fef6e7', '#92600a', 'Payment cancelled.')}
-        {status === 'error' && banner('#fdeaea', '#b91c1c', 'Something went wrong. Try the QR or UPI ID below.')}
+        {status === 'success' && banner('#e7f8ee', '#137a3f', t('Payment successful. Thank you!'))}
+        {status === 'failed' && banner('#fdeaea', '#b91c1c', t('Payment failed. Please try again.'))}
+        {status === 'cancelled' && banner('#fef6e7', '#92600a', t('Payment cancelled.'))}
+        {status === 'error' && banner('#fdeaea', '#b91c1c', t('Something went wrong. Try the QR or UPI ID below.'))}
 
         {/* Primary — Razorpay secure checkout */}
         {amt && status !== 'success' && (
@@ -183,21 +185,21 @@ export default function Pay() {
             disabled={busy}
             style={{ ...btn, background: 'linear-gradient(135deg, #5aa2ff, #8b5cff)', color: '#fff', opacity: busy ? 0.7 : 1, marginBottom: 16 }}
           >
-            {busy ? 'Please wait…' : `Pay ₹${amt} securely`}
+            {busy ? t('Please wait…') : t('Pay ₹{n} securely', { n: amt })}
           </button>
         )}
 
         {/* Fallback — scan QR with any UPI app */}
-        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: 10 }}>Or scan to pay</div>
+        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: 10 }}>{t('Or scan to pay')}</div>
         <div style={{ display: 'inline-block', padding: 12, background: '#fff', border: '1px solid #e2e6ef', borderRadius: 16 }}>
           <QRCodeSVG value={upi} size={170} level="M" />
         </div>
 
         <div style={{ marginTop: 16, padding: '12px 14px', background: '#f6f7fb', borderRadius: 12 }}>
-          <div style={{ fontSize: '0.72rem', color: '#86868b' }}>Or pay to this UPI ID</div>
+          <div style={{ fontSize: '0.72rem', color: '#86868b' }}>{t('Or pay to this UPI ID')}</div>
           <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1d1d1f', wordBreak: 'break-all', margin: '2px 0 8px' }}>{settings.vpa}</div>
           <button onClick={copy} style={{ ...btn, padding: '10px', background: '#e8eefc', color: '#2563eb' }}>
-            {copied ? 'Copied ✓' : 'Copy UPI ID'}
+            {copied ? t('Copied ✓') : t('Copy UPI ID')}
           </button>
         </div>
       </div>

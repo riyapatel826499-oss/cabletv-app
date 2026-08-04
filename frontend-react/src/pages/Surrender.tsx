@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { surrenderApi } from '../api';
 import { fmtDate } from '../lib/format';
 import StbCopy from '../components/StbCopy';
+import { useT } from '../lib/i18n';
 import {
   CheckCircle2,
   XCircle,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 export default function Surrender() {
+  const { t } = useT();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('pending');
   const [search, setSearch] = useState('');
@@ -35,7 +37,7 @@ export default function Surrender() {
       queryClient.invalidateQueries({ queryKey: ['surrender-requests'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setMsg(data.message || 'Request reviewed');
+      setMsg(data.message || t('Request reviewed'));
       setReviewId(null);
       setReviewNotes('');
     },
@@ -48,7 +50,7 @@ export default function Surrender() {
       queryClient.invalidateQueries({ queryKey: ['surrender-requests'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setMsg(data.message || 'Customer reactivated');
+      setMsg(data.message || t('Customer reactivated'));
       setReactivateId(null);
     },
   });
@@ -89,10 +91,10 @@ export default function Surrender() {
       {/* Header */}
       <div>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-          Surrender Requests
+          {t('Surrender Requests')}
         </h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Manage customer surrender and reactivation requests
+          {t('Manage customer surrender and reactivation requests')}
         </p>
       </div>
 
@@ -136,7 +138,7 @@ export default function Surrender() {
               textTransform: 'capitalize',
             }}
           >
-            {f}
+            {t(f)}
           </button>
         ))}
         <div style={{ position: 'relative', marginLeft: 'auto' }}>
@@ -146,7 +148,7 @@ export default function Surrender() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search customer..."
+            placeholder={t('Search customer...')}
             className="glass-input"
             style={{ padding: '8px 12px 8px 36px', fontSize: '0.85rem', width: 220 }}
           />
@@ -175,19 +177,19 @@ export default function Surrender() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <AlertTriangle style={{ width: 20, height: 20, color: '#ff9f0a' }} />
               <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
-                {reviewAction === 'approve' ? 'Approve' : 'Reject'} Surrender Request
+                {reviewAction === 'approve' ? t('Approve') : t('Reject')} {t('Surrender Request')}
               </h2>
             </div>
             <textarea
               value={reviewNotes}
               onChange={(e) => setReviewNotes(e.target.value)}
-              placeholder="Review notes (optional)..."
+              placeholder={t('Review notes (optional)...')}
               className="glass-input"
               style={{ width: '100%', padding: '10px 14px', fontSize: '0.85rem', minHeight: 70, resize: 'vertical' }}
             />
             <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
               <button onClick={() => setReviewId(null)} style={btnStyle}>
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() =>
@@ -202,12 +204,12 @@ export default function Surrender() {
                   opacity: reviewMut.isPending ? 0.6 : 1,
                 }}
               >
-                {reviewMut.isPending ? 'Processing...' : 'Confirm'}
+                {reviewMut.isPending ? t('Processing...') : t('Confirm')}
               </button>
             </div>
             {reviewMut.isError && (
               <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: 10 }}>
-                {String(reviewMut.error instanceof Error ? reviewMut.error.message : 'Failed to review')}
+                {String(reviewMut.error instanceof Error ? reviewMut.error.message : t('Failed to review'))}
               </p>
             )}
           </div>
@@ -235,14 +237,14 @@ export default function Surrender() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <Power style={{ width: 20, height: 20, color: '#34c759' }} />
-              <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>Reactivate Customer</h2>
+              <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Reactivate Customer')}</h2>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: 16 }}>
-              Reactivate customer {reactivateId}? This will restore their connections to Active status.
+              {t('Reactivate customer {id}? This will restore their connections to Active status.', { id: reactivateId })}
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setReactivateId(null)} style={btnStyle}>
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() => reactivateMut.mutate(reactivateId)}
@@ -255,7 +257,7 @@ export default function Surrender() {
                   opacity: reactivateMut.isPending ? 0.6 : 1,
                 }}
               >
-                {reactivateMut.isPending ? 'Reactivating...' : 'Reactivate'}
+                {reactivateMut.isPending ? t('Reactivating...') : t('Reactivate')}
               </button>
             </div>
           </div>
@@ -278,7 +280,7 @@ export default function Surrender() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="glass-card" style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
-          No surrender requests found
+          {t('No surrender requests found')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -317,37 +319,37 @@ export default function Surrender() {
                     ) : (
                       <Clock style={{ width: 12, height: 12 }} />
                     )}
-                    {status}
+                    {t(status)}
                   </span>
 
                   {/* Customer info */}
                   <div style={{ flex: 1, minWidth: 150 }}>
                     <p style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text)' }}>
-                      {String(r.customer_name || 'Unknown')}
+                      {String(r.customer_name || t('Unknown'))}
                     </p>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      ID: {String(r.customer_id || '--')} {(r as any).stb_no ? <StbCopy stb={String((r as any).stb_no)} /> : null}
+                      {t('ID: {id}', { id: String(r.customer_id || '--') })} {(r as any).stb_no ? <StbCopy stb={String((r as any).stb_no)} /> : null}
                     </p>
                   </div>
 
                   {/* Dates */}
                   <div style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                    <p>Requested: {fmtDate(String(r.requested_at || ''))}</p>
-                    {r.reviewed_at ? <p>Reviewed: {fmtDate(String(r.reviewed_at))}</p> : null}
+                    <p>{t('Requested: {date}', { date: fmtDate(String(r.requested_at || '')) })}</p>
+                    {r.reviewed_at ? <p>{t('Reviewed: {date}', { date: fmtDate(String(r.reviewed_at)) })}</p> : null}
                   </div>
                 </div>
 
                 {/* Reason */}
                 {r.reason ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 10 }}>
-                    Reason: {String(r.reason)}
+                    {t('Reason: {reason}', { reason: String(r.reason) })}
                   </p>
                 ) : null}
 
                 {/* Review notes */}
                 {r.review_notes ? (
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 4, fontStyle: 'italic' }}>
-                    Notes: {String(r.review_notes)}
+                    {t('Notes: {notes}', { notes: String(r.review_notes) })}
                   </p>
                 ) : null}
 
@@ -367,7 +369,7 @@ export default function Surrender() {
                           borderColor: 'rgba(52,199,89,0.2)',
                         }}
                       >
-                        <CheckCircle2 style={{ width: 14, height: 14 }} /> Approve
+                        <CheckCircle2 style={{ width: 14, height: 14 }} /> {t('Approve')}
                       </button>
                       <button
                         onClick={() => {
@@ -381,7 +383,7 @@ export default function Surrender() {
                           borderColor: 'rgba(255,59,48,0.2)',
                         }}
                       >
-                        <XCircle style={{ width: 14, height: 14 }} /> Reject
+                        <XCircle style={{ width: 14, height: 14 }} /> {t('Reject')}
                       </button>
                     </>
                   )}
@@ -395,7 +397,7 @@ export default function Surrender() {
                         borderColor: 'rgba(0,113,227,0.2)',
                       }}
                     >
-                      <Power style={{ width: 14, height: 14 }} /> Reactivate
+                      <Power style={{ width: 14, height: 14 }} /> {t('Reactivate')}
                     </button>
                   )}
                 </div>

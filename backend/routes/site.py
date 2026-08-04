@@ -72,9 +72,9 @@ def page(title: str, body: str) -> HTMLResponse:
 <header>
   <div class="brand">{BUSINESS}</div>
   <nav>
-    <a href="/">Home</a><a href="/about">About</a><a href="/contact">Contact</a>
-    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refund</a>
-    <a href="/app">Login</a>
+    <a href="/">Home · முகப்பு</a><a href="/about">About · எங்களை பற்றி</a><a href="/contact">Contact · தொடர்பு</a>
+    <a href="/terms">Terms · விதிமுறைகள்</a><a href="/privacy">Privacy · தனியுரிமை</a><a href="/refund">Refund · பணத்திரும்பல்</a>
+    <a href="/app">Login · உள்நுழை</a>
   </nav>
 </header>
 {body}
@@ -90,37 +90,38 @@ def home():
     body = f"""
 <div class="hero">
   <h1>{BUSINESS}</h1>
-  <p>Cable TV &amp; broadband internet services in Karumathampatti, Coimbatore</p>
-  <a class="btn" href="/app">Customer / Staff Login</a>
+  <p>Cable TV &amp; broadband internet services in Karumathampatti, Coimbatore<br/>
+  <span class="muted" style="color:#e5e7eb">கருமாதம்பட்டி, கோயம்புத்தூரில் கேபிள் டிவி &amp; இணைய சேவை</span></p>
+  <a class="btn" href="/app">Customer / Staff Login · வாடிக்கையாளர் / பணியாளர் உள்நுழைவு</a>
 </div>
 <div class="wrap">
   <div class="card">
-    <h2>About us</h2>
+    <h2>About us · எங்களை பற்றி</h2>
     <p>{BUSINESS} is a proprietorship providing local cable television and broadband
     internet connections to homes and businesses in and around Karumathampatti, Sulur,
     Coimbatore. We offer monthly subscription plans, new connections, and prompt local
     support.</p>
   </div>
   <div class="card">
-    <h2>Our services</h2>
+    <h2>Our services · எங்கள் சேவைகள்</h2>
     <ul>
-      <li>Cable TV connections with a range of channel packages</li>
-      <li>Broadband / internet service</li>
-      <li>New connections, plan upgrades, and reconnections</li>
-      <li>Monthly subscription billing and doorstep collection</li>
+      <li>Cable TV connections with a range of channel packages · பல சேனல் தொகுப்புகளுடன் கேபிள் டிவி இணைப்புகள்</li>
+      <li>Broadband / internet service · பிராட்பேண்ட் / இணைய சேவை</li>
+      <li>New connections, plan upgrades, and reconnections · புதிய இணைப்புகள், திட்ட மேம்பாடுகள், மறு இணைப்புகள்</li>
+      <li>Monthly subscription billing and doorstep collection · மாதாந்திர பில்லிங் மற்றும் வீட்டிலேயே வசூல்</li>
     </ul>
   </div>
   <div class="card">
-    <h2>Pay your bill</h2>
-    <p>Existing customers can pay their monthly subscription online via UPI.</p>
-    <p class="muted">UPI ID: {UPI}</p>
+    <h2>Pay your bill · பில் செலுத்துங்கள்</h2>
+    <p>Existing customers can pay their monthly subscription online via UPI.<br/>
+    <span class="muted">UPI ID: {UPI}</span></p>
   </div>
   <div class="card">
-    <h2>Contact</h2>
+    <h2>Contact · தொடர்பு</h2>
     <table>
-      <tr><td>Phone</td><td>{PHONE}</td></tr>
+      <tr><td>Phone · தொலைபேசி</td><td>{PHONE}</td></tr>
       <tr><td>Email</td><td>{EMAIL}</td></tr>
-      <tr><td>Address</td><td>{ADDRESS}</td></tr>
+      <tr><td>Address · முகவரி</td><td>{ADDRESS}</td></tr>
       <tr><td>GSTIN</td><td>{GSTIN}</td></tr>
     </table>
   </div>
@@ -132,18 +133,18 @@ def home():
 def about():
     body = f"""<div class="wrap">
   <div class="card">
-    <h2>About us</h2>
+    <h2>About us · எங்களை பற்றி</h2>
     <p>{BUSINESS} ({LEGAL}, Proprietor) is a locally-run cable TV and internet service
     provider based in Karumathampatti, Coimbatore, Tamil Nadu. We serve residential and
     commercial customers with reliable cable television and broadband connections, backed
     by responsive on-ground support.</p>
-    <h3>Business details</h3>
+    <h3>Business details · வணிக விவரங்கள்</h3>
     <table>
-      <tr><td>Legal name</td><td>{LEGAL}</td></tr>
-      <tr><td>Trade name</td><td>{BUSINESS}</td></tr>
-      <tr><td>Constitution</td><td>Proprietorship</td></tr>
+      <tr><td>Legal name · சட்டப்பூர்வ பெயர்</td><td>{LEGAL}</td></tr>
+      <tr><td>Trade name · வர்த்தக பெயர்</td><td>{BUSINESS}</td></tr>
+      <tr><td>Constitution · அமைப்பு</td><td>Proprietorship · தனி உரிமை</td></tr>
       <tr><td>GSTIN</td><td>{GSTIN}</td></tr>
-      <tr><td>Address</td><td>{ADDRESS}</td></tr>
+      <tr><td>Address · முகவரி</td><td>{ADDRESS}</td></tr>
     </table>
   </div>
 </div>"""
@@ -154,16 +155,16 @@ def about():
 def contact():
     body = f"""<div class="wrap">
   <div class="card">
-    <h2>Contact us</h2>
+    <h2>Contact us · எங்களை தொடர்பு கொள்ள</h2>
     <table>
-      <tr><td>Business</td><td>{BUSINESS}</td></tr>
-      <tr><td>Proprietor</td><td>{LEGAL}</td></tr>
-      <tr><td>Phone</td><td>{PHONE}</td></tr>
+      <tr><td>Business · வணிகம்</td><td>{BUSINESS}</td></tr>
+      <tr><td>Proprietor · உரிமையாளர்</td><td>{LEGAL}</td></tr>
+      <tr><td>Phone · தொலைபேசி</td><td>{PHONE}</td></tr>
       <tr><td>Email</td><td>{EMAIL}</td></tr>
-      <tr><td>Address</td><td>{ADDRESS}</td></tr>
+      <tr><td>Address · முகவரி</td><td>{ADDRESS}</td></tr>
       <tr><td>GSTIN</td><td>{GSTIN}</td></tr>
     </table>
-    <p class="muted" style="margin-top:12px">Support hours: Monday\u2013Saturday, 9:00 AM \u2013 8:00 PM.</p>
+    <p class="muted" style="margin-top:12px">Support hours: Monday\u2013Saturday, 9:00 AM \u2013 8:00 PM · உதவி நேரம்: திங்கள்\u2013சனி, காலை 9 \u2013 இரவு 8</p>
   </div>
 </div>"""
     return page("Contact", body)

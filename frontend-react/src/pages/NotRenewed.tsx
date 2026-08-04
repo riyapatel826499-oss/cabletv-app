@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Calendar,
 } from 'lucide-react';
+import { useT, translate } from '../lib/i18n';
 
 interface NotRenewedCustomer {
   customer_id: string;
@@ -43,7 +44,7 @@ function buildMonthOptions(): { value: string; label: string }[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    out.push({ value, label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}` });
+    out.push({ value, label: `${translate(MONTH_NAMES[d.getMonth()])} ${d.getFullYear()}` });
   }
   return out;
 }
@@ -80,6 +81,7 @@ function downloadCsv(filename: string, content: string) {
 
 export default function NotRenewed() {
   const navigate = useNavigate();
+  const { t } = useT();
   const monthOptions = useMemo(() => buildMonthOptions(), []);
   const [month, setMonth] = useState(monthOptions[0].value);
   const [search, setSearch] = useState('');
@@ -127,10 +129,10 @@ export default function NotRenewed() {
             }}
           >
             <UserX style={{ width: 28, height: 28, color: '#ff9f0a' }} />
-            Not Renewed
+            {t('Not Renewed')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            Customers who haven't renewed for {monthLabel}
+            {t("Customers who haven't renewed for {month}", { month: monthLabel })}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -183,7 +185,7 @@ export default function NotRenewed() {
               opacity: filtered.length === 0 ? 0.5 : 1,
             }}
           >
-            <Download style={{ width: 16, height: 16 }} /> Export CSV
+            <Download style={{ width: 16, height: 16 }} /> {t('Export CSV')}
           </button>
         </div>
       </div>
@@ -196,7 +198,7 @@ export default function NotRenewed() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Not Renewed
+              {t('Not Renewed')}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{total}</p>
           </div>
@@ -207,7 +209,7 @@ export default function NotRenewed() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Lost Revenue
+              {t('Lost Revenue')}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff3b30', marginTop: 2 }}>
               <Rs amount={totalAmount} />
@@ -232,7 +234,7 @@ export default function NotRenewed() {
           />
           <input
             type="text"
-            placeholder="Search by name, phone, or STB..."
+            placeholder={t('Search by name, phone, or STB...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="glass-input"
@@ -265,25 +267,25 @@ export default function NotRenewed() {
         ) : isError ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#ff3b30' }}>
             <AlertCircle style={{ width: 32, height: 32, margin: '0 auto 8px' }} />
-            Failed to load not-renewed list
+            {t('Failed to load not-renewed list')}
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             <UserX style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
-            {search ? 'No matching customers' : 'No customers in this list'}
+            {search ? t('No matching customers') : t('No customers in this list')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>STB</th>
-                  <th>Area</th>
-                  <th>Plan</th>
-                  <th>Expiry</th>
-                  <th style={{ textAlign: 'right' }}>Amount</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Phone')}</th>
+                  <th>{t('STB')}</th>
+                  <th>{t('Area')}</th>
+                  <th>{t('Plan')}</th>
+                  <th>{t('Expiry')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Amount')}</th>
                 </tr>
               </thead>
               <tbody>

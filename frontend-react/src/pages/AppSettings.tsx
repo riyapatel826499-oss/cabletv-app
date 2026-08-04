@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/client';
+import { useT } from '../lib/i18n';
 import { Save, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 type Settings = Record<string, string | number>;
@@ -32,6 +33,7 @@ const labelStyle: React.CSSProperties = {
 
 export default function AppSettings() {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [form, setForm] = useState<Settings>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -55,30 +57,30 @@ export default function AppSettings() {
     setMsg(null);
     try {
       await api.patch('/operator-settings', { updates: form });
-      setMsg({ ok: true, text: 'Settings saved!' });
+      setMsg({ ok: true, text: t('Settings saved!') });
       queryClient.invalidateQueries({ queryKey: ['operator-settings'] });
     } catch (e: any) {
-      setMsg({ ok: false, text: e?.response?.data?.detail || 'Failed to save' });
+      setMsg({ ok: false, text: e?.response?.data?.detail || t('Failed to save') });
     }
     setSaving(false);
     setTimeout(() => setMsg(null), 4000);
   }
 
   if (isLoading) {
-    return <div style={{ padding: 40, textAlign: 'center', color: '#86868b' }}>Loading…</div>;
+    return <div style={{ padding: 40, textAlign: 'center', color: '#86868b' }}>{t('Loading…')}</div>;
   }
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 40px' }}>
-      <h1 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 4 }}>White-label Settings</h1>
+      <h1 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: 4 }}>{t('White-label Settings')}</h1>
       <p style={{ fontSize: '0.82rem', color: '#86868b', marginBottom: 24 }}>
-        These values are shown across the public website, customer portal, staff panels, and WhatsApp messages.
+        {t('These values are shown across the public website, customer portal, staff panels, and WhatsApp messages.')}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {SETTINGS_FIELDS.map(f => (
           <div key={f.key}>
-            <label style={labelStyle}>{f.label}</label>
+            <label style={labelStyle}>{t(f.label)}</label>
             {f.type === 'textarea' ? (
               <textarea
                 value={String(form[f.key] ?? '')}
@@ -97,7 +99,7 @@ export default function AppSettings() {
                 onBlur={e => { e.target.style.borderColor = '#e2e6ef'; }}
               />
             )}
-            {f.hint && <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 3 }}>{f.hint}</div>}
+            {f.hint && <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 3 }}>{t(f.hint)}</div>}
           </div>
         ))}
       </div>
@@ -113,7 +115,7 @@ export default function AppSettings() {
         }}
       >
         {saving ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
-        {saving ? 'Saving…' : 'Save Settings'}
+        {saving ? t('Saving…') : t('Save Settings')}
       </button>
 
       {msg && (

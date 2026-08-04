@@ -28,6 +28,7 @@ import {
   Zap,
 } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
+import { useT } from '../lib/i18n';
 
 interface CustomerDetail {
   id: number;
@@ -68,6 +69,7 @@ function InfoRow({
   label: string;
   value: string | number | null | undefined;
 }) {
+  const { t } = useT();
   return (
     <div
       style={{
@@ -102,7 +104,7 @@ function InfoRow({
             fontWeight: 500,
           }}
         >
-          {label}
+          {t(label)}
         </p>
         <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)', marginTop: 2 }}>
           {value || '--'}
@@ -115,6 +117,7 @@ function InfoRow({
 const STATUSES = ['Active', 'Inactive', 'Surrendered'];
 
 export default function CustomerDetailPage() {
+  const { t } = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -202,7 +205,7 @@ export default function CustomerDetailPage() {
       const msg =
         resp.old_expiry && resp.new_expiry
           ? `Expiry updated: ${fmtDate(resp.old_expiry)} → ${fmtDate(resp.new_expiry)}`
-          : resp.message || 'Payment deleted';
+          : resp.message || t('Payment deleted');
       setPaymentDeleteMsg(msg);
       setDeletePaymentId(null);
       setDeletePaymentReason('');
@@ -219,26 +222,26 @@ export default function CustomerDetailPage() {
       throw new Error('Unknown GTPL action');
     },
     onSuccess: (data) => {
-      setGtplMsg(String(data?.message || data?.status || 'GTPL operation completed'));
+      setGtplMsg(String(data?.message || data?.status || t('GTPL operation completed')));
       setGtplRenewStb('');
       setGtplPlanStb('');
     },
     onError: (err) => {
-      setGtplMsg(`Error: ${err instanceof Error ? err.message : 'GTPL operation failed'}`);
+      setGtplMsg(`Error: ${err instanceof Error ? err.message : t('GTPL operation failed')}`);
     },
   });
 
   const gtplStatusMut = useMutation({
     mutationFn: async (stb: string) => (await gtplApi.status(stb)).data,
     onSuccess: (data) => setGtplStatus(data),
-    onError: (err) => setGtplStatus({ error: err instanceof Error ? err.message : 'Failed to get status' }),
+    onError: (err) => setGtplStatus({ error: err instanceof Error ? err.message : t('Failed to get status') }),
   });
 
   // Surrender mutation
   const surrenderMut = useMutation({
     mutationFn: async () => (await surrenderApi.surrender(customer!.customer_id, surrenderReason.trim() || undefined)).data,
     onSuccess: (data) => {
-      setSurrenderMsg(data?.message || 'Customer surrendered successfully');
+      setSurrenderMsg(data?.message || t('Customer surrendered successfully'));
       setSurrenderOpen(false);
       setSurrenderReason('');
       queryClient.invalidateQueries({ queryKey: ['customer', id] });
@@ -246,7 +249,7 @@ export default function CustomerDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (err) => {
-      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Surrender failed');
+      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : t('Surrender failed'));
       setSurrenderMsg(`Error: ${detail}`);
       setSurrenderOpen(false);
     },
@@ -320,7 +323,7 @@ export default function CustomerDetailPage() {
       })).data;
     },
     onSuccess: (data) => {
-      setExchangeMsg(data?.message || 'STB swapped successfully');
+      setExchangeMsg(data?.message || t('STB swapped successfully'));
       setSwapResult(data);
       setExchangeConn(null);
       setExchangeNewStb('');
@@ -329,7 +332,7 @@ export default function CustomerDetailPage() {
     },
     onError: (err) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : 'Swap failed');
+      const detail = (err as any)?.response?.data?.detail || (err instanceof Error ? err.message : t('Swap failed'));
       setExchangeMsg(`Error: ${detail}`);
       setExchangeConn(null);
     },
@@ -462,7 +465,7 @@ export default function CustomerDetailPage() {
             transition: 'var(--transition)',
           }}
         >
-          <ArrowLeft style={{ width: 16, height: 16 }} /> Back
+          <ArrowLeft style={{ width: 16, height: 16 }} /> {t('Back')}
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
@@ -482,7 +485,7 @@ export default function CustomerDetailPage() {
             color: active ? '#34c759' : '#ff3b30',
           }}
         >
-          {customer.status || 'Unknown'}
+          {t(customer.status || 'Unknown')}
         </span>
         <button
           onClick={enterEdit}
@@ -501,7 +504,7 @@ export default function CustomerDetailPage() {
             transition: 'var(--transition)',
           }}
         >
-          <Pencil style={{ width: 14, height: 14 }} /> Edit
+          <Pencil style={{ width: 14, height: 14 }} /> {t('Edit')}
         </button>
         <button
           onClick={() => setDeleteOpen(true)}
@@ -520,7 +523,7 @@ export default function CustomerDetailPage() {
             transition: 'var(--transition)',
           }}
         >
-          <Trash2 style={{ width: 14, height: 14 }} /> Delete
+          <Trash2 style={{ width: 14, height: 14 }} /> {t('Delete')}
         </button>
         <Link
           to={`/map?place=${customer.customer_id}`}
@@ -530,7 +533,7 @@ export default function CustomerDetailPage() {
             color: '#fff', textDecoration: 'none', fontSize: 14,
           }}
         >
-          <MapPin style={{ width: 14, height: 14 }} /> Set location on map
+          <MapPin style={{ width: 14, height: 14 }} /> {t('Set location on map')}
         </Link>
         {customer.status !== 'Surrendered' && customer.status !== 'Pending Surrender' && (
           <button
@@ -550,7 +553,7 @@ export default function CustomerDetailPage() {
               transition: 'var(--transition)',
             }}
           >
-            <PowerOff style={{ width: 14, height: 14 }} /> Surrender
+            <PowerOff style={{ width: 14, height: 14 }} /> {t('Surrender')}
           </button>
         )}
         <Link
@@ -571,7 +574,7 @@ export default function CustomerDetailPage() {
             transition: 'var(--transition)',
           }}
         >
-          <Plus style={{ width: 16, height: 16 }} /> Add Payment
+          <Plus style={{ width: 16, height: 16 }} /> {t('Add Payment')}
         </Link>
       </div>
 
@@ -579,7 +582,7 @@ export default function CustomerDetailPage() {
       {editMode && (
         <form onSubmit={saveEdit} className="glass-card animate-fade-in" style={{ padding: '20px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>Edit Customer</h2>
+            <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>{t('Edit Customer')}</h2>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 type="button"
@@ -597,7 +600,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                <X style={{ width: 14, height: 14 }} /> Cancel
+                <X style={{ width: 14, height: 14 }} /> {t('Cancel')}
               </button>
               <button
                 type="submit"
@@ -617,33 +620,33 @@ export default function CustomerDetailPage() {
                   opacity: updateMut.isPending ? 0.6 : 1,
                 }}
               >
-                <Check style={{ width: 14, height: 14 }} /> {updateMut.isPending ? 'Saving...' : 'Save'}
+                <Check style={{ width: 14, height: 14 }} /> {updateMut.isPending ? t('Saving...') : t('Save')}
               </button>
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
             <div>
-              <label style={labelStyle}>Name</label>
+              <label style={labelStyle}>{t('Name')}</label>
               <input value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} required />
             </div>
             <div>
-              <label style={labelStyle}>Phone</label>
+              <label style={labelStyle}>{t('Phone')}</label>
               <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Phone 2</label>
+              <label style={labelStyle}>{t('Phone 2')}</label>
               <input value={editPhone2} onChange={(e) => setEditPhone2(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Area</label>
+              <label style={labelStyle}>{t('Area')}</label>
               <input value={editArea} onChange={(e) => setEditArea(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Address</label>
+              <label style={labelStyle}>{t('Address')}</label>
               <input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Status</label>
+              <label style={labelStyle}>{t('Status')}</label>
               <select
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value)}
@@ -651,7 +654,7 @@ export default function CustomerDetailPage() {
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {t(s)}
                   </option>
                 ))}
               </select>
@@ -664,20 +667,20 @@ export default function CustomerDetailPage() {
         {/* Left: Info */}
         <div className="glass-card" style={{ padding: '20px 24px' }}>
           <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>
-            Customer Info
+            {t('Customer Info')}
           </h2>
-          <InfoRow icon={Phone} label="Phone" value={customer.phone} />
-          {customer.phone2 && <InfoRow icon={Phone} label="Phone 2" value={customer.phone2} />}
-          <InfoRow icon={MapPin} label="Area" value={customer.area} />
-          <InfoRow icon={MapPin} label="Address" value={customer.address || [customer.area, customer.city].filter(Boolean).join(', ') || null} />
+          <InfoRow icon={Phone} label={t('Phone')} value={customer.phone} />
+          {customer.phone2 && <InfoRow icon={Phone} label={t('Phone 2')} value={customer.phone2} />}
+          <InfoRow icon={MapPin} label={t('Area')} value={customer.area} />
+          <InfoRow icon={MapPin} label={t('Address')} value={customer.address || [customer.area, customer.city].filter(Boolean).join(', ') || null} />
           <InfoRow
             icon={Tag}
-            label="Plan Amount"
+            label={t('Plan Amount')}
             value={customer.plan_amount ? '₹' + fmtRs(customer.plan_amount) + '/mo' : null}
           />
           <InfoRow
             icon={Clock}
-            label="Expiry Date"
+            label={t('Expiry Date')}
             value={customer.expiry_date ? fmtDate(customer.expiry_date) : null}
           />
         </div>
@@ -688,7 +691,7 @@ export default function CustomerDetailPage() {
           {customer.connections && customer.connections.length > 0 && (
             <div className="glass-card" style={{ padding: '20px 24px' }}>
               <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>
-                Connections ({customer.connections.length})
+                {t('Connections ({n})', { n: customer.connections.length })}
               </h2>
               {customer.connections.map((conn, i) => (
                 <div
@@ -705,10 +708,10 @@ export default function CustomerDetailPage() {
                   <Wifi style={{ width: 16, height: 16, color: '#0071e3' }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
-                      {conn.type || conn.package_name || 'Connection'}
+                      {conn.type || conn.package_name || t('Connection')}
                     </p>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <StbCopy stb={conn.stb_no} prefix="" /> <span>&middot; {conn.status}</span>
+                      <StbCopy stb={conn.stb_no} prefix="" /> <span>&middot; {t(conn.status)}</span>
                     </p>
                   </div>
                   <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>
@@ -717,7 +720,7 @@ export default function CustomerDetailPage() {
                   {conn.status !== 'Surrendered' && (
                     <button
                       onClick={() => { setExchangeMsg(''); setExchangeConn({ id: conn.id, stb_no: conn.stb_no }); }}
-                      title="Exchange STB"
+                      title={t('Exchange STB')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -734,13 +737,13 @@ export default function CustomerDetailPage() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <ArrowLeftRight style={{ width: 12, height: 12 }} /> Swap
+                      <ArrowLeftRight style={{ width: 12, height: 12 }} /> {t('Swap')}
                     </button>
                   )}
                   {conn.status === 'Surrendered' && (
                     <button
                       onClick={() => { setRestoreMsg(''); setRestoreConn({ id: conn.id, stb_no: conn.stb_no, customer_id: customer!.customer_id }); }}
-                      title="Restore Connection"
+                      title={t('Restore Connection')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -757,7 +760,7 @@ export default function CustomerDetailPage() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <RotateCcw style={{ width: 12, height: 12 }} /> Restore
+                      <RotateCcw style={{ width: 12, height: 12 }} /> {t('Restore')}
                     </button>
                   )}
                 </div>
@@ -771,7 +774,7 @@ export default function CustomerDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <Tv style={{ width: 18, height: 18, color: '#ff9f0a' }} />
                 <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>
-                  GTPL Operations
+                  {t('GTPL Operations')}
                 </h2>
               </div>
 
@@ -819,7 +822,7 @@ export default function CustomerDetailPage() {
                         <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
                           STB: {stb}
                         </span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>({conn.status})</span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>({t(conn.status)})</span>
                       </div>
 
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -841,7 +844,7 @@ export default function CustomerDetailPage() {
                             opacity: gtplMut.isPending ? 0.6 : 1,
                           }}
                         >
-                          <PauseCircle style={{ width: 13, height: 13 }} /> Suspend
+                          <PauseCircle style={{ width: 13, height: 13 }} /> {t('Suspend')}
                         </button>
                         <button
                           onClick={() => gtplMut.mutate({ action: 'activate', stb })}
@@ -861,7 +864,7 @@ export default function CustomerDetailPage() {
                             opacity: gtplMut.isPending ? 0.6 : 1,
                           }}
                         >
-                          <PlayCircle style={{ width: 13, height: 13 }} /> Activate
+                          <PlayCircle style={{ width: 13, height: 13 }} /> {t('Activate')}
                         </button>
                         <button
                           onClick={() => gtplMut.mutate({ action: 'retrigger', stb })}
@@ -880,9 +883,9 @@ export default function CustomerDetailPage() {
                             cursor: 'pointer',
                             opacity: gtplMut.isPending ? 0.6 : 1,
                           }}
-                          title="Refresh STB signal — clears E-51 error after payment"
+                          title={t('Refresh STB signal — clears E-51 error after payment')}
                         >
-                          <Zap style={{ width: 13, height: 13 }} /> Retrigger
+                          <Zap style={{ width: 13, height: 13 }} /> {t('Retrigger')}
                         </button>
 
                         {/* Renew inline */}
@@ -902,7 +905,7 @@ export default function CustomerDetailPage() {
                               }}
                             >
                               {[1, 2, 3, 6, 12].map((m) => (
-                                <option key={m} value={m}>{m} mo</option>
+                                <option key={m} value={m}>{t('{m} mo', { m })}</option>
                               ))}
                             </select>
                             <button
@@ -920,7 +923,7 @@ export default function CustomerDetailPage() {
                                 opacity: gtplMut.isPending ? 0.6 : 1,
                               }}
                             >
-                              Confirm
+                              {t('Confirm')}
                             </button>
                             <button
                               onClick={() => setGtplRenewStb('')}
@@ -934,7 +937,7 @@ export default function CustomerDetailPage() {
                                 cursor: 'pointer',
                               }}
                             >
-                              Cancel
+                              {t('Cancel')}
                             </button>
                           </div>
                         ) : (
@@ -954,7 +957,7 @@ export default function CustomerDetailPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            <RefreshCw style={{ width: 13, height: 13 }} /> Renew
+                            <RefreshCw style={{ width: 13, height: 13 }} /> {t('Renew')}
                           </button>
                         )}
 
@@ -964,7 +967,7 @@ export default function CustomerDetailPage() {
                             <input
                               value={gtplPlanCode}
                               onChange={(e) => setGtplPlanCode(e.target.value)}
-                              placeholder="Plan code"
+                              placeholder={t('Plan code')}
                               style={{
                                 width: 100,
                                 padding: '5px 8px',
@@ -990,7 +993,7 @@ export default function CustomerDetailPage() {
                                 opacity: gtplMut.isPending || !gtplPlanCode ? 0.6 : 1,
                               }}
                             >
-                              Confirm
+                              {t('Confirm')}
                             </button>
                             <button
                               onClick={() => { setGtplPlanStb(''); setGtplPlanCode(''); }}
@@ -1004,7 +1007,7 @@ export default function CustomerDetailPage() {
                                 cursor: 'pointer',
                               }}
                             >
-                              Cancel
+                              {t('Cancel')}
                             </button>
                           </div>
                         ) : (
@@ -1024,7 +1027,7 @@ export default function CustomerDetailPage() {
                               cursor: 'pointer',
                             }}
                           >
-                            <Settings2 style={{ width: 13, height: 13 }} /> Change Plan
+                            <Settings2 style={{ width: 13, height: 13 }} /> {t('Change Plan')}
                           </button>
                         )}
 
@@ -1047,7 +1050,7 @@ export default function CustomerDetailPage() {
                             opacity: gtplStatusMut.isPending ? 0.6 : 1,
                           }}
                         >
-                          {gtplStatusMut.isPending ? 'Checking...' : 'Status'}
+                          {gtplStatusMut.isPending ? t('Checking...') : t('Status')}
                         </button>
                       </div>
 
@@ -1080,18 +1083,18 @@ export default function CustomerDetailPage() {
           {/* Payment History */}
           <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', borderBottom: '0.5px solid var(--border)' }}>
-              <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>Payment History</h2>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>{t('Payment History')}</h2>
             </div>
             {customer.payments && customer.payments.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
                 <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
                   <thead>
                     <tr>
-                      <th>Amount</th>
-                      <th>Mode</th>
-                      <th>Month</th>
-                      <th>Date</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
+                      <th>{t('Amount')}</th>
+                      <th>{t('Mode')}</th>
+                      <th>{t('Month')}</th>
+                      <th>{t('Date')}</th>
+                      <th style={{ textAlign: 'right' }}>{t('Action')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1109,7 +1112,7 @@ export default function CustomerDetailPage() {
                               color: '#0071e3',
                             }}
                           >
-                            {p.payment_mode || '--'}
+                            {t(p.payment_mode || '--')}
                           </span>
                         </td>
                         <td style={{ color: 'var(--text-light)' }}>{p.month_year || '--'}</td>
@@ -1122,7 +1125,7 @@ export default function CustomerDetailPage() {
                               setDeletePaymentId(p.id);
                               setDeletePaymentReason('');
                             }}
-                            title="Delete payment"
+                            title={t('Delete payment')}
                             style={{
                               padding: 5,
                               borderRadius: 8,
@@ -1143,7 +1146,7 @@ export default function CustomerDetailPage() {
             ) : (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-light)' }}>
                 <Clock style={{ width: 28, height: 28, margin: '0 auto 8px', opacity: 0.4 }} />
-                No payment history
+                {t('No payment history')}
               </div>
             )}
           </div>
@@ -1207,17 +1210,17 @@ export default function CustomerDetailPage() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(255,159,10,0.1)' }}>
                 <PowerOff style={{ width: 24, height: 24, color: '#ff9f0a' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Surrender Customer?</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Surrender Customer?')}</h3>
             </div>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 14 }}>
-              This will surrender <strong style={{ color: 'var(--text)' }}>{customer.name}</strong> ({customer.customer_id}).
-              All STBs will be freed and moved to inventory. The customer status will change to "Surrendered".
+              {t('This will surrender')} <strong style={{ color: 'var(--text)' }}>{customer.name}</strong> ({customer.customer_id}).
+              {t('All STBs will be freed and moved to inventory. The customer status will change to "Surrendered".')}
             </p>
             <input
               type="text"
               value={surrenderReason}
               onChange={(e) => setSurrenderReason(e.target.value)}
-              placeholder="Reason (optional)"
+              placeholder={t('Reason (optional)')}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -1242,7 +1245,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() => surrenderMut.mutate()}
@@ -1259,7 +1262,7 @@ export default function CustomerDetailPage() {
                   opacity: surrenderMut.isPending ? 0.6 : 1,
                 }}
               >
-                {surrenderMut.isPending ? 'Surrendering...' : 'Surrender'}
+                {surrenderMut.isPending ? t('Surrendering...') : t('Surrender')}
               </button>
             </div>
           </div>
@@ -1290,10 +1293,10 @@ export default function CustomerDetailPage() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(0,113,227,0.1)' }}>
                 <ArrowLeftRight style={{ width: 24, height: 24, color: '#0071e3' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Swap STB</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Swap STB')}</h3>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: 16 }}>
-              Current STB: <strong style={{ color: 'var(--text)' }}>{exchangeConn.stb_no}</strong>
+              {t('Current STB:')} <strong style={{ color: 'var(--text)' }}>{exchangeConn.stb_no}</strong>
               <br />
               <span style={{ fontSize: '0.78rem' }}>
                 MSO: {' '}
@@ -1304,7 +1307,7 @@ export default function CustomerDetailPage() {
 
             {/* New STB picker — inventory only */}
             <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
-              Select New STB from Inventory
+              {t('Select New STB from Inventory')}
             </label>
             {availableStbs.length > 0 ? (
               <select
@@ -1322,7 +1325,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                <option value="">— Select an STB —</option>
+                <option value="">— {t('Select an STB')} —</option>
                 {availableStbs.map((s) => (
                   <option key={s.stb_no} value={s.stb_no}>
                     {s.stb_no} ({s.status}){s.notes ? ` — ${s.notes}` : ''}
@@ -1340,13 +1343,13 @@ export default function CustomerDetailPage() {
                 marginBottom: 14,
                 border: '0.5px solid var(--border)',
               }}>
-                No STBs available in inventory. Surrender a customer first to add STBs.
+                {t('No STBs available in inventory. Surrender a customer first to add STBs.')}
               </p>
             )}
 
             {/* Old STB status */}
             <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
-              Old STB ({exchangeConn.stb_no}) goes to inventory as:
+              {t('Old STB ({stb}) goes to inventory as:', { stb: exchangeConn.stb_no })}
             </label>
             <select
               value={exchangeOldStatus}
@@ -1363,13 +1366,13 @@ export default function CustomerDetailPage() {
                 cursor: 'pointer',
               }}
             >
-              <option value="faulty">Faulty (needs repair)</option>
-              <option value="spare">Spare (working, reusable)</option>
+              <option value="faulty">{t('Faulty (needs repair)')}</option>
+              <option value="spare">{t('Spare (working, reusable)')}</option>
             </select>
 
             {/* Portal sync toggle */}
             <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
-              MSO Portal Sync
+              {t('MSO Portal Sync')}
             </label>
             <div style={{
               display: 'flex',
@@ -1389,10 +1392,10 @@ export default function CustomerDetailPage() {
                 style={{ width: 16, height: 16, cursor: 'pointer' }}
               />
               <span style={{ fontSize: '0.82rem', color: 'var(--text)', flex: 1 }}>
-                Auto-sync MSO portal
+                {t('Auto-sync MSO portal')}
               </span>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                {swapPortalSync ? '✅ Will suspend old + activate new' : '⚠️ DB only, no portal sync'}
+                {swapPortalSync ? '✅ ' + t('Will suspend old + activate new') : '⚠️ ' + t('DB only, no portal sync')}
               </span>
             </div>
 
@@ -1409,7 +1412,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() => exchangeMut.mutate()}
@@ -1426,7 +1429,7 @@ export default function CustomerDetailPage() {
                   opacity: exchangeMut.isPending || !exchangeNewStb.trim() ? 0.6 : 1,
                 }}
               >
-                {exchangeMut.isPending ? 'Swapping...' : 'Swap Box'}
+                {exchangeMut.isPending ? t('Swapping...') : t('Swap Box')}
               </button>
             </div>
           </div>
@@ -1450,15 +1453,15 @@ export default function CustomerDetailPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
             <Check style={{ width: 18, height: 18 }} />
-            STB Swapped: {swapResult.old_stb} → {swapResult.new_stb} ({swapResult.mso})
+            {t('STB Swapped: {old} → {new} ({mso})', { old: swapResult.old_stb, new: swapResult.new_stb, mso: swapResult.mso })}
           </div>
           {swapResult.portal_sync && (
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-light)' }}>
               <span style={{ color: swapResult.portal_sync.old_stb_suspended ? '#34c759' : '#ff3b30' }}>
-                {swapResult.portal_sync.old_stb_suspended ? '✅' : '❌'} Old box suspended
+                {swapResult.portal_sync.old_stb_suspended ? '✅' : '❌'} {t('Old box suspended')}
               </span>
               <span style={{ color: swapResult.portal_sync.new_stb_activated ? '#34c759' : '#ff3b30' }}>
-                {swapResult.portal_sync.new_stb_activated ? '✅' : '❌'} New box activated
+                {swapResult.portal_sync.new_stb_activated ? '✅' : '❌'} {t('New box activated')}
               </span>
             </div>
           )}
@@ -1471,7 +1474,7 @@ export default function CustomerDetailPage() {
             onClick={() => setSwapResult(null)}
             style={{ alignSelf: 'flex-end', background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '0.85rem' }}
           >
-            Dismiss ×
+            {t('Dismiss')} ×
           </button>
         </div>
       )}
@@ -1507,7 +1510,7 @@ export default function CustomerDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <RotateCcw style={{ width: 20, height: 20, color: '#34c759' }} />
               <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', margin: 0 }}>
-                Restore Connection
+                {t('Restore Connection')}
               </h3>
             </div>
 
@@ -1567,22 +1570,22 @@ export default function CustomerDetailPage() {
                   marginBottom: 14,
                 }}>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', margin: 0 }}>
-                    Old STB: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{restoreConn.stb_no}</span>
+                    {t('Old STB:')} <span style={{ fontWeight: 600, color: 'var(--text)' }}>{restoreConn.stb_no}</span>
                   </p>
                   {oldStbInInventory ? (
                     <p style={{ fontSize: '0.72rem', color: '#34c759', marginTop: 4, fontWeight: 500 }}>
-                      ✓ Old box is available in inventory — can restore with same box
+                      ✓ {t('Old box is available in inventory — can restore with same box')}
                     </p>
                   ) : (
                     <p style={{ fontSize: '0.72rem', color: '#ff9f0a', marginTop: 4, fontWeight: 500 }}>
-                      ⚠ Old box not available — choose a different box below
+                      ⚠ {t('Old box not available — choose a different box below')}
                     </p>
                   )}
                 </div>
 
                 {/* STB selection */}
                 <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text)', display: 'block', marginBottom: 6 }}>
-                  Select STB from Inventory
+                  {t('Select STB from Inventory')}
                 </label>
                 {availableStbs.length === 0 ? (
                   <div style={{
@@ -1595,7 +1598,7 @@ export default function CustomerDetailPage() {
                     textAlign: 'center',
                     marginBottom: 14,
                   }}>
-                    No available STBs in inventory. Add one first.
+                    {t('No available STBs in inventory. Add one first.')}
                   </div>
                 ) : (
                   <select
@@ -1613,7 +1616,7 @@ export default function CustomerDetailPage() {
                       outline: 'none',
                     }}
                   >
-                    <option value="">— Select an STB —</option>
+                    <option value="">— {t('Select an STB')} —</option>
                     {availableStbs.map((s) => {
                       const isOldBox = s.stb_no === restoreConn.stb_no ||
                         (s.notes || '').includes(restoreConn.customer_id);
@@ -1641,7 +1644,7 @@ export default function CustomerDetailPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    Cancel
+                    {t('Cancel')}
                   </button>
                   <button
                     onClick={() => restoreMut.mutate()}
@@ -1658,7 +1661,7 @@ export default function CustomerDetailPage() {
                       cursor: (!restoreSelectedStb || restoreMut.isPending) ? 'not-allowed' : 'pointer',
                     }}
                   >
-                    {restoreMut.isPending ? 'Restoring...' : 'Restore Connection'}
+                    {restoreMut.isPending ? t('Restoring...') : t('Restore Connection')}
                   </button>
                 </div>
               </>
@@ -1691,11 +1694,11 @@ export default function CustomerDetailPage() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(255,59,48,0.1)' }}>
                 <AlertCircle style={{ width: 24, height: 24, color: '#ff3b30' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Delete Customer?</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Delete Customer?')}</h3>
             </div>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 20 }}>
-              This will permanently delete <strong style={{ color: 'var(--text)' }}>{customer.name}</strong> and all
-              related records. This action cannot be undone.
+              {t('This will permanently delete')} <strong style={{ color: 'var(--text)' }}>{customer.name}</strong>{' '}
+              {t('and all related records. This action cannot be undone.')}
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
@@ -1710,7 +1713,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() => deleteMut.mutate()}
@@ -1727,7 +1730,7 @@ export default function CustomerDetailPage() {
                   opacity: deleteMut.isPending ? 0.6 : 1,
                 }}
               >
-                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMut.isPending ? t('Deleting...') : t('Delete')}
               </button>
             </div>
           </div>
@@ -1758,17 +1761,17 @@ export default function CustomerDetailPage() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(255,59,48,0.1)' }}>
                 <Trash2 style={{ width: 24, height: 24, color: '#ff3b30' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Delete Payment?</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Delete Payment?')}</h3>
             </div>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 14 }}>
-              Deleting this payment will recompute the customer's expiry date. This cannot be undone.
+              {t("Deleting this payment will recompute the customer's expiry date. This cannot be undone.")}
             </p>
             <input
               type="text"
               value={deletePaymentReason}
               onChange={(e) => setDeletePaymentReason(e.target.value)}
               className="glass-input"
-              placeholder="Reason (optional)"
+              placeholder={t('Reason (optional)')}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -1790,7 +1793,7 @@ export default function CustomerDetailPage() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={() =>
@@ -1812,7 +1815,7 @@ export default function CustomerDetailPage() {
                   opacity: deletePaymentMut.isPending ? 0.6 : 1,
                 }}
               >
-                {deletePaymentMut.isPending ? 'Deleting...' : 'Delete'}
+                {deletePaymentMut.isPending ? t('Deleting...') : t('Delete')}
               </button>
             </div>
           </div>

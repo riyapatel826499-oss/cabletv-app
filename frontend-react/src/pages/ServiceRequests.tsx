@@ -7,6 +7,7 @@ import {
   Ticket, Plus, Search, Phone, X, AlertCircle,
   CheckCircle2, Activity, Inbox,
 } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 type SRStatus = 'open' | 'assigned' | 'in_progress' | 'resolved' | 'closed' | 'cancelled';
 type SRPriority = 'low' | 'medium' | 'high';
@@ -46,6 +47,7 @@ const SR_CATEGORIES = ['signal', 'internet', 'billing', 'hardware', 'misc'];
 export default function ServiceRequests() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<SRStatus | ''>('');
   const [showNew, setShowNew] = useState(false);
@@ -94,10 +96,10 @@ export default function ServiceRequests() {
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Ticket style={{ width: 28, height: 28 }} />
-            Service Requests
+            {t('Service Requests')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            Track and manage customer complaints and service tickets
+            {t('Track and manage customer complaints and service tickets')}
           </p>
         </div>
         <button
@@ -109,26 +111,26 @@ export default function ServiceRequests() {
             boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
           }}
         >
-          <Plus style={{ width: 18, height: 18 }} /> New Ticket
+          <Plus style={{ width: 18, height: 18 }} /> {t('New Ticket')}
         </button>
       </div>
 
       {/* Stat Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
-        <StatBox icon={AlertCircle} label="Open" value={openCount} color="#ff3b30" onClick={() => setStatusFilter(statusFilter === 'open' ? '' : 'open')} active={statusFilter === 'open'} />
-        <StatBox icon={Activity} label="In Progress" value={inProgressCount} color="#0071e3" onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')} active={statusFilter === 'in_progress'} />
-        <StatBox icon={CheckCircle2} label="Resolved" value={resolvedCount} color="#34c759" onClick={() => setStatusFilter(statusFilter === 'resolved' ? '' : 'resolved')} active={statusFilter === 'resolved'} />
-        <StatBox icon={Inbox} label="Total" value={totalCount} color="#8e8e93" onClick={() => setStatusFilter('')} active={statusFilter === ''} />
+        <StatBox icon={AlertCircle} label={t('Open')} value={openCount} color="#ff3b30" onClick={() => setStatusFilter(statusFilter === 'open' ? '' : 'open')} active={statusFilter === 'open'} />
+        <StatBox icon={Activity} label={t('In Progress')} value={inProgressCount} color="#0071e3" onClick={() => setStatusFilter(statusFilter === 'in_progress' ? '' : 'in_progress')} active={statusFilter === 'in_progress'} />
+        <StatBox icon={CheckCircle2} label={t('Resolved')} value={resolvedCount} color="#34c759" onClick={() => setStatusFilter(statusFilter === 'resolved' ? '' : 'resolved')} active={statusFilter === 'resolved'} />
+        <StatBox icon={Inbox} label={t('Total')} value={totalCount} color="#8e8e93" onClick={() => setStatusFilter('')} active={statusFilter === ''} />
       </div>
 
       {/* List */}
       <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 24px', borderBottom: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
-            Tickets ({filtered.length})
+            {t('Tickets ({n})', { n: filtered.length })}
             {statusFilter && (
               <button onClick={() => setStatusFilter('')} style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text-light)', fontSize: '0.72rem', cursor: 'pointer' }}>
-                Clear filter
+                {t('Clear filter')}
               </button>
             )}
           </h2>
@@ -136,7 +138,7 @@ export default function ServiceRequests() {
             <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--text-light)' }} />
             <input
               type="text"
-              placeholder="Search tickets..."
+              placeholder={t('Search tickets...')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -154,20 +156,20 @@ export default function ServiceRequests() {
         ) : !filtered.length ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
             <Inbox style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.3 }} />
-            {search ? 'No matching tickets' : 'No service requests found'}
+            {search ? t('No matching tickets') : t('No service requests found')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Ticket</th>
-                  <th>Customer</th>
-                  <th>Type</th>
-                  <th>Priority</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
+                  <th>{t('Ticket')}</th>
+                  <th>{t('Customer')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Priority')}</th>
+                  <th>{t('Status')}</th>
+                  <th>{t('Created')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -202,13 +204,13 @@ export default function ServiceRequests() {
                         <span style={{
                           padding: '2px 8px', borderRadius: 20, fontSize: '0.7rem', fontWeight: 600,
                           background: `${priorityColor}1a`, color: priorityColor, textTransform: 'capitalize',
-                        }}>{sr.priority}</span>
+                        }}>{t(sr.priority)}</span>
                       </td>
                       <td>
                         <span style={{
                           padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 600,
                           background: cfg.bg, color: cfg.color,
-                        }}>{cfg.label}</span>
+                        }}>{t(cfg.label)}</span>
                       </td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>{fmtDate(sr.created_at)}</td>
                       <td style={{ textAlign: 'right' }}>
@@ -221,12 +223,12 @@ export default function ServiceRequests() {
                             background: 'var(--bg-secondary)', color: 'var(--text)', fontSize: '0.75rem', cursor: 'pointer',
                           }}
                         >
-                          <option value="open">Open</option>
-                          <option value="assigned">Assigned</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="resolved">Resolved</option>
-                          <option value="closed">Closed</option>
-                          <option value="cancelled">Cancelled</option>
+                          <option value="open">{t('Open')}</option>
+                          <option value="assigned">{t('Assigned')}</option>
+                          <option value="in_progress">{t('In Progress')}</option>
+                          <option value="resolved">{t('Resolved')}</option>
+                          <option value="closed">{t('Closed')}</option>
+                          <option value="cancelled">{t('Cancelled')}</option>
                         </select>
                       </td>
                     </tr>
@@ -245,6 +247,7 @@ export default function ServiceRequests() {
 
 function NewTicketModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [customerId, setCustomerId] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [type, setType] = useState('complaint');
@@ -288,7 +291,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 480, width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Plus style={{ width: 20, height: 20, color: '#0071e3' }} /> New Service Ticket
+            <Plus style={{ width: 20, height: 20, color: '#0071e3' }} /> {t('New Service Ticket')}
           </h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
@@ -297,7 +300,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
 
         {/* Customer search */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>Customer</label>
+          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>{t('Customer')}</label>
           {customerId ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '0.5px solid var(--border)' }}>
               <span style={{ fontSize: '0.88rem', fontWeight: 500 }}>{customerId}</span>
@@ -309,7 +312,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
             <>
               <input
                 type="text"
-                placeholder="Search by name or phone..."
+                placeholder={t('Search by name or phone...')}
                 value={customerSearch}
                 onChange={e => setCustomerSearch(e.target.value)}
                 style={inputStyle}
@@ -336,13 +339,13 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
           <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>Type</label>
+            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>{t('Type')}</label>
             <select value={type} onChange={e => setType(e.target.value)} style={inputStyle}>
               {SR_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>Category</label>
+            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>{t('Category')}</label>
             <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
               {SR_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -350,7 +353,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>Priority</label>
+          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>{t('Priority')}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['low', 'medium', 'high'] as SRPriority[]).map(p => (
               <button
@@ -363,17 +366,17 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
                   background: priority === p ? (p === 'high' ? '#ff3b30' : p === 'medium' ? '#ff9f0a' : '#8e8e93') : 'transparent',
                   color: priority === p ? '#fff' : 'var(--text)',
                 }}
-              >{p}</button>
+              >{t(p)}</button>
             ))}
           </div>
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>Description</label>
+          <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>{t('Description')}</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Describe the issue..."
+            placeholder={t('Describe the issue...')}
             rows={3}
             style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
           />
@@ -381,7 +384,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button
             onClick={() => createMut.mutate()}
@@ -392,12 +395,12 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               opacity: (!customerId || !description || createMut.isPending) ? 0.5 : 1,
             }}
           >
-            {createMut.isPending ? 'Creating...' : 'Create Ticket'}
+            {createMut.isPending ? t('Creating...') : t('Create Ticket')}
           </button>
         </div>
         {createMut.isError && (
           <p style={{ fontSize: '0.78rem', color: '#ff3b30', marginTop: 10, textAlign: 'center' }}>
-            {String(createMut.error?.message || 'Failed to create ticket')}
+            {String(createMut.error?.message || t('Failed to create ticket'))}
           </p>
         )}
       </div>

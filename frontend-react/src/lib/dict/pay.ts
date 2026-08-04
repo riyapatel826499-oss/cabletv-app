@@ -1,0 +1,101 @@
+// Pay page + register + customer portal translations (customer-facing)
+export default {
+  // ── Pay page (public) ──
+  'Cable TV payment': 'கேபிள் டிவி பணம் செலுத்தல்',
+  'Invalid amount.': 'தவறான தொகை.',
+  'Amount to pay': 'செலுத்த வேண்டிய தொகை',
+  'Payment successful. Thank you!': 'பணம் செலுத்தல் வெற்றிகரமானது. நன்றி!',
+  'Payment failed. Please try again.': 'பணம் செலுத்தல் தோல்வி. மீண்டும் முயற்சிக்கவும்.',
+  'Payment cancelled.': 'பணம் செலுத்தல் ரத்து செய்யப்பட்டது.',
+  'Something went wrong. Try the QR or UPI ID below.': 'ஏதோ தவறு நடந்தது. கீழே உள்ள QR அல்லது UPI ஐடியை முயற்சிக்கவும்.',
+  'Please wait…': 'தயவுசெய்து காத்திருங்கள்…',
+  'Pay ₹{n} securely': 'பாதுகாப்பாக ₹{n} செலுத்து',
+  'Or scan to pay': 'அல்லது செலுத்த ஸ்கேன் செய்யவும்',
+  'Or pay to this UPI ID': 'அல்லது இந்த UPI ஐடிக்கு செலுத்தவும்',
+  'Copied ✓': 'நகலெடுக்கப்பட்டது ✓',
+  'Copy UPI ID': 'UPI ஐடியை நகலெடு',
+
+  // ── Register page ──
+  'Registration successful!': 'பதிவு வெற்றிகரமானது!',
+  'Something went wrong. Try again.': 'ஏதோ தவறு நடந்தது. மீண்டும் முயற்சிக்கவும்.',
+  'Welcome aboard!': 'வரவேற்கிறோம்!',
+  'Your login': 'உங்கள் உள்நுழைவு',
+  '(the password you set)': '(நீங்கள் அமைத்த கடவுச்சொல்)',
+  'Go to Login': 'உள்நுழைய செல்லவும்',
+  'Start Your Cable TV Billing': 'உங்கள் கேபிள் டிவி பில்லிங்கை தொடங்குங்கள்',
+  "Create your account — it's free to try": 'உங்கள் கணக்கை உருவாக்கவும் — இலவசமாக முயற்சிக்கலாம்',
+  'Business name': 'வணிகப் பெயர்',
+  'Owner name': 'உரிமையாளர் பெயர்',
+  'Mobile number': 'மொபைல் எண்',
+  'Email (optional)': 'மின்னஞ்சல் (விருப்பம்)',
+  'Service area (optional)': 'சேவை பகுதி (விருப்பம்)',
+  'Admin login credentials': 'நிர்வாகி உள்நுழைவு விவரங்கள்',
+  'Min 4 characters': 'குறைந்தது 4 எழுத்துகள்',
+  'Creating account…': 'கணக்கு உருவாக்குகிறது…',
+  'Already have an account?': 'ஏற்கனவே கணக்கு உள்ளதா?',
+  'Log in': 'உள்நுழை',
+
+  // ── Portal home ──
+  'Could not load your account. Try logging in again.': 'உங்கள் கணக்கை ஏற்ற முடியவில்லை. மீண்டும் உள்நுழைய முயற்சிக்கவும்.',
+  'plan': 'திட்டம்',
+  'Active till {d}': '{d} வரை செயலில்',
+  'Expired on {d}': '{d} அன்று காலாவதியானது',
+  'Pay ₹{n} now': 'இப்போது ₹{n} செலுத்து',
+  'Quick actions': 'விரைவு செயல்கள்',
+  'Pay now (₹{n})': 'இப்போது செலுத்து (₹{n})',
+  'Payment history': 'பணம் செலுத்திய வரலாறு',
+  'Report a problem': 'பிரச்சனையை புகாரளி',
+  'Need help? Call': 'உதவி வேண்டுமா? அழைக்கவும்',
+  'or email': 'அல்லது மின்னஞ்சல்',
+
+  // ── Portal history ──
+  '{n} payments recorded': 'பதிவு செய்யப்பட்ட பணம் செலுத்தல்கள்: {n}',
+  'No payments recorded yet.': 'இன்னும் பணம் செலுத்தல்கள் இல்லை.',
+  'Payment Receipt': 'பணம் ரசீது',
+  'Amount: Rs.{n}': 'தொகை: ரூ.{n}',
+  'Mode: {m}': 'முறை: {m}',
+  'Month: {m}': 'மாதம்: {m}',
+  'Date: {d}': 'தேதி: {d}',
+  'Notes: {n}': 'குறிப்பு: {n}',
+  'Share on WhatsApp': 'வாட்ஸ்அப்பில் பகிர்',
+
+  // ── Portal support ──
+  'Report a problem or check past reports': 'பிரச்சனையை புகாரளிக்கவும் அல்லது முந்தைய புகார்களை பார்க்கவும்',
+  'Submitted. Ticket:': 'சமர்ப்பிக்கப்பட்டது. டிக்கெட்:',
+  "We'll contact you soon.": 'விரைவில் உங்களை தொடர்பு கொள்வோம்.',
+  'Dismiss': 'மூடு',
+  '📺 No signal on TV': '📺 டிவியில் சிக்னல் இல்லை',
+  '🔌 Internet not working': '🔌 இன்டர்நெட் வேலை செய்யவில்லை',
+  '📱 Set-top box issue': '📱 செட்-டாப் பாக்ஸ் பிரச்சனை',
+  '💳 Payment not reflecting': '💳 பணம் செலுத்தியும் கணக்கில் தெரியவில்லை',
+  '🔌 Slow internet speed': '🔌 இன்டர்நெட் வேகம் குறைவு',
+  '+ Describe your problem': '+ உங்கள் பிரச்சனையை விவரிக்கவும்',
+  'Describe your problem...': 'உங்கள் பிரச்சனையை விவரிக்கவும்...',
+  'Submitting…': 'சமர்ப்பிக்கிறது…',
+  'Past Reports': 'முந்தைய புகார்கள்',
+  'No past reports.': 'முந்தைய புகார்கள் இல்லை.',
+  'Could not submit. Try again later.': 'சமர்ப்பிக்க முடியவில்லை. பின்னர் மீண்டும் முயற்சிக்கவும்.',
+
+  // ── Portal home status ──
+  '✅ Paid': '✅ செலுத்தப்பட்டது',
+  '⚠️ Due': '⚠️ நிலுவை',
+
+  // ── Register placeholders ──
+  'Your name': 'உங்கள் பெயர்',
+
+  // ── Payment receipt (shared with RecordPayment share-text) ──
+  'Customer: {name} ({id})': 'வாடிக்கையாளர்: {name} ({id})',
+  'Amount paid: ₹{amount}': 'செலுத்திய தொகை: ₹{amount}',
+  'For: {month}': 'மாதம்: {month}',
+  ' ({n} months)': ' ({n} மாதங்கள்)',
+  'Thank you for your payment.': 'உங்கள் பணம் செலுத்தலுக்கு நன்றி.',
+  'UPI for next time: {upi}': 'அடுத்த முறைக்கான UPI: {upi}',
+
+  // ── WhatsApp reminder templates (shared with MapView) ──
+  'STB No: {stb}  |  Mobile: your registered number': 'STB எண்: {stb}  |  மொபைல்: உங்கள் பதிவு செய்த எண்',
+  'STB number + your registered mobile number': 'STB எண் + உங்கள் பதிவு செய்த மொபைல் எண்',
+  'Or recharge yourself online:\nLogin: {link}\n{cred}\n\n': 'நீங்களே ஆன்லைனில் ரீசார்ஜ் செய்ய:\nஉள்நுழைவு: {link}\n{cred}\n\n',
+  'Dear Customer, your cable TV subscription for {month} is due. Kindly pay before the 12th to avoid disconnection.\n\nPay now (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}Thank you.\n- {business}': 'அன்புள்ள வாடிக்கையாளர், {month} மாத கேபிள் டிவி கட்டணம் நிலுவையில் உள்ளது. இணைப்பு துண்டிப்பை தவிர்க்க 12-ம் தேதிக்குள் செலுத்தவும்.\n\nஇப்போது செலுத்துங்கள் (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}நன்றி.\n- {business}',
+  'Dear Customer, your cable TV connection is disconnected due to non-payment.\n\nAmount to reconnect: ₹{amount} (as on {date})\n\nPay now (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}- {business}': 'அன்புள்ள வாடிக்கையாளர், பணம் செலுத்தாததால் உங்கள் கேபிள் டிவி இணைப்பு துண்டிக்கப்பட்டது.\n\nமறு இணைப்புக்கான தொகை: ₹{amount} ({date} நிலவரப்படி)\n\nஇப்போது செலுத்துங்கள் (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}- {business}',
+  'If this keeps happening, the map_note database column may be missing — run migrate_customer_map_note.py on the server.': 'இது தொடர்ந்து நடந்தால், map_note டேட்டாபேஸ் காலம் இல்லாமல் இருக்கலாம் — சர்வரில் migrate_customer_map_note.py ஐ இயக்கவும்.',
+} as Record<string, string>;

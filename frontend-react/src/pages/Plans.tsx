@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { plansApi } from '../api';
 import { Tv, Plus, Pencil, Trash2, X, AlertCircle } from 'lucide-react';
 import Rs from '../components/Rs';
+import { useT } from '../lib/i18n';
 
 interface Plan {
   id: number;
@@ -20,6 +21,7 @@ interface Plan {
 const MSOS = ['GTPL', 'TACTV', 'SCV'];
 
 export default function Plans() {
+  const { t } = useT();
   const [msoFilter, setMsoFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editPlan, setEditPlan] = useState<Plan | null>(null);
@@ -55,10 +57,10 @@ export default function Plans() {
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Tv style={{ width: 28, height: 28 }} />
-            Plans
+            {t('Plans')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            Manage pricing plans per MSO
+            {t('Manage pricing plans per MSO')}
           </p>
         </div>
         <button
@@ -69,7 +71,7 @@ export default function Plans() {
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
-          <Plus style={{ width: 18, height: 18 }} /> Add Plan
+          <Plus style={{ width: 18, height: 18 }} /> {t('Add Plan')}
         </button>
       </div>
 
@@ -77,7 +79,7 @@ export default function Plans() {
       <div style={{ display: 'flex', gap: 8 }}>
         {['', ...MSOS].map(m => {
           const active = msoFilter === m;
-          const label = m || 'All MSOs';
+          const label = m || t('All MSOs');
           return (
             <button
               key={label}
@@ -103,19 +105,19 @@ export default function Plans() {
             <div style={{ width: 32, height: 32, border: '3px solid rgba(0,113,227,0.2)', borderTopColor: '#0071e3', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
           </div>
         ) : !plans.length ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>No plans found</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>{t('No plans found')}</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Plan Name</th>
-                  <th>MSO</th>
-                  <th>Price</th>
-                  <th>MSO Cost</th>
-                  <th>Validity</th>
-                  <th>Customers</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>{t('Plan Name')}</th>
+                  <th>{t('MSO')}</th>
+                  <th>{t('Price')}</th>
+                  <th>{t('MSO Cost')}</th>
+                  <th>{t('Validity')}</th>
+                  <th>{t('Customers')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,7 +135,7 @@ export default function Plans() {
                     </td>
                     <td style={{ fontWeight: 600, color: '#34c759' }}><Rs amount={p.amount} /></td>
                     <td style={{ color: 'var(--text-light)' }}>{p.mso_cost ? <Rs amount={p.mso_cost} /> : '--'}</td>
-                    <td style={{ color: 'var(--text-light)' }}>{p.validity_days || 30} days</td>
+                    <td style={{ color: 'var(--text-light)' }}>{p.validity_days || 30} {t('days')}</td>
                     <td>{p.active_customers ?? 0}</td>
                     <td style={{ textAlign: 'right' }}>
                       <button
@@ -181,17 +183,17 @@ export default function Plans() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(255,59,48,0.1)' }}>
                 <AlertCircle style={{ width: 24, height: 24, color: '#ff3b30' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Delete Plan?</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Delete Plan?')}</h3>
             </div>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 20 }}>This will deactivate the plan. Existing customers will not be affected immediately.</p>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 20 }}>{t('This will deactivate the plan. Existing customers will not be affected immediately.')}</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteId(null)} style={{ padding: '8px 18px', borderRadius: 10, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.85rem', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setDeleteId(null)} style={{ padding: '8px 18px', borderRadius: 10, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.85rem', cursor: 'pointer' }}>{t('Cancel')}</button>
               <button
                 onClick={() => deleteMut.mutate(deleteId)}
                 disabled={deleteMut.isPending}
                 style={{ padding: '8px 18px', borderRadius: 10, border: 'none', background: '#ff3b30', color: '#fff', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', opacity: deleteMut.isPending ? 0.6 : 1 }}
               >
-                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+                {deleteMut.isPending ? t('Deleting...') : t('Delete')}
               </button>
             </div>
           </div>
@@ -207,6 +209,7 @@ function PlanModal({ plan, onClose, onSave, saving }: {
   onSave: (data: Partial<Plan>) => void;
   saving: boolean;
 }) {
+  const { t } = useT();
   const [name, setName] = useState(plan?.name ?? '');
   const [network, setNetwork] = useState(plan?.network ?? 'GTPL');
   const [amount, setAmount] = useState(String(plan?.amount ?? ''));
@@ -241,7 +244,7 @@ function PlanModal({ plan, onClose, onSave, saving }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 440, width: '90%', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{plan ? 'Edit Plan' : 'Add Plan'}</h3>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{plan ? t('Edit Plan') : t('Add Plan')}</h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
           </button>
@@ -249,40 +252,40 @@ function PlanModal({ plan, onClose, onSave, saving }: {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Plan Name</label>
+            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Plan Name')}</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. TAMIL PRIME" required style={inputStyle} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>MSO</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('MSO')}</label>
               <select value={network} onChange={e => setNetwork(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
                 {MSOS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Price (₹)</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Price (₹)')}</label>
               <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="250" required style={inputStyle} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>MSO Cost (₹)</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('MSO Cost (₹)')}</label>
               <input type="number" value={msoCost} onChange={e => setMsoCost(e.target.value)} placeholder="78" style={inputStyle} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Validity (days)</label>
+              <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Validity (days)')}</label>
               <input type="number" value={validity} onChange={e => setValidity(e.target.value)} placeholder="30" style={inputStyle} />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Description</label>
+            <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Description')}</label>
             <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional notes" style={inputStyle} />
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-            <button type="button" onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>Cancel</button>
+            <button type="button" onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>{t('Cancel')}</button>
             <button type="submit" disabled={saving} style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Saving...' : plan ? 'Update' : 'Create'}
+              {saving ? t('Saving...') : plan ? t('Update') : t('Create')}
             </button>
           </div>
         </form>

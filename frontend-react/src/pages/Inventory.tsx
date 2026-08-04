@@ -5,6 +5,7 @@ import { stbApi } from '../api';
 import { fmtDate } from '../lib/format';
 import { Package, Plus, Trash2, AlertCircle, Edit2 } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
+import { useT } from '../lib/i18n';
 
 interface InventoryItem {
   id: number;
@@ -16,6 +17,7 @@ interface InventoryItem {
 }
 
 export default function Inventory() {
+  const { t } = useT();
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStb, setNewStb] = useState({ stb_no: '', status: 'spare', notes: '' });
@@ -98,10 +100,10 @@ export default function Inventory() {
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Package style={{ width: 28, height: 28 }} />
-            STB Inventory
+            {t('STB Inventory')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            Manage spare, faulty and returned STBs
+            {t('Manage spare, faulty and returned STBs')}
           </p>
         </div>
         <button
@@ -112,13 +114,13 @@ export default function Inventory() {
             cursor: 'pointer',
           }}
         >
-          <Plus style={{ width: 18, height: 18 }} /> Add STB to Inventory
+          <Plus style={{ width: 18, height: 18 }} /> {t('Add STB to Inventory')}
         </button>
       </div>
 
       {/* Filter */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>Status:</span>
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{t('Status')}:</span>
         {['', ...statusOptions].map(s => {
           const sc = s ? statusStyle(s) : null;
           const isActive = statusFilter === s;
@@ -134,7 +136,7 @@ export default function Inventory() {
                 cursor: 'pointer',
               }}
             >
-              {s ? sc?.label : 'All'}
+              {s ? t(sc!.label) : t('All')}
             </button>
           );
         })}
@@ -143,21 +145,21 @@ export default function Inventory() {
       {/* Table */}
       <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         {isLoading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>Loading inventory...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>{t('Loading inventory...')}</div>
         ) : inventory.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
             <AlertCircle style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
-            No STBs found in inventory
+            {t('No STBs found in inventory')}
           </div>
         ) : (
           <table className="glass-table">
             <thead>
               <tr>
-                <th>STB No</th>
-                <th>Status</th>
-                <th>Notes</th>
-                <th>Added</th>
-                <th>Added By</th>
+                <th>{t('STB No')}</th>
+                <th>{t('Status')}</th>
+                <th>{t('Notes')}</th>
+                <th>{t('Added')}</th>
+                <th>{t('Added By')}</th>
                 <th style={{ width: 60 }}>{canDelete ? "" : null}</th>
               </tr>
             </thead>
@@ -182,7 +184,7 @@ export default function Inventory() {
                         }}
                       >
                         {['spare', 'faulty', 'available', 'with_mso'].map(s => (
-                          <option key={s} value={s}>{statusStyle(s).label}</option>
+                          <option key={s} value={s}>{t(statusStyle(s).label)}</option>
                         ))}
                       </select>
                     ) : (
@@ -191,7 +193,7 @@ export default function Inventory() {
                         background: statusStyle(item.status).bg,
                         color: statusStyle(item.status).color,
                       }}>
-                        {statusStyle(item.status).label}
+                        {t(statusStyle(item.status).label)}
                       </span>
                     )}
                   </td>
@@ -200,7 +202,7 @@ export default function Inventory() {
                   <td style={{ fontSize: '0.85rem' }}>{item.added_by}</td>
                   <td>
                     {canUpdate && (
-                      <span title="Edit status" style={{ cursor: 'pointer', marginRight: 8 }}>
+                      <span title={t('Edit status')} style={{ cursor: 'pointer', marginRight: 8 }}>
                         <Edit2 size={16} style={{ color: '#0071e3' }} />
                       </span>
                     )}
@@ -208,7 +210,7 @@ export default function Inventory() {
                       <button
                         onClick={() => setDeleteId(item.id)}
                         style={{ background: 'none', border: 'none', color: '#ff3b30', cursor: 'pointer' }}
-                        title="Remove from inventory"
+                        title={t('Remove from inventory')}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -225,10 +227,10 @@ export default function Inventory() {
       {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="glass-card" style={{ width: '100%', maxWidth: 420, padding: 24 }}>
-            <h3 style={{ marginBottom: 16 }}>Add STB to Inventory</h3>
+            <h3 style={{ marginBottom: 16 }}>{t('Add STB to Inventory')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>STB Number</label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{t('STB Number')}</label>
                 <input
                   type="text"
                   value={newStb.stb_no}
@@ -238,33 +240,33 @@ export default function Inventory() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Status</label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{t('Status')}</label>
                 <select
                   value={newStb.status}
                   onChange={e => setNewStb({ ...newStb, status: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)' }}
                 >
-                  {statusOptions.map(s => <option key={s} value={s}>{statusStyle(s).label}</option>)}
+                  {statusOptions.map(s => <option key={s} value={s}>{t(statusStyle(s).label)}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>Notes (optional)</label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{t('Notes (optional)')}</label>
                 <input
                   type="text"
                   value={newStb.notes}
                   onChange={e => setNewStb({ ...newStb, notes: e.target.value })}
-                  placeholder="Reason or remarks"
+                  placeholder={t('Reason or remarks')}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)' }}
                 />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}>Cancel</button>
+              <button onClick={() => setShowAddModal(false)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}>{t('Cancel')}</button>
               <button onClick={handleAdd} disabled={addMut.isPending || !newStb.stb_no.trim()} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontWeight: 600 }}>
-                {addMut.isPending ? 'Adding...' : 'Add to Inventory'}
+                {addMut.isPending ? t('Adding...') : t('Add to Inventory')}
               </button>
             </div>
-            {addMut.isError && <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: 8 }}>Failed to add STB</p>}
+            {addMut.isError && <p style={{ color: '#ff3b30', fontSize: '0.8rem', marginTop: 8 }}>{t('Failed to add STB')}</p>}
           </div>
         </div>
       )}
@@ -273,11 +275,11 @@ export default function Inventory() {
       {deleteId !== null && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div className="glass-card" style={{ padding: 24, maxWidth: 380 }}>
-            <p style={{ marginBottom: 16 }}>Remove this STB from inventory?</p>
+            <p style={{ marginBottom: 16 }}>{t('Remove this STB from inventory?')}</p>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setDeleteId(null)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent' }}>Cancel</button>
+              <button onClick={() => setDeleteId(null)} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)', background: 'transparent' }}>{t('Cancel')}</button>
               <button onClick={() => deleteMut.mutate(deleteId)} disabled={deleteMut.isPending} style={{ flex: 1, padding: '10px', borderRadius: 10, border: 'none', background: '#ff3b30', color: '#fff', fontWeight: 600 }}>
-                {deleteMut.isPending ? 'Removing...' : 'Remove'}
+                {deleteMut.isPending ? t('Removing...') : t('Remove')}
               </button>
             </div>
           </div>

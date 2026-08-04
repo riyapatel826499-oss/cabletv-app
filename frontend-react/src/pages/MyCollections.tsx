@@ -4,8 +4,10 @@ import { reportsApi } from '../api';
 import { fmtDate } from '../lib/format';
 import { Wallet, TrendingUp, Download } from 'lucide-react';
 import Rs from '../components/Rs';
+import { useT } from '../lib/i18n';
 
 export default function MyCollections() {
+  const { t } = useT();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
@@ -71,10 +73,10 @@ export default function MyCollections() {
       {/* Header */}
       <div>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-          My Collections
+          {t('My Collections')}
         </h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Your personal collection summary and history
+          {t('Your personal collection summary and history')}
         </p>
       </div>
 
@@ -87,7 +89,7 @@ export default function MyCollections() {
             </div>
             <div>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Total Collected
+                {t('Total Collected')}
               </p>
               <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34c759' }}><Rs amount={totalCollected} /></p>
             </div>
@@ -101,7 +103,7 @@ export default function MyCollections() {
             </div>
             <div>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Payments Made
+                {t('Payments Made')}
               </p>
               <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}>{paymentCount}</p>
             </div>
@@ -115,7 +117,7 @@ export default function MyCollections() {
             </div>
             <div>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Avg per Payment
+                {t('Avg per Payment')}
               </p>
               <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)' }}><Rs amount={avgCollection} /></p>
             </div>
@@ -125,9 +127,9 @@ export default function MyCollections() {
 
       {/* Date Filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <label style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>From</label>
+        <label style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('From')}</label>
         <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} style={inputStyle} />
-        <label style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>To</label>
+        <label style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('To')}</label>
         <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} style={inputStyle} />
         {(fromDate || toDate) && (
           <button
@@ -142,7 +144,7 @@ export default function MyCollections() {
               cursor: 'pointer',
             }}
           >
-            Clear
+            {t('Clear')}
           </button>
         )}
         <button
@@ -164,7 +166,7 @@ export default function MyCollections() {
             opacity: payments.length ? 1 : 0.5,
           }}
         >
-          <Download style={{ width: 14, height: 14 }} /> Export CSV
+          <Download style={{ width: 14, height: 14 }} /> {t('Export CSV')}
         </button>
       </div>
 
@@ -185,19 +187,19 @@ export default function MyCollections() {
           </div>
         ) : payments.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
-            No collections found. Payments you collect will appear here.
+            {t('No collections found. Payments you collect will appear here.')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Customer</th>
-                  <th>Area</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Source</th>
-                  <th>Date</th>
+                  <th>{t('Customer')}</th>
+                  <th>{t('Area')}</th>
+                  <th>{t('Amount')}</th>
+                  <th>{t('Mode')}</th>
+                  <th>{t('Source')}</th>
+                  <th>{t('Date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,10 +267,10 @@ export default function MyCollections() {
               opacity: page > 1 ? 1 : 0.5,
             }}
           >
-            Previous
+            {t('Previous')}
           </button>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-            Page {page} of {totalPages}
+            {t('Page {p} of {t}', { p: page, t: totalPages })}
           </span>
           <button
             onClick={() => setPage(Math.min(totalPages, page + 1))}
@@ -284,7 +286,7 @@ export default function MyCollections() {
               opacity: page < totalPages ? 1 : 0.5,
             }}
           >
-            Next
+            {t('Next')}
           </button>
         </div>
       )}

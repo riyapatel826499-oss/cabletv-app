@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from './portalApi';
+import { useT } from '../lib/i18n';
 
 type DashData = {
   customer_id: string;
@@ -26,6 +27,7 @@ function fmtDate(d: string | null) {
 }
 
 export default function PortalHome() {
+  const { t } = useT();
   const { data, isLoading } = useQuery<DashData>({
     queryKey: ['portal-dashboard'],
     queryFn: async () => (await api.get('/dashboard')).data,
@@ -44,7 +46,7 @@ export default function PortalHome() {
   if (isLoading) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#86868b' }}>
-        Loading\u2026
+        {t('Loading…')}
       </div>
     );
   }
@@ -52,7 +54,7 @@ export default function PortalHome() {
   if (!data) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#b91c1c' }}>
-        Could not load your account. Try logging in again.
+        {t('Could not load your account. Try logging in again.')}
       </div>
     );
   }
@@ -81,17 +83,17 @@ export default function PortalHome() {
         }}
       >
         <div style={{ fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {data.is_paid ? '\u2705 Paid' : '\u26a0 Due'}
+          {t(data.is_paid ? '✅ Paid' : '⚠️ Due')}
         </div>
         <div style={{ fontSize: '2rem', fontWeight: 700, margin: '4px 0' }}>
           ₹{amt}
         </div>
         <div style={{ fontSize: '0.85rem', color: '#3a3a3c' }}>
-          {data.plan_name || 'Cable TV'} plan
+          {data.plan_name || t('Cable TV')} {t('plan')}
         </div>
         {data.expiry_date && (
           <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: 8 }}>
-            {data.is_paid ? `Active till ${fmtDate(data.expiry_date)}` : `Expired on ${fmtDate(data.expiry_date)}`}
+            {t(data.is_paid ? 'Active till {d}' : 'Expired on {d}', { d: fmtDate(data.expiry_date) })}
           </div>
         )}
         {data.expiry_date && !data.is_paid && (
@@ -102,13 +104,13 @@ export default function PortalHome() {
               fontSize: '1rem', textDecoration: 'none',
             }}
           >
-            Pay ₹{amt} now
+            {t('Pay ₹{n} now', { n: amt })}
           </a>
         )}
       </div>
 
       {/* Quick actions */}
-      <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>Quick actions</div>
+      <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>{t('Quick actions')}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
         {data.is_paid && (
           <a href={payHref}
@@ -118,7 +120,7 @@ export default function PortalHome() {
               fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none',
             }}
           >
-            Pay now (₹{amt})
+            {t('Pay now (₹{n})', { n: amt })}
           </a>
         )}
         <a href="/app/portal/history"
@@ -128,7 +130,7 @@ export default function PortalHome() {
             fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none',
           }}
         >
-          Payment history
+          {t('Payment history')}
         </a>
         <a href="/app/portal/support"
           style={{
@@ -137,7 +139,7 @@ export default function PortalHome() {
             fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none',
           }}
         >
-          Report a problem
+          {t('Report a problem')}
         </a>
       </div>
 
@@ -148,7 +150,7 @@ export default function PortalHome() {
           padding: '14px', fontSize: '0.8rem', color: '#6b7280',
         }}
       >
-        Need help? Call <b>{settings?.phone || '77085 51139'}</b> or email
+        {t('Need help? Call')} <b>{settings?.phone || '77085 51139'}</b> {t('or email')}
         {settings?.email || 'selvanayakiammancables@gmail.com'}
       </div>
     </div>

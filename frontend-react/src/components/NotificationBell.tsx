@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, CheckCheck, Wifi, Tv, AlertTriangle, XCircle, RefreshCw, Zap } from 'lucide-react';
 import { notificationsApi } from '../api';
+import { useT, translate } from '../lib/i18n';
 
 interface Notification {
   id: number;
@@ -20,10 +21,10 @@ function timeAgo(iso: string): string {
     const d = new Date(iso);
     const now = Date.now();
     const diff = Math.floor((now - d.getTime()) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 60) return translate('just now');
+    if (diff < 3600) return translate('{n}m ago', { n: Math.floor(diff / 60) });
+    if (diff < 86400) return translate('{n}h ago', { n: Math.floor(diff / 3600) });
+    if (diff < 604800) return translate('{n}d ago', { n: Math.floor(diff / 86400) });
     return d.toLocaleDateString();
   } catch {
     return '';
@@ -46,6 +47,7 @@ const TYPE_ICONS: Record<string, { icon: typeof Wifi; color: string }> = {
 };
 
 export default function NotificationBell() {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -185,7 +187,7 @@ export default function NotificationBell() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text)' }}>
-                Activity Status
+                {t('Activity Status')}
               </span>
               {unreadCount > 0 && (
                 <span
@@ -198,7 +200,7 @@ export default function NotificationBell() {
                     borderRadius: 10,
                   }}
                 >
-                  {unreadCount} new
+                  {t('{n} new', { n: unreadCount })}
                 </span>
               )}
             </div>
@@ -219,7 +221,7 @@ export default function NotificationBell() {
                   }}
                 >
                   <CheckCheck style={{ width: 14, height: 14 }} />
-                  Mark all read
+                  {t('Mark all read')}
                 </button>
               )}
               <button
@@ -242,7 +244,7 @@ export default function NotificationBell() {
             {notifications.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-light)', fontSize: '0.82rem' }}>
                 <Bell style={{ width: 28, height: 28, margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
-                No activity notifications yet
+                {t('No activity notifications yet')}
               </div>
             ) : (
               notifications.map((n) => {

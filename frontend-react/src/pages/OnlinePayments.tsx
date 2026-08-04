@@ -8,6 +8,7 @@ import {
   HelpCircle,
   Loader2,
 } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 // Online Payments — an in-app monitor of Razorpay webhook activity.
 // Every webhook Razorpay sends is logged server-side to `online_payments`.
@@ -40,6 +41,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string; I
 };
 
 function StatusChip({ status }: { status: string | null }) {
+  const { t } = useT();
   const s = STATUS_STYLE[status || ''] || {
     bg: 'rgba(148,163,184,0.15)', color: '#94a3b8', label: status || 'Unknown', Icon: HelpCircle,
   };
@@ -50,7 +52,7 @@ function StatusChip({ status }: { status: string | null }) {
       borderRadius: 999, background: s.bg, color: s.color, fontSize: '0.78rem', fontWeight: 600,
       whiteSpace: 'nowrap',
     }}>
-      <Icon size={13} />{s.label}
+      <Icon size={13} />{t(s.label)}
     </span>
   );
 }
@@ -65,6 +67,7 @@ function fmtWhen(iso: string | null): string {
 }
 
 export default function OnlinePayments() {
+  const { t } = useT();
   const { data, isLoading, isError, refetch, isFetching } = useQuery<OnlinePaymentsResp>({
     queryKey: ['online-payments'],
     queryFn: async () => (await api.get('/online-payments', { params: { limit: 200 } })).data,
@@ -87,10 +90,10 @@ export default function OnlinePayments() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-color,#1d1d1f)' }}>
-            <CreditCard size={22} /> Online Payments
+            <CreditCard size={22} /> {t('Online Payments')}
           </h1>
           <p style={{ color: muted, fontSize: '0.85rem', marginTop: 2 }}>
-            Payments received automatically through the Razorpay pay page.
+            {t('Payments received automatically through the Razorpay pay page.')}
           </p>
         </div>
         <button
@@ -104,7 +107,7 @@ export default function OnlinePayments() {
           }}
         >
           <RefreshCw size={15} style={isFetching ? { animation: 'spin 1s linear infinite' } : undefined} />
-          Refresh
+          {t('Refresh')}
         </button>
       </div>
 
@@ -123,24 +126,24 @@ export default function OnlinePayments() {
       {/* Body */}
       {isLoading && (
         <div style={{ ...card, padding: 40, textAlign: 'center', color: muted }}>
-          <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> Loading…
+          <Loader2 size={22} style={{ animation: 'spin 1s linear infinite' }} /> {t('Loading…')}
         </div>
       )}
 
       {isError && (
         <div style={{ ...card, padding: 20, borderColor: '#ef4444', color: '#ef4444' }}>
-          Could not load online payments. You may not have permission, or the server is unavailable.
+          {t('Could not load online payments. You may not have permission, or the server is unavailable.')}
         </div>
       )}
 
       {data && data.count === 0 && (
         <div style={{ ...card, padding: 32, textAlign: 'center' }}>
           <AlertTriangle size={26} style={{ color: '#f59e0b', marginBottom: 8 }} />
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>No online payments yet</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('No online payments yet')}</div>
           <p style={{ color: muted, fontSize: '0.85rem', lineHeight: 1.5, maxWidth: 480, margin: '0 auto' }}>
-            When a customer pays through the Razorpay pay page and the webhook fires, it will appear here.
-            If you made a test payment and nothing shows, the webhook likely isn't configured yet
-            (Razorpay Dashboard → Settings → Webhooks → <code>/api/razorpay/webhook</code>, event <code>payment.captured</code>).
+            {t('When a customer pays through the Razorpay pay page and the webhook fires, it will appear here.')}
+            {t('If you made a test payment and nothing shows, the webhook likely isn\'t configured yet')}
+            ({t('Razorpay Dashboard → Settings → Webhooks →')} <code>/api/razorpay/webhook</code>{t(', event')} <code>payment.captured</code>).
           </p>
         </div>
       )}
@@ -161,7 +164,7 @@ export default function OnlinePayments() {
             >
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                  {p.customer_name || p.customer_id || 'Unknown customer'}
+                  {p.customer_name || p.customer_id || t('Unknown customer')}
                   {p.customer_id && p.customer_name && (
                     <span style={{ color: muted, fontWeight: 400 }}> · {p.customer_id}</span>
                   )}

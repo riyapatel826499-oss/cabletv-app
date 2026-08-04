@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Search, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
 import Rs from '../components/Rs';
+import { useT } from '../lib/i18n';
 
 interface UnpaidCustomer {
   customer_id: string;
@@ -39,6 +40,7 @@ function asOfDate(monthsAgo: number): string {
 
 export default function Unpaid() {
   const navigate = useNavigate();
+  const { t } = useT();
   const [q, setQ] = useState('');
   const [area, setArea] = useState('');
   const [page, setPage] = useState(1);
@@ -67,10 +69,10 @@ export default function Unpaid() {
       <div>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <AlertCircle style={{ width: 28, height: 28, color: '#ff3b30' }} />
-          Unpaid Customers
+          {t('Unpaid Customers')}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Customers with expired subscriptions as of {fmtDate(asOf)}
+          {t('Customers with expired subscriptions as of {date}', { date: fmtDate(asOf) })}
         </p>
       </div>
 
@@ -81,7 +83,7 @@ export default function Unpaid() {
             <Users style={{ width: 22, height: 22, color: '#ff3b30' }} />
           </div>
           <div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Unpaid</p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Total Unpaid')}</p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff3b30', marginTop: 2 }}>{data?.total ?? '--'}</p>
           </div>
         </div>
@@ -90,7 +92,7 @@ export default function Unpaid() {
             <AlertCircle style={{ width: 22, height: 22, color: '#ff9f0a' }} />
           </div>
           <div>
-            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Amount</p>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Pending Amount')}</p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ff9f0a', marginTop: 2 }}><Rs amount={totalPending} /></p>
           </div>
         </div>
@@ -117,7 +119,7 @@ export default function Unpaid() {
                 cursor: 'pointer', transition: 'all 0.2s',
               }}
             >
-              {f.label}
+              {t(f.label)}
             </button>
           );
         })}
@@ -129,7 +131,7 @@ export default function Unpaid() {
           <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: 'var(--text-light)' }} />
           <input
             type="text"
-            placeholder="Search by name, phone, or STB..."
+            placeholder={t('Search by name, phone, or STB...')}
             value={q}
             onChange={e => { setQ(e.target.value); setPage(1); }}
             style={{
@@ -147,7 +149,7 @@ export default function Unpaid() {
             background: 'var(--bg-secondary)', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer',
           }}
         >
-          <option value="">All Areas</option>
+          <option value="">{t('All Areas')}</option>
           {data?.areas?.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
@@ -161,25 +163,25 @@ export default function Unpaid() {
         ) : isError ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#ff3b30' }}>
             <AlertCircle style={{ width: 32, height: 32, margin: '0 auto 8px' }} />
-            Failed to load unpaid customers
+            {t('Failed to load unpaid customers')}
           </div>
         ) : !data?.customers?.length ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
-            No unpaid customers found
+            {t('No unpaid customers found')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Customer</th>
-                  <th>Phone</th>
-                  <th>STB</th>
-                  <th>Area</th>
-                  <th>Plan</th>
-                  <th>Expiry</th>
-                  <th>Gap</th>
-                  <th style={{ textAlign: 'right' }}>Pending</th>
+                  <th>{t('Customer')}</th>
+                  <th>{t('Phone')}</th>
+                  <th>{t('STB')}</th>
+                  <th>{t('Area')}</th>
+                  <th>{t('Plan')}</th>
+                  <th>{t('Expiry')}</th>
+                  <th>{t('Gap')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Pending')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -227,7 +229,7 @@ export default function Unpaid() {
         {data && data.total_pages > 1 && (
           <div style={{ padding: '12px 24px', borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-              Page {data.page} of {data.total_pages} ({data.total} customers)
+              {t('Page {p} of {t} ({n} customers)', { p: data.page, t: data.total_pages, n: data.total })}
             </span>
             <div style={{ display: 'flex', gap: 6 }}>
               <button
@@ -240,7 +242,7 @@ export default function Unpaid() {
                   opacity: page <= 1 ? 0.5 : 1, fontSize: '0.82rem',
                 }}
               >
-                <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+                <ChevronLeft style={{ width: 16, height: 16 }} /> {t('Prev')}
               </button>
               <button
                 onClick={() => setPage(p => Math.min(data.total_pages, p + 1))}
@@ -252,7 +254,7 @@ export default function Unpaid() {
                   opacity: page >= data.total_pages ? 0.5 : 1, fontSize: '0.82rem',
                 }}
               >
-                Next <ChevronRight style={{ width: 16, height: 16 }} />
+                {t('Next')} <ChevronRight style={{ width: 16, height: 16 }} />
               </button>
             </div>
           </div>

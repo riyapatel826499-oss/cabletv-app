@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import api from './portalApi';
+import { useT } from '../lib/i18n';
 
 type PaymentRecord = {
   id: number;
@@ -33,6 +34,7 @@ function modeColor(mode: string) {
 }
 
 export default function PortalHistory() {
+  const { t } = useT();
   const { data, isLoading } = useQuery<PaymentsRes>({
     queryKey: ['portal-payments'],
     queryFn: async () => (await api.get('/payments')).data,
@@ -42,12 +44,12 @@ export default function PortalHistory() {
 
   const shareRecept = (p: PaymentRecord) => {
     const lines = [
-      `Payment Receipt`,
-      `Amount: Rs.${p.amount}`,
-      `Mode: ${p.mode}`,
-      p.month_year ? `Month: ${p.month_year}` : '',
-      p.date ? `Date: ${new Date(p.date).toLocaleString('en-IN')}` : '',
-      p.notes ? `Notes: ${p.notes}` : '',
+      t('Payment Receipt'),
+      t('Amount: Rs.{n}', { n: p.amount }),
+      t('Mode: {m}', { m: p.mode }),
+      p.month_year ? t('Month: {m}', { m: p.month_year }) : '',
+      p.date ? t('Date: {d}', { d: new Date(p.date).toLocaleString('en-IN') }) : '',
+      p.notes ? t('Notes: {n}', { n: p.notes }) : '',
     ].filter(Boolean);
     const text = encodeURIComponent(lines.join('\n'));
     window.open(`https://wa.me/?text=${text}`, '_blank');
@@ -55,13 +57,13 @@ export default function PortalHistory() {
 
   return (
     <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>Payment History</h2>
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>{t('Payment History')}</h2>
       <p style={{ fontSize: '0.8rem', color: '#86868b', marginBottom: 16 }}>
-        {data?.count ?? 0} payment{data?.count !== 1 ? 's' : ''} recorded
+        {t('{n} payments recorded', { n: data?.count ?? 0 })}
       </p>
 
       {isLoading ? (
-        <div style={{ textAlign: 'center', color: '#86868b', padding: 20 }}>Loading\u2026</div>
+        <div style={{ textAlign: 'center', color: '#86868b', padding: 20 }}>{t('Loading…')}</div>
       ) : payments.length === 0 ? (
         <div
           style={{
@@ -69,7 +71,7 @@ export default function PortalHistory() {
             padding: 24, textAlign: 'center', fontSize: '0.85rem', color: '#86868b',
           }}
         >
-          No payments recorded yet.
+          {t('No payments recorded yet.')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -93,7 +95,7 @@ export default function PortalHistory() {
                 </span>
               </div>
               <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 4 }}>
-                {p.month_year ? `Month: ${p.month_year}` : ''}
+                {p.month_year ? t('Month: {m}', { m: p.month_year }) : ''}
                 {p.date ? ` \u00b7 ${new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
               </div>
               {p.notes && (
@@ -107,7 +109,7 @@ export default function PortalHistory() {
                   cursor: 'pointer',
                 }}
               >
-                Share on WhatsApp
+                {t('Share on WhatsApp')}
               </button>
             </div>
           ))}

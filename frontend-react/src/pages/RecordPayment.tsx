@@ -8,6 +8,7 @@ import { fmtRs } from '../lib/format';
 import { calcPayAmount } from '../lib/prorata';
 import { Search, Loader2, CheckCircle, AlertCircle, ArrowLeft, Receipt, Info } from 'lucide-react';
 import Rs from '../components/Rs';
+import { useT, translate } from '../lib/i18n';
 
 type CustomerSearchResult = CustomerListItem;
 
@@ -88,7 +89,7 @@ function detectGap(conn: ConnectionInfo): { isDisconnected: boolean; defaultMont
     return {
       isDisconnected: true,
       defaultMonth: `${curYear}-${String(curMonth + 1).padStart(2, '0')}`,
-      gapNote: `Last paid till ${expStr} (${gapMonths} month gap). Reconnecting — 1 month prorata.`,
+      gapNote: translate('Last paid till {expStr} ({n} month gap). Reconnecting — 1 month prorata.', { expStr, n: gapMonths }),
     };
   }
 
@@ -108,7 +109,7 @@ function detectGap(conn: ConnectionInfo): { isDisconnected: boolean; defaultMont
     return {
       isDisconnected: false,
       defaultMonth: `${nextY}-${String(nextM).padStart(2, '0')}`,
-      gapNote: `Already paid till ${expStr}. Month set to ${nextMonthName} (next unpaid).`,
+      gapNote: translate('Already paid till {expStr}. Month set to {nextMonthName} (next unpaid).', { expStr, nextMonthName }),
     };
   }
 
@@ -120,6 +121,7 @@ function detectGap(conn: ConnectionInfo): { isDisconnected: boolean; defaultMont
 }
 
 export default function RecordPayment() {
+  const { t } = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -349,11 +351,11 @@ export default function RecordPayment() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomer) { setError('Please select a customer'); return; }
-    if (!selectedPlanId) { setError('Please select a plan'); return; }
-    if (!payCalc || payCalc.netAmount <= 0) { setError('Invalid amount'); return; }
-    if (discountAmt > 0 && !discountReason) { setError('Please select a reason for the discount'); return; }
-    if (discountAmt > payCalc.netAmount) { setError('Discount cannot exceed total amount'); return; }
+    if (!selectedCustomer) { setError(t('Please select a customer')); return; }
+    if (!selectedPlanId) { setError(t('Please select a plan')); return; }
+    if (!payCalc || payCalc.netAmount <= 0) { setError(t('Invalid amount')); return; }
+    if (discountAmt > 0 && !discountReason) { setError(t('Please select a reason for the discount')); return; }
+    if (discountAmt > payCalc.netAmount) { setError(t('Discount cannot exceed total amount')); return; }
     setError('');
     setShowConfirm(true);
   };
@@ -382,7 +384,7 @@ export default function RecordPayment() {
       queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
       setSuccess(true);
     } catch {
-      setError('Failed to record payment. Please try again.');
+      setError(t('Failed to record payment. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -398,16 +400,16 @@ export default function RecordPayment() {
     const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     const receiptMsg =
       `*${opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services'}*\n` +
-      `Payment Receipt\n` +
+      `${t('Payment Receipt')}\n` +
       `-----------------------------\n` +
-      `Customer: ${selectedCustomer?.name} (${selectedCustomer?.customer_id})\n` +
-      `Amount paid: ₹${fmtRs(finalAmount)}\n` +
-      `For: ${monthLabel}${months > 1 ? ` (${months} months)` : ''}\n` +
-      `Mode: ${mode}\n` +
-      `Date: ${dateStr}\n` +
+      `${t('Customer: {name} ({id})', { name: selectedCustomer?.name ?? '', id: selectedCustomer?.customer_id ?? '' })}\n` +
+      `${t('Amount paid: ₹{amount}', { amount: fmtRs(finalAmount) })}\n` +
+      `${t('For: {month}', { month: monthLabel })}${months > 1 ? t(' ({n} months)', { n: months }) : ''}\n` +
+      `${t('Mode: {m}', { m: mode })}\n` +
+      `${t('Date: {d}', { d: dateStr })}\n` +
       `-----------------------------\n` +
-      `Thank you for your payment.\n` +
-      `UPI for next time: ${opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank'}`;
+      `${t('Thank you for your payment.')}\n` +
+      `${t('UPI for next time: {upi}', { upi: opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank' })}`;
     const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(receiptMsg)}`;
     const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem', padding: '4px 0' };
     return (
@@ -415,30 +417,30 @@ export default function RecordPayment() {
         <div className="glass-card" style={{ padding: 26, maxWidth: 380, width: '100%' }}>
           <div style={{ textAlign: 'center', marginBottom: 14 }}>
             <CheckCircle style={{ width: 44, height: 44, color: '#34c759', margin: '0 auto 10px' }} />
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text)' }}>Payment recorded</h2>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text)' }}>{t('Payment recorded')}</h2>
           </div>
           <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0', margin: '6px 0 16px' }}>
-            <div style={row}><span style={{ color: 'var(--text-light)' }}>Customer</span><span style={{ color: 'var(--text)', fontWeight: 500, textAlign: 'right' }}>{selectedCustomer?.name}</span></div>
-            <div style={row}><span style={{ color: 'var(--text-light)' }}>Amount</span><span style={{ color: 'var(--text)', fontWeight: 600 }}>₹{fmtRs(finalAmount)}</span></div>
-            <div style={row}><span style={{ color: 'var(--text-light)' }}>For</span><span style={{ color: 'var(--text)' }}>{monthLabel}{months > 1 ? ` (${months} mo)` : ''}</span></div>
-            <div style={row}><span style={{ color: 'var(--text-light)' }}>Mode</span><span style={{ color: 'var(--text)' }}>{mode}</span></div>
-            <div style={row}><span style={{ color: 'var(--text-light)' }}>Date</span><span style={{ color: 'var(--text)' }}>{dateStr}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Customer')}</span><span style={{ color: 'var(--text)', fontWeight: 500, textAlign: 'right' }}>{selectedCustomer?.name}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Amount')}</span><span style={{ color: 'var(--text)', fontWeight: 600 }}>₹{fmtRs(finalAmount)}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('For')}</span><span style={{ color: 'var(--text)' }}>{monthLabel}{months > 1 ? ` (${t('{n} mo', { n: months })})` : ''}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Mode')}</span><span style={{ color: 'var(--text)' }}>{mode}</span></div>
+            <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Date')}</span><span style={{ color: 'var(--text)' }}>{dateStr}</span></div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {waPhone && (
               <a href={waLink} target="_blank" rel="noreferrer"
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', borderRadius: 'var(--radius-sm)', background: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: '0.9rem' }}>
-                <Receipt style={{ width: 18, height: 18 }} /> Send receipt on WhatsApp
+                <Receipt style={{ width: 18, height: 18 }} /> {t('Send receipt on WhatsApp')}
               </a>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => navigate('/')}
                 style={{ flex: 1, padding: '11px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-secondary)', color: 'var(--text)', cursor: 'pointer', fontWeight: 500, fontSize: '0.88rem' }}>
-                Done
+                {t('Done')}
               </button>
               <button onClick={() => window.location.assign('/app/payments/new')}
                 style={{ flex: 1, padding: '11px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem' }}>
-                New payment
+                {t('New payment')}
               </button>
             </div>
           </div>
@@ -460,10 +462,10 @@ export default function RecordPayment() {
             fontSize: '0.85rem', fontWeight: 500,
           }}
         >
-          <ArrowLeft style={{ width: 16, height: 16 }} /> Back
+          <ArrowLeft style={{ width: 16, height: 16 }} /> {t('Back')}
         </button>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-          Record Payment
+          {t('Record Payment')}
         </h1>
       </div>
 
@@ -482,7 +484,7 @@ export default function RecordPayment() {
           {/* Customer Search */}
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-              Customer
+              {t('Customer')}
             </label>
             <div style={{ position: 'relative' }}>
               <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, color: 'var(--text-light)' }} />
@@ -491,17 +493,16 @@ export default function RecordPayment() {
                 onChange={(e) => { setSearchTerm(e.target.value); setSelectedCustomer(null); }}
                 className="glass-input"
                 style={{ paddingLeft: 40, width: '100%', padding: '12px 16px 12px 40px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
-                placeholder="Search customer by name or phone..."
+                placeholder={t('Search customer by name or phone...')}
                 disabled={!!selectedCustomer}
               />
               {selectedCustomer && (
                 <button type="button" onClick={handleReset}
                   style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'var(--bg-secondary)', border: 'none', borderRadius: 'var(--radius-xs)', padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-light)' }}>
-                  Change
+                  {t('Change')}
                 </button>
               )}
             </div>
-
             {/* Search Results Dropdown */}
             {!selectedCustomer && searchResults && searchResults.length > 0 && (
               <div className="glass-card animate-fade-in" style={{ marginTop: 4, padding: 0, overflow: 'hidden', maxHeight: 280, overflowY: 'auto' }}>
@@ -515,13 +516,13 @@ export default function RecordPayment() {
                       <div>
                         <p style={{ fontSize: '0.88rem', fontWeight: 500, color: 'var(--text)' }}>{c.name}</p>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span>{c.phone || 'No phone'}</span> {c.stb_no && <StbCopy stb={c.stb_no} />}
+                          <span>{c.phone || t('No phone')}</span> {c.stb_no && <StbCopy stb={c.stb_no} />}
                         </p>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         {c.plan_amount && <p style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text)' }}><Rs amount={c.plan_amount} /></p>}
-                        <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>{ps.label}</p>
-                        {ps.label === 'Active | Unpaid' && <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>Due by {cutoffDate}th</p>}
+                        <p style={{ fontSize: '0.7rem', fontWeight: 600, color: ps.color }}>{t(ps.label)}</p>
+                        {ps.label === 'Active | Unpaid' && <p style={{ fontSize: '0.62rem', color: 'var(--text-light)' }}>{t('Due by {day}th', { day: cutoffDate })}</p>}
                       </div>
                     </div>
                   );
@@ -529,7 +530,7 @@ export default function RecordPayment() {
               </div>
             )}
             {!selectedCustomer && searchTerm.length >= 2 && !isFetching && searchResults && searchResults.length === 0 && (
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 8, padding: '0 4px' }}>No customers found matching "{searchTerm}"</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginTop: 8, padding: '0 4px' }}>{t('No customers found matching "{query}"', { query: searchTerm })}</p>
             )}
           </div>
 
@@ -557,7 +558,7 @@ export default function RecordPayment() {
                   <div
                     onClick={() => navigate(`/customers/${selectedCustomer.customer_id}`)}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-                    title="View customer profile"
+                    title={t('View customer profile')}
                   >
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%',
@@ -569,7 +570,7 @@ export default function RecordPayment() {
                     </div>
                     <div>
                       <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0071e3', textDecoration: 'underline', textUnderlineOffset: 2 }}>{selectedCustomer.name}</p>
-                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>ID: {selectedCustomer.customer_id} · Tap to view profile</p>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{t('ID: {id} · Tap to view profile', { id: selectedCustomer.customer_id })}</p>
                     </div>
                   </div>
                   <button type="button" onClick={handleReset}
@@ -578,7 +579,7 @@ export default function RecordPayment() {
                       borderRadius: 'var(--radius-xs)', padding: '4px 12px',
                       fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-light)',
                     }}>
-                    Change
+                    {t('Change')}
                   </button>
                 </div>
                 {/* Details grid */}
@@ -587,27 +588,27 @@ export default function RecordPayment() {
                   borderTop: '0.5px solid var(--border)',
                 }}>
                   <div style={{ padding: '10px 16px', borderRight: '0.5px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Phone</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Phone')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{selectedCustomer.phone || '—'}</p>
                   </div>
                   <div style={{ padding: '10px 16px' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Area</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Area')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{selectedCustomer.area || '—'}</p>
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>STB No</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('STB No')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.stb_no ? <StbCopy stb={conn.stb_no} prefix="" /> : '—'}</p>
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>MSO</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('MSO')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.mso || conn?.network || (conn?.stb_no ? detectMSO(conn.stb_no) : '—')}</p>
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)', borderRight: '0.5px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Package</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Package')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.plan_name || '—'}</p>
                   </div>
                   <div style={{ padding: '10px 16px', borderTop: '0.5px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Expiry</p>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t('Expiry')}</p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500, marginTop: 2 }}>{conn?.expiry_date || '—'}</p>
                   </div>
                 </div>
@@ -618,12 +619,12 @@ export default function RecordPayment() {
           {/* Connection selector (if multiple) */}
           {selectedCustomer && connections.length > 1 && !connLoading && (
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Connection (STB)</label>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>{t('Connection (STB)')}</label>
               <select value={selectedConnId ?? ''} onChange={(e) => handleConnChange(Number(e.target.value))}
                 className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
                 {connections.map((cn) => (
                   <option key={cn.id} value={cn.id}>
-                    {cn.stb_no || `Connection ${cn.id}`} — {cn.mso || cn.network || detectMSO(cn.stb_no)} ({cn.status})
+                    {cn.stb_no || t('Connection {id}', { id: cn.id })} — {cn.mso || cn.network || detectMSO(cn.stb_no)} ({cn.status ? t(cn.status) : ''})
                   </option>
                 ))}
               </select>
@@ -633,10 +634,10 @@ export default function RecordPayment() {
           {/* Plan selector */}
           {selectedCustomer && selectedConnId && !connLoading && plans.length > 0 && (
             <div>
-              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Plan</label>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>{t('Plan')}</label>
               <select value={selectedPlanId ?? ''} onChange={(e) => setSelectedPlanId(e.target.value ? Number(e.target.value) : null)}
                 className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
-                <option value="">Select plan</option>
+                <option value="">{t('Select plan')}</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>{p.name} — ₹{fmtRs(p.amount)}</option>
                 ))}
@@ -649,24 +650,24 @@ export default function RecordPayment() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Billing Month</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>{t('Billing Month')}</label>
                   <input type="month" value={month} onChange={(e) => setMonth(e.target.value)}
                     className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Months</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>{t('Months')}</label>
                   <select value={months} onChange={(e) => setMonths(Number(e.target.value))}
                     className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                      <option key={n} value={n}>{n}{n === 12 ? ' (1 free!)' : ''}</option>
+                      <option key={n} value={n}>{n === 12 ? t('{n} (1 free!)', { n }) : n}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Mode</label>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>{t('Mode')}</label>
                   <select value={mode} onChange={(e) => setMode(e.target.value)}
                     className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
-                    {PAYMENT_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                    {PAYMENT_MODES.map((m) => <option key={m} value={m}>{t(m)}</option>)}
                   </select>
                 </div>
               </div>
@@ -705,11 +706,11 @@ export default function RecordPayment() {
                   {payCalc.discount > 0 && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                        <span style={{ color: 'var(--text-light)' }}>Full Amount</span>
+                        <span style={{ color: 'var(--text-light)' }}>{t('Full Amount')}</span>
                         <span style={{ color: 'var(--text)', fontWeight: 500 }}><Rs amount={payCalc.fullDisplay} /></span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                        <span style={{ color: 'var(--text-light)' }}>Prorata Discount</span>
+                        <span style={{ color: 'var(--text-light)' }}>{t('Prorata Discount')}</span>
                         <span style={{ color: '#34c759', fontWeight: 500 }}>- <Rs amount={payCalc.discount} /></span>
                       </div>
                     </>
@@ -717,13 +718,13 @@ export default function RecordPayment() {
                   {discountAmt > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
                       <span style={{ color: 'var(--text-light)' }}>
-                        Discount ({discountReason})
+                        {t('Discount ({reason})', { reason: t(discountReason) })}
                       </span>
                       <span style={{ color: '#ff9f0a', fontWeight: 500 }}>- <Rs amount={discountAmt} /></span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: (payCalc.discount > 0 || discountAmt > 0) ? 6 : 0, borderTop: (payCalc.discount > 0 || discountAmt > 0) ? '0.5px solid var(--border)' : 'none' }}>
-                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Amount to Pay</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>{t('Amount to Pay')}</span>
                     <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.3rem', fontWeight: 700, color: '#0071e3' }}>
                       <Rs amount={finalAmount} />
                     </span>
@@ -736,7 +737,7 @@ export default function RecordPayment() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-                      Discount <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                      {t('Discount')} <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>({t('Optional')})</span>
                     </label>
                     <input
                       type="number" min="0" step="1" value={discountInput}
@@ -749,12 +750,12 @@ export default function RecordPayment() {
                   {discountAmt > 0 && (
                     <div>
                       <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-                        Reason <span style={{ color: '#ff3b30' }}>*</span>
+                        {t('Reason')} <span style={{ color: '#ff3b30' }}>*</span>
                       </label>
                       <select value={discountReason} onChange={(e) => setDiscountReason(e.target.value)}
                         className="glass-input" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}>
-                        <option value="">Select reason</option>
-                        {DISCOUNT_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                        <option value="">{t('Select reason')}</option>
+                        {DISCOUNT_REASONS.map((r) => <option key={r} value={r}>{t(r)}</option>)}
                       </select>
                     </div>
                   )}
@@ -764,11 +765,11 @@ export default function RecordPayment() {
               {/* Notes */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
-                  Notes <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                  {t('Notes')} <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>({t('Optional')})</span>
                 </label>
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="glass-input"
                   style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', minHeight: 60, resize: 'vertical' }}
-                  placeholder="Any additional notes..." />
+                  placeholder={t('Any additional notes...')} />
               </div>
             </>
           )}
@@ -786,10 +787,10 @@ export default function RecordPayment() {
               boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
             }}>
             {submitting ? (
-              <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> Processing...</>
+              <><Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} /> {t('Processing...')}</>
             ) : payCalc ? (
-              `Pay ₹${fmtRs(finalAmount)}`
-            ) : 'Pay'}
+              t('Pay ₹{amount}', { amount: fmtRs(finalAmount) })
+            ) : t('Pay')}
           </button>
         </div>
       </form>
@@ -821,49 +822,49 @@ export default function RecordPayment() {
                 }}>
                   <Receipt style={{ width: 24, height: 24, color: '#0071e3' }} />
                 </div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>Confirm Payment</h3>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Confirm Payment')}</h3>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 4 }}>
-                  Please verify before proceeding
+                  {t('Please verify before proceeding')}
                 </p>
               </div>
 
               {/* Details */}
               <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Customer</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Customer')}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedCustomer.name}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Customer ID</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Customer ID')}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedCustomer.customer_id}</span>
                 </div>
                 {conn?.stb_no && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>STB No</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('STB No')}</span>
                     <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{conn.stb_no ? <StbCopy stb={conn.stb_no} prefix="" /> : '—'}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Plan</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Plan')}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{selectedPlan?.name || '—'}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Month</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Month')}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{month.split('-').reverse().join('-')}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Mode</span>
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Mode')}</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{mode}</span>
                 </div>
                 {months > 1 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Months</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Months')}</span>
                     <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{months}</span>
                   </div>
                 )}
                 {discountAmt > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid var(--border)' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>Discount ({discountReason})</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>{t('Discount ({reason})', { reason: t(discountReason) })}</span>
                     <span style={{ fontSize: '0.82rem', fontWeight: 500, color: '#ff9f0a' }}>- <Rs amount={discountAmt} /></span>
                   </div>
                 )}
@@ -876,7 +877,7 @@ export default function RecordPayment() {
                   padding: '12px 16px', borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-secondary)', marginBottom: 16,
                 }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Amount</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>{t('Amount')}</span>
                   <span style={{ display: 'flex', alignItems: 'center', fontSize: '1.4rem', fontWeight: 700, color: '#0071e3' }}>
                     <Rs amount={finalAmount} />
                   </span>
@@ -889,7 +890,7 @@ export default function RecordPayment() {
                       fontSize: '0.88rem', fontWeight: 500, border: '0.5px solid var(--border)',
                       cursor: 'pointer',
                     }}>
-                    Cancel
+                    {t('Cancel')}
                   </button>
                   <button type="button" onClick={confirmAndPay}
                     style={{
@@ -898,7 +899,7 @@ export default function RecordPayment() {
                       fontSize: '0.88rem', fontWeight: 600, border: 'none',
                       cursor: 'pointer', boxShadow: '0 2px 8px rgba(52,199,89,0.3)',
                     }}>
-                    Confirm & Pay <Rs amount={finalAmount} />
+                    {t('Confirm & Pay')} <Rs amount={finalAmount} />
                   </button>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import { customersApi } from '../api';
 import type { CustomerListItem } from '../types';
 import { Search, ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import StbCopy from '../components/StbCopy';
+import { useT } from '../lib/i18n';
 
 const PER_PAGE = 20;
 
@@ -16,6 +17,7 @@ interface ListResponse {
 }
 
 function StatusBadge({ status }: { status?: string }) {
+  const { t } = useT();
   const active = (status || '').toLowerCase() === 'active';
   return (
     <span
@@ -28,12 +30,13 @@ function StatusBadge({ status }: { status?: string }) {
         color: active ? '#34c759' : '#ff3b30',
       }}
     >
-      {status || '--'}
+      {status === 'active' ? t('Active') : status === 'inactive' ? t('Inactive') : status === 'disconnected' ? t('Disconnected') : status || '--'}
     </span>
   );
 }
 
 export default function Customers() {
+  const { t } = useT();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -69,10 +72,10 @@ export default function Customers() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            Customers
+            {t('Customers')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {total} {total === 1 ? 'customer' : 'customers'} total
+            {total === 1 ? t('{n} customer total', { n: total }) : t('{n} customers total', { n: total })}
           </p>
         </div>
       </div>
@@ -96,7 +99,7 @@ export default function Customers() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="glass-input"
             style={{ paddingLeft: 40, width: '100%', padding: '10px 16px 10px 40px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem' }}
-            placeholder="Search by name, phone, or STB number..."
+            placeholder={t('Search by name, phone, or STB number...')}
           />
         </div>
         <select
@@ -105,10 +108,10 @@ export default function Customers() {
           className="glass-input"
           style={{ padding: '10px 16px', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', cursor: 'pointer' }}
         >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="disconnected">Disconnected</option>
+          <option value="">{t('All Status')}</option>
+          <option value="active">{t('Active')}</option>
+          <option value="inactive">{t('Inactive')}</option>
+          <option value="disconnected">{t('Disconnected')}</option>
         </select>
       </div>
 
@@ -117,18 +120,18 @@ export default function Customers() {
         {customers.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             <Users style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
-            {isFetching ? 'Loading...' : 'No customers found'}
+            {isFetching ? t('Loading...') : t('No customers found')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Plan</th>
-                  <th>Status</th>
-                  <th>Area</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Phone')}</th>
+                  <th>{t('Plan')}</th>
+                  <th>{t('Status')}</th>
+                  <th>{t('Area')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,10 +192,10 @@ export default function Customers() {
                 fontSize: '0.82rem',
               }}
             >
-              <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+              <ChevronLeft style={{ width: 16, height: 16 }} /> {t('Prev')}
             </button>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', padding: '0 12px' }}>
-              Page {page} of {totalPages}
+              {t('Page {n} of {total}', { n: page, total: totalPages })}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
@@ -212,7 +215,7 @@ export default function Customers() {
                 fontSize: '0.82rem',
               }}
             >
-              Next <ChevronRight style={{ width: 16, height: 16 }} />
+              {t('Next')} <ChevronRight style={{ width: 16, height: 16 }} />
             </button>
           </div>
         )}

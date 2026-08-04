@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './portalApi';
+import { useT } from '../lib/i18n';
 
 type Complaint = {
   ticket_no: string;
@@ -39,6 +40,7 @@ function statusBadge(s: string) {
 }
 
 export default function PortalSupport() {
+  const { t } = useT();
   const qc = useQueryClient();
   const [desc, setDesc] = useState('');
   const [showCustom, setShowCustom] = useState(false);
@@ -59,7 +61,7 @@ export default function PortalSupport() {
       setShowCustom(false);
       qc.invalidateQueries({ queryKey: ['portal-complaints'] });
     },
-    onError: () => alert('Could not submit. Try again later.'),
+    onError: () => alert(t('Could not submit. Try again later.')),
   });
 
   const handlePreset = (desc: string) => {
@@ -68,9 +70,9 @@ export default function PortalSupport() {
 
   return (
     <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>Support</h2>
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>{t('Support')}</h2>
       <p style={{ fontSize: '0.8rem', color: '#86868b', marginBottom: 16 }}>
-        Report a problem or check past reports
+        {t('Report a problem or check past reports')}
       </p>
 
       {/* Success message */}
@@ -81,12 +83,12 @@ export default function PortalSupport() {
             fontSize: '0.85rem', marginBottom: 16,
           }}
         >
-          Submitted. Ticket: <b>{submitted}</b>. We'll contact you soon.
+          {t('Submitted. Ticket:')} <b>{submitted}</b>. {t("We'll contact you soon.")}
           <button
             onClick={() => setSubmitted('')}
             style={{ marginLeft: 8, background: 'none', border: 'none', color: '#137a3f', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
           >
-            Dismiss
+            {t('Dismiss')}
           </button>
         </div>
       )}
@@ -104,7 +106,7 @@ export default function PortalSupport() {
               color: '#1d1d1f', fontWeight: 500, transition: 'background 0.1s',
             }}
           >
-            {p.label}
+            {t(p.label)}
           </button>
         ))}
       </div>
@@ -119,7 +121,7 @@ export default function PortalSupport() {
             marginBottom: 20,
           }}
         >
-          + Describe your problem
+          {t('+ Describe your problem')}
         </button>
       ) : (
         <div style={{ marginBottom: 20 }}>
@@ -127,7 +129,7 @@ export default function PortalSupport() {
             ref={textRef}
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            placeholder="Describe your problem..."
+            placeholder={t('Describe your problem...')}
             rows={3}
             style={{
               width: '100%', padding: '10px 14px', borderRadius: 12, fontSize: '0.85rem',
@@ -146,7 +148,7 @@ export default function PortalSupport() {
                 opacity: desc.trim() && !createComplaint.isPending ? 1 : 0.6,
               }}
             >
-              {createComplaint.isPending ? 'Submitting\u2026' : 'Submit'}
+              {createComplaint.isPending ? t('Submitting…') : t('Submit')}
             </button>
             <button
               onClick={() => { setShowCustom(false); setDesc(''); }}
@@ -155,7 +157,7 @@ export default function PortalSupport() {
                 border: '1px solid #e2e6ef', background: '#fff', color: '#6b7280', cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </div>
@@ -163,13 +165,13 @@ export default function PortalSupport() {
 
       {/* Past reports */}
       <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 8, marginTop: 8 }}>
-        Past Reports
+        {t('Past Reports')}
       </h3>
       {isLoading ? (
-        <div style={{ color: '#86868b', fontSize: '0.85rem' }}>Loading\u2026</div>
+        <div style={{ color: '#86868b', fontSize: '0.85rem' }}>{t('Loading…')}</div>
       ) : !data?.complaints?.length ? (
         <div style={{ color: '#86868b', fontSize: '0.85rem', padding: 12, background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
-          No past reports.
+          {t('No past reports.')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -185,7 +187,7 @@ export default function PortalSupport() {
                 <span style={{ fontWeight: 600, fontSize: '0.85rem', flex: 1, minWidth: 0 }}>
                   {c.description}
                 </span>
-                <span style={statusBadge(c.status)}>{c.status}</span>
+                <span style={statusBadge(c.status)}>{t(c.status)}</span>
               </div>
               <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 4 }}>
                 {c.ticket_no}

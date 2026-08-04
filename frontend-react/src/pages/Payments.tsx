@@ -6,6 +6,7 @@ import type { Payment } from '../types';
 import { fmtDate } from '../lib/format';
 import { Search, ChevronLeft, ChevronRight, CreditCard, Plus } from 'lucide-react';
 import Rs from '../components/Rs';
+import { useT } from '../lib/i18n';
 
 const PER_PAGE = 25;
 
@@ -27,6 +28,7 @@ interface PaymentsResponse {
 }
 
 export default function Payments() {
+  const { t } = useT();
   const defaults = useMemo(() => monthRange(), []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
@@ -65,10 +67,10 @@ export default function Payments() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            Payments
+            {t('Payments')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {total} payments this period &middot; <Rs amount={totalAmount} /> collected
+            {t('{n} payments this period', { n: total })} &middot; <Rs amount={totalAmount} /> {t('collected')}
           </p>
         </div>
         <Link
@@ -88,14 +90,14 @@ export default function Payments() {
             transition: 'var(--transition)',
           }}
         >
-          <Plus style={{ width: 16, height: 16 }} /> Record Payment
+          <Plus style={{ width: 16, height: 16 }} /> {t('Record Payment')}
         </Link>
       </div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>From</label>
+          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>{t('From')}</label>
           <input
             type="date"
             value={from}
@@ -105,7 +107,7 @@ export default function Payments() {
           />
         </div>
         <div>
-          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>To</label>
+          <label style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: 500, marginRight: 6 }}>{t('To')}</label>
           <input
             type="date"
             value={to}
@@ -131,7 +133,7 @@ export default function Payments() {
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             className="glass-input"
             style={{ paddingLeft: 40, width: '100%', padding: '8px 16px 8px 40px', borderRadius: 'var(--radius-xs)', fontSize: '0.85rem' }}
-            placeholder="Search customer or reference..."
+            placeholder={t('Search customer or reference...')}
           />
         </div>
       </div>
@@ -141,18 +143,18 @@ export default function Payments() {
         {payments.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             <CreditCard style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
-            {isFetching ? 'Loading...' : 'No payments in this period'}
+            {isFetching ? t('Loading...') : t('No payments in this period')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Month</th>
-                  <th>Date</th>
+                  <th>{t('Customer')}</th>
+                  <th>{t('Amount')}</th>
+                  <th>{t('Mode')}</th>
+                  <th>{t('Month')}</th>
+                  <th>{t('Date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,7 +173,7 @@ export default function Payments() {
                           color: '#0071e3',
                         }}
                       >
-                        {p.payment_mode || '--'}
+                        {t(p.payment_mode || '--')}
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-light)' }}>{p.month_year || '--'}</td>
@@ -214,10 +216,10 @@ export default function Payments() {
                 fontSize: '0.82rem',
               }}
             >
-              <ChevronLeft style={{ width: 16, height: 16 }} /> Prev
+              <ChevronLeft style={{ width: 16, height: 16 }} /> {t('Prev')}
             </button>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', padding: '0 12px' }}>
-              Page {page} of {totalPages}
+              {t('Page {n} of {total}', { n: page, total: totalPages })}
             </span>
             <button
               onClick={() => setPage(Math.min(totalPages, page + 1))}
@@ -236,7 +238,7 @@ export default function Payments() {
                 fontSize: '0.82rem',
               }}
             >
-              Next <ChevronRight style={{ width: 16, height: 16 }} />
+              {t('Next')} <ChevronRight style={{ width: 16, height: 16 }} />
             </button>
           </div>
         )}

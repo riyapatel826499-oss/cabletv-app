@@ -17,6 +17,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 interface ReminderCustomer {
   customer_id: string;
@@ -59,6 +60,7 @@ interface HistoryResponse {
 export default function Reminders() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customMessage, setCustomMessage] = useState('');
@@ -164,10 +166,10 @@ export default function Reminders() {
           }}
         >
           <Bell style={{ width: 28, height: 28 }} />
-          Reminders
+          {t('Reminders')}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Send WhatsApp renewal reminders to customers with overdue subscriptions
+          {t('Send WhatsApp renewal reminders to customers with overdue subscriptions')}
         </p>
       </div>
 
@@ -179,7 +181,7 @@ export default function Reminders() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Sent Today
+              {t('Sent Today')}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{todaySent}</p>
           </div>
@@ -190,7 +192,7 @@ export default function Reminders() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Sent
+              {t('Total Sent')}
             </p>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{totalSent}</p>
           </div>
@@ -211,7 +213,7 @@ export default function Reminders() {
           </div>
           <div>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              WhatsApp
+              {t('WhatsApp')}
             </p>
             <span
               style={{
@@ -225,7 +227,7 @@ export default function Reminders() {
                 color: waConnected ? '#34c759' : '#ff3b30',
               }}
             >
-              {waConnected ? 'Connected' : 'Offline'}
+              {waConnected ? t('Connected') : t('Offline')}
             </span>
           </div>
         </div>
@@ -249,9 +251,9 @@ export default function Reminders() {
         >
           <CheckCircle2 style={{ width: 18, height: 18 }} />
           <span>
-            Sent <strong>{sendResult.sent}</strong> reminder(s)
+            {t('Sent {n} reminder(s)', { n: sendResult.sent })}
             {sendResult.failed > 0 && (
-              <> — <strong>{sendResult.failed}</strong> failed</>
+              <> — {t('{n} failed', { n: sendResult.failed })}</>
             )}
           </span>
           <button
@@ -279,7 +281,7 @@ export default function Reminders() {
           />
           <input
             type="text"
-            placeholder="Search by name, phone, or STB..."
+            placeholder={t('Search by name, phone, or STB...')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="glass-input"
@@ -303,7 +305,7 @@ export default function Reminders() {
           }}
         >
           {allSelected ? <Square style={{ width: 14, height: 14 }} /> : <CheckCheck style={{ width: 14, height: 14 }} />}
-          {allSelected ? 'Select None' : 'Select All'}
+          {allSelected ? t('Select None') : t('Select All')}
         </button>
       </div>
 
@@ -323,20 +325,20 @@ export default function Reminders() {
               cursor: 'pointer',
             }}
           >
-            Custom Message
+            {t('Custom Message')}
           </button>
           {showMessageInput && (
             <input
               type="text"
               value={customMessage}
               onChange={(e) => setCustomMessage(e.target.value)}
-              placeholder="Optional custom reminder text (leave blank for default)"
+              placeholder={t('Optional custom reminder text (leave blank for default)')}
               className="glass-input"
               style={{ flex: '1 1 300px', padding: '10px 14px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}
             />
           )}
           <span style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
-            {selected.size} selected
+            {t('{n} selected', { n: selected.size })}
           </span>
           <button
             onClick={openConfirm}
@@ -358,7 +360,7 @@ export default function Reminders() {
             }}
           >
             <Send style={{ width: 16, height: 16 }} />
-            Send Reminders ({selected.size})
+            {t('Send Reminders ({n})', { n: selected.size })}
           </button>
         </div>
       )}
@@ -382,7 +384,7 @@ export default function Reminders() {
         ) : filtered.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text-light)' }}>
             <Bell style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.5 }} />
-            {search ? 'No matching customers' : 'No reminders due'}
+            {search ? t('No matching customers') : t('No reminders due')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -397,13 +399,13 @@ export default function Reminders() {
                       style={{ cursor: 'pointer' }}
                     />
                   </th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Area</th>
-                  <th style={{ textAlign: 'right' }}>Plan</th>
-                  <th style={{ textAlign: 'center' }}>Months Due</th>
-                  <th>Expiry</th>
-                  <th style={{ textAlign: 'right' }}>Pending</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Phone')}</th>
+                  <th>{t('Area')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Plan')}</th>
+                  <th style={{ textAlign: 'center' }}>{t('Months Due')}</th>
+                  <th>{t('Expiry')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Pending')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -484,11 +486,11 @@ export default function Reminders() {
           }}
         >
           <History style={{ width: 18, height: 18, color: 'var(--text-light)' }} />
-          Reminder History
+          {t('Reminder History')}
         </h2>
         {!history.length ? (
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', padding: '8px 0' }}>
-            No reminders sent yet
+            {t('No reminders sent yet')}
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -519,10 +521,10 @@ export default function Reminders() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
-                    {h.count} reminder(s) sent
+                    {t('{n} reminder(s) sent', { n: h.count })}
                     {h.sent_by && (
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontWeight: 400 }}>
-                        {' '}by {h.sent_by}
+                        {' '}{t('by {name}', { name: h.sent_by })}
                       </span>
                     )}
                   </p>
@@ -563,15 +565,15 @@ export default function Reminders() {
               <div style={{ padding: 10, borderRadius: 12, background: 'rgba(0,113,227,0.1)' }}>
                 <AlertCircle style={{ width: 24, height: 24, color: '#0071e3' }} />
               </div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>Send Reminders?</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>{t('Send Reminders?')}</h3>
             </div>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginBottom: 20 }}>
-              This will send WhatsApp renewal reminders to <strong style={{ color: 'var(--text)' }}>{selected.size}</strong> customer(s).
+              {t('This will send WhatsApp renewal reminders to {n} customer(s).', { n: selected.size })}
               {customMessage.trim() && (
                 <>
                   <br />
                   <span style={{ fontSize: '0.8rem', marginTop: 6, display: 'block' }}>
-                    Custom message: "{customMessage.trim().slice(0, 60)}
+                    {t('Custom message:')} "{customMessage.trim().slice(0, 60)}
                     {customMessage.trim().length > 60 ? '...' : ''}"
                   </span>
                 </>
@@ -590,7 +592,7 @@ export default function Reminders() {
                   cursor: 'pointer',
                 }}
               >
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={handleSend}
@@ -613,11 +615,11 @@ export default function Reminders() {
                 {sendMut.isPending ? (
                   <>
                     <Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
-                    Sending...
+                    {t('Sending...')}
                   </>
                 ) : (
                   <>
-                    <Send style={{ width: 14, height: 14 }} /> Send
+                    <Send style={{ width: 14, height: 14 }} /> {t('Send')}
                   </>
                 )}
               </button>

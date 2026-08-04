@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Phone, Satellite, Search, Crosshair, Trash2, Locate, Mic, MessageCircle, Receipt } from 'lucide-react';
 import { mapApi } from '../api';
 import { calcPayAmount } from '../lib/prorata';
+import { useT, translate } from '../lib/i18n';
 
 // ── Your collection area ───────────────────────────────────────────────────
 // Hardcoded so it always centers here (no env/rebuild needed). Change these two
@@ -189,25 +190,27 @@ function firstStb(c: MapCustomer): string {
 function selfRechargeBlock(c: MapCustomer): string {
   const stb = firstStb(c);
   const cred = stb
-    ? `STB No: ${stb}  |  Mobile: your registered number`
-    : `STB number + your registered mobile number`;
-  return (
-    `Or recharge yourself online:\n` +
-    `Login: ${portalLink()}\n` +
-    `${cred}\n\n`
-  );
+    ? translate('STB No: {stb}  |  Mobile: your registered number', { stb })
+    : translate('STB number + your registered mobile number');
+  return translate('Or recharge yourself online:\nLogin: {link}\n{cred}\n\n', {
+    link: portalLink(),
+    cred,
+  });
 }
 
 // Template 1 — regular monthly reminder (pay before the 12th).
 function waRegularLink(c: MapCustomer, month: string) {
   const amt = c.plan_amount ? ` (₹${c.plan_amount})` : '';
-  const msg =
-    `Dear Customer, your cable TV subscription for ${monthLabelOf(month)}${amt} is due. ` +
-    `Kindly pay before the 12th to avoid disconnection.\n\n` +
-    `Pay now (GPay/PhonePe): ${payPageLink(c.plan_amount ?? '', c.customer_id, month)}\n` +
-    `UPI: ${UPI_ID()}\n\n` +
-    selfRechargeBlock(c) +
-    `Thank you.\n- ${BUSINESS_NAME()}`;
+  const msg = translate(
+    'Dear Customer, your cable TV subscription for {month} is due. Kindly pay before the 12th to avoid disconnection.\n\nPay now (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}Thank you.\n- {business}',
+    {
+      month: monthLabelOf(month) + amt,
+      link: payPageLink(c.plan_amount ?? '', c.customer_id, month),
+      upi: UPI_ID(),
+      recharge: selfRechargeBlock(c),
+      business: BUSINESS_NAME(),
+    },
+  );
   return waUrl(c, msg);
 }
 
@@ -217,13 +220,17 @@ function waReconnectLink(c: MapCustomer, month: string) {
   const calc = calcPayAmount(c.plan_amount || 0, 1, month, true, PRORATA_OPTS());
   const amount = Math.round(calc.netAmount);
   const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const msg =
-    `Dear Customer, your cable TV connection is disconnected due to non-payment.\n\n` +
-    `Amount to reconnect: ₹${amount} (as on ${todayStr})\n\n` +
-    `Pay now (GPay/PhonePe): ${payPageLink(amount, c.customer_id, month)}\n` +
-    `UPI: ${UPI_ID()}\n\n` +
-    selfRechargeBlock(c) +
-    `- ${BUSINESS_NAME()}`;
+  const msg = translate(
+    'Dear Customer, your cable TV connection is disconnected due to non-payment.\n\nAmount to reconnect: ₹{amount} (as on {date})\n\nPay now (GPay/PhonePe): {link}\nUPI: {upi}\n\n{recharge}- {business}',
+    {
+      amount,
+      date: todayStr,
+      link: payPageLink(amount, c.customer_id, month),
+      upi: UPI_ID(),
+      recharge: selfRechargeBlock(c),
+      business: BUSINESS_NAME(),
+    },
+  );
   return waUrl(c, msg);
 }
 
@@ -296,6 +303,7 @@ function CustomerBlock({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.map_note ?? '');
   const [showTpl, setShowTpl] = useState(false);
+  const { t } = useT();
   return (
     <div className="text-sm" style={{ color: '#1d1d1f' }}>
       <div className="font-bold">{c.name}</div>
@@ -313,7 +321,7 @@ function CustomerBlock({
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="e.g. 1st floor"
+            placeholder={t('e.g. 1st floor')}
             className="text-xs border rounded px-1 py-0.5"
             style={{ width: 110 }}
           />
@@ -324,16 +332,16 @@ function CustomerBlock({
               setEditing(false);
             }}
           >
-            save
+            {t('save')}
           </button>
-          <button className="text-xs" onClick={() => setEditing(false)}>cancel</button>
+          <button className="text-xs" onClick={() => setEditing(false)}>{t('cancel')}</button>
         </div>
       ) : (
         <div className="text-xs mt-1 flex items-center gap-2">
           {c.map_note ? (
             <span style={{ color: '#1d1d1f' }}>🏢 {c.map_note}</span>
           ) : (
-            <span style={{ color: '#9ca3af' }}>No floor/unit set</span>
+            <span style={{ color: '#9ca3af' }}>{t('No floor/unit set')}</span>
           )}
           <button
             className="text-blue-600 underline"
@@ -342,19 +350,19 @@ function CustomerBlock({
               setEditing(true);
             }}
           >
-            edit
+            {t('edit')}
           </button>
         </div>
       )}
 
       <div className="mt-1">
-        Plan: ₹{c.plan_amount ?? '—'} —{' '}
-        <b style={{ color: STATUS_COLOR[c.status] }}>{STATUS_LABEL[c.status]}</b>
+        {t('Plan')}: ₹{c.plan_amount ?? '—'} —{' '}
+        <b style={{ color: STATUS_COLOR[c.status] }}>{t(STATUS_LABEL[c.status])}</b>
       </div>
       {(c.reminder_count ?? 0) > 0 && (
         <div className="text-[11px] mt-1" style={{ color: '#b45309' }}>
-          Reminded {c.reminder_count}× this month
-          {c.last_reminder_by ? ` · last by ${c.last_reminder_by}` : ''}
+          {t('Reminded {n}× this month', { n: c.reminder_count })}
+          {c.last_reminder_by ? t(' · last by {name}', { name: c.last_reminder_by }) : ''}
         </div>
       )}
       <div className="flex flex-col gap-2 mt-3">
@@ -365,7 +373,7 @@ function CustomerBlock({
           target="_blank"
           rel="noreferrer"
         >
-          <Navigation size={16} /> Navigate
+          <Navigation size={16} /> {t('Navigate')}
         </a>
         {c.status !== 'paid' && c.phone && (
           <button
@@ -373,7 +381,7 @@ function CustomerBlock({
             style={{ background: '#25D366', color: '#fff', fontWeight: 600, fontSize: 14, minHeight: 44, border: 'none' }}
             onClick={() => setShowTpl((v) => !v)}
           >
-            <MessageCircle size={16} /> Remind
+            <MessageCircle size={16} /> {t('Remind')}
           </button>
         )}
         {c.status !== 'paid' && (
@@ -382,7 +390,7 @@ function CustomerBlock({
             style={{ background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontWeight: 600, fontSize: 14, minHeight: 44, border: 'none' }}
             onClick={() => onRecordPayment(c.customer_id)}
           >
-            <Receipt size={16} /> Record payment
+            <Receipt size={16} /> {t('Record payment')}
           </button>
         )}
       </div>
@@ -397,7 +405,7 @@ function CustomerBlock({
             className="block text-center text-sm px-3 rounded no-underline"
             style={{ minHeight: 42, lineHeight: '42px', fontWeight: 500, border: '1px solid #25D366', color: '#128C4B', background: 'rgba(37,211,102,0.12)' }}
           >
-            Monthly reminder
+            {t('Monthly reminder')}
           </a>
           <a
             href={waReconnectLink(c, month)}
@@ -407,7 +415,7 @@ function CustomerBlock({
             className="block text-center text-sm px-3 rounded no-underline"
             style={{ minHeight: 42, lineHeight: '42px', fontWeight: 500, border: '1px solid #f59e0b', color: '#b45309', background: 'rgba(245,158,11,0.12)' }}
           >
-            Reconnection reminder
+            {t('Reconnection reminder')}
           </a>
         </div>
       )}
@@ -440,6 +448,7 @@ function MapClickHandler({
 }
 
 export default function MapView() {
+  const { t } = useT();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -479,7 +488,7 @@ export default function MapView() {
       qc.invalidateQueries({ queryKey: ['map-customers'] });
       qc.invalidateQueries({ queryKey: ['map-no-location'] });
     },
-    onError: () => alert('Could not save — that point may be outside your collection area.'),
+    onError: () => alert(t('Could not save — that point may be outside your collection area.')),
   });
 
   const clearLocation = useMutation({
@@ -501,9 +510,10 @@ export default function MapView() {
     onError: (err) => {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       alert(
-        'Could not save the floor/unit.\n' +
+        t('Could not save the floor/unit.') +
+          '\n' +
           (detail ??
-            'If this keeps happening, the map_note database column may be missing — run migrate_customer_map_note.py on the server.'),
+            t('If this keeps happening, the map_note database column may be missing — run migrate_customer_map_note.py on the server.')),
       );
     },
   });
@@ -600,7 +610,7 @@ export default function MapView() {
   function placeAt(lat: number, lng: number) {
     if (!placingFor) return;
     if (!inArea(lat, lng)) {
-      alert('That point is outside your collection area, so it was not saved.');
+      alert(t('That point is outside your collection area, so it was not saved.'));
       return;
     }
     saveLocation.mutate(
@@ -611,7 +621,7 @@ export default function MapView() {
 
   function captureGps(c: Placing) {
     if (!navigator.geolocation) {
-      alert('This device has no GPS/location support.');
+      alert(t('This device has no GPS/location support.'));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -621,8 +631,7 @@ export default function MapView() {
             distanceKm(pos.coords.latitude, pos.coords.longitude, HOME_CENTER[0], HOME_CENTER[1]),
           );
           alert(
-            `Your current location is about ${km} km from your collection area, so it was not saved. ` +
-              `Use GPS only while standing at the customer's house, or place the pin on the map.`,
+            t('Your current location is about {km} km from your collection area, so it was not saved. Use GPS only while standing at the customer\'s house, or place the pin on the map.', { km }),
           );
           return;
         }
@@ -631,7 +640,7 @@ export default function MapView() {
           { onSuccess: () => setPlacingFor(null) },
         );
       },
-      (err) => alert('Could not get GPS: ' + err.message),
+      (err) => alert(t('Could not get GPS: ') + err.message),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
@@ -648,7 +657,7 @@ export default function MapView() {
   function startVoice() {
     const SR = getSpeechRecognition();
     if (!SR) {
-      alert('Voice search needs a supported browser like Chrome or Edge (or Chrome on Android).');
+      alert(t('Voice search needs a supported browser like Chrome or Edge (or Chrome on Android).'));
       return;
     }
     const rec = new SR();
@@ -703,7 +712,7 @@ export default function MapView() {
 
   function startMyLocation() {
     if (!navigator.geolocation) {
-      alert('This device has no GPS/location support.');
+      alert(t('This device has no GPS/location support.'));
       return;
     }
     setWatching(true);
@@ -720,7 +729,7 @@ export default function MapView() {
         }
       },
       (err) => {
-        alert('Could not get your location: ' + err.message);
+        alert(t('Could not get your location: ') + err.message);
         setWatching(false);
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
@@ -746,9 +755,9 @@ export default function MapView() {
   const userOutside = userPos != null && !inArea(userPos.lat, userPos.lng);
 
   const FILTERS: { key: Filter; label: string; count: number }[] = [
-    { key: 'without', label: 'Without location', count: unlocated.length },
-    { key: 'with', label: 'With location', count: located.length },
-    { key: 'all', label: 'All', count: total },
+    { key: 'without', label: t('Without location'), count: unlocated.length },
+    { key: 'with', label: t('With location'), count: located.length },
+    { key: 'all', label: t('All'), count: total },
   ];
 
   return (
@@ -766,21 +775,21 @@ export default function MapView() {
         className="flex flex-wrap items-center gap-3 px-4 py-2"
         style={{ ...S.panel, borderBottom: S.border }}
       >
-        <span className="text-sm font-semibold" style={S.text}>Collection Map</span>
-        <span className="text-xs" style={S.textLight}>Placed {located.length}/{total}</span>
+        <span className="text-sm font-semibold" style={S.text}>{t('Collection Map')}</span>
+        <span className="text-xs" style={S.textLight}>{t('Placed {n}/{total}', { n: located.length, total })}</span>
         <span className="flex items-center gap-1 text-sm" style={{ color: STATUS_COLOR.paid }}>
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.paid }} />
-          {paidCount} paid
+          {t('{n} paid', { n: paidCount })}
         </span>
         <span className="flex items-center gap-1 text-sm" style={{ color: '#a16207' }}>
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.due }} />
-          {dueCount} not renewed
+          {t('{n} not renewed', { n: dueCount })}
         </span>
         <span className="flex items-center gap-1 text-sm" style={{ color: STATUS_COLOR.overdue }}>
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: STATUS_COLOR.overdue }} />
-          {overdueCount} overdue
+          {t('{n} overdue', { n: overdueCount })}
         </span>
-        <span className="text-[11px]" style={S.textLight}>(placed, this month)</span>
+        <span className="text-[11px]" style={S.textLight}>{t('(placed, this month)')}</span>
         <input
           type="month"
           value={month}
@@ -790,7 +799,7 @@ export default function MapView() {
         />
         {(['paid', 'due', 'overdue'] as Status[]).map((s) => {
           const on = visible[s];
-          const label = s === 'paid' ? 'Paid' : s === 'due' ? 'Not renewed' : 'Overdue';
+          const label = s === 'paid' ? t('Paid') : s === 'due' ? t('Not renewed') : t('Overdue');
           return (
             <button
               key={s}
@@ -823,34 +832,32 @@ export default function MapView() {
               ? { background: '#2563eb', color: '#fff', border: '1px solid #2563eb' }
               : { ...S.text, background: 'var(--bg-secondary)', border: S.border }),
           }}
-          title="Show my current location on the map"
+          title={t('Show my current location on the map')}
         >
-          <Locate size={15} /> {watching ? 'Stop' : 'My location'}
+          <Locate size={15} /> {watching ? t('Stop') : t('My location')}
         </button>
       </div>
 
       {userOutside && (
         <div className="px-4 py-2 text-sm flex items-center gap-2" style={{ background: '#fee2e2', color: '#b91c1c' }}>
-          ⚠ You are about{' '}
-          {Math.round(distanceKm(userPos!.lat, userPos!.lng, HOME_CENTER[0], HOME_CENTER[1]))} km
-          outside your collection area.
+          ⚠ {t('You are about {km} km outside your collection area.', { km: Math.round(distanceKm(userPos!.lat, userPos!.lng, HOME_CENTER[0], HOME_CENTER[1])) })}
         </div>
       )}
       {watching && userPos && !userOutside && (
         <div className="px-4 py-1 text-xs flex items-center gap-2" style={{ background: '#dbeafe', color: '#1e40af' }}>
-          <Locate size={12} /> You are inside your collection area.
+          <Locate size={12} /> {t('You are inside your collection area.')}
         </div>
       )}
 
       {placingFor && (
         <div className="px-4 py-2 text-sm flex items-center gap-2" style={{ background: '#fde68a', color: '#92400e' }}>
           <MapPin size={16} />
-          Tap {placingFor.name}&apos;s home on the map to {placingFor.hasLocation ? 'move' : 'set'} the pin.
-          <button className="underline" onClick={() => captureGps(placingFor)} title="Use my current GPS instead">
-            or use my GPS
+          {t('Tap {name}\'s home on the map to {action} the pin.', { name: placingFor.name, action: placingFor.hasLocation ? t('move') : t('set') })}
+          <button className="underline" onClick={() => captureGps(placingFor)} title={t('Use my current GPS instead')}>
+            {t('or use my GPS')}
           </button>
           <button className="underline ml-2" onClick={() => setPlacingFor(null)}>
-            Cancel
+            {t('Cancel')}
           </button>
         </div>
       )}
@@ -914,13 +921,13 @@ export default function MapView() {
                         })
                       }
                     >
-                      <MapPin size={12} /> Move location
+                      <MapPin size={12} /> {t('Move location')}
                     </button>
                   </div>
                 ) : (
                   <div className="min-w-[210px]" style={{ maxHeight: 280, overflowY: 'auto' }}>
                     <div className="font-bold text-sm mb-1" style={{ color: '#1d1d1f' }}>
-                      {g.list.length} connections here
+                      {t('{n} connections here', { n: g.list.length })}
                     </div>
                     {g.list.map((c, i) => (
                       <div
@@ -951,8 +958,8 @@ export default function MapView() {
             <Marker position={[userPos.lat, userPos.lng]} icon={USER_ICON}>
               <Popup>
                 <div className="text-sm" style={{ color: '#1d1d1f' }}>
-                  <b>You are here</b>
-                  {userOutside && <div style={{ color: '#b91c1c' }}>Outside your collection area</div>}
+                  <b>{t('You are here')}</b>
+                  {userOutside && <div style={{ color: '#b91c1c' }}>{t('Outside your collection area')}</div>}
                 </div>
               </Popup>
             </Marker>
@@ -990,13 +997,13 @@ export default function MapView() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={listening ? 'Listening…' : 'Search name, phone or ID'}
+              placeholder={listening ? t('Listening…') : t('Search name, phone or ID')}
               className="text-sm outline-none flex-1 bg-transparent"
               style={S.text}
             />
             <button
               onClick={() => (listening ? stopVoice() : startVoice())}
-              title="Voice search — tap and say the customer name"
+              title={t('Voice search — tap and say the customer name')}
               className="flex items-center justify-center rounded-full shrink-0"
               style={{
                 width: 32,
@@ -1012,7 +1019,7 @@ export default function MapView() {
 
         <div className="flex-1 overflow-y-auto">
           {rows.length === 0 && (
-            <div className="px-4 py-6 text-sm text-center" style={S.textLight}>No customers here.</div>
+            <div className="px-4 py-6 text-sm text-center" style={S.textLight}>{t('No customers here.')}</div>
           )}
           {rows.map((r) => (
             <div
@@ -1023,7 +1030,7 @@ export default function MapView() {
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ background: !r.hasLocation || !r.status ? '#9ca3af' : STATUS_COLOR[r.status] }}
-                title={!r.hasLocation || !r.status ? 'No location' : STATUS_LABEL[r.status]}
+                title={!r.hasLocation || !r.status ? t('No location') : t(STATUS_LABEL[r.status])}
               />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium truncate" style={S.text}>{r.name}</div>
@@ -1038,34 +1045,34 @@ export default function MapView() {
                     <span
                       className="text-[11px] px-2 py-0.5 rounded-full"
                       style={{ background: '#fee2e2', color: '#b91c1c' }}
-                      title="This pin is outside your collection area"
+                      title={t('This pin is outside your collection area')}
                     >
-                      ⚠ outside area
+                      ⚠ {t('outside area')}
                     </span>
                   )}
                   <button
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'var(--bg-secondary)', color: 'var(--text-light)', border: S.border }}
                     onClick={() => showCustomer(r.customer_id, r.latitude!, r.longitude!)}
-                    title="Show on map"
+                    title={t('Show on map')}
                   >
-                    <Crosshair size={13} /> show
+                    <Crosshair size={13} /> {t('show')}
                   </button>
                   <button
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(37,99,235,0.12)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.35)' }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: true })}
-                    title="Tap the map to move this pin"
+                    title={t('Tap the map to move this pin')}
                   >
-                    <MapPin size={13} /> move
+                    <MapPin size={13} /> {t('move')}
                   </button>
                   <button
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.35)' }}
                     onClick={() => {
-                      if (confirm(`Remove ${r.name}'s location? They'll go back to "without location".`))
+                      if (confirm(t('Remove {name}\'s location? They\'ll go back to "without location".', { name: r.name })))
                         clearLocation.mutate(r.customer_id);
                     }}
-                    title="Remove this location"
+                    title={t('Remove this location')}
                   >
-                    <Trash2 size={13} /> clear
+                    <Trash2 size={13} /> {t('clear')}
                   </button>
                 </>
               ) : (
@@ -1073,14 +1080,14 @@ export default function MapView() {
                   <button
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(37,99,235,0.12)', color: '#2563eb', border: '1px solid rgba(37,99,235,0.35)' }}
                     onClick={() => setPlacingFor({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
-                    title="Tap the map to place this customer"
+                    title={t('Tap the map to place this customer')}
                   >
-                    <MapPin size={13} /> place
+                    <MapPin size={13} /> {t('place')}
                   </button>
                   <button
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 8, fontSize: 12, fontWeight: 500, background: 'rgba(34,197,94,0.12)', color: '#16a34a', border: '1px solid rgba(34,197,94,0.35)' }}
                     onClick={() => captureGps({ customer_id: r.customer_id, name: r.name, hasLocation: false })}
-                    title="Use my current GPS"
+                    title={t('Use my current GPS')}
                   >
                     <Satellite size={12} /> GPS
                   </button>

@@ -7,6 +7,7 @@ import {
 import Rs from '../components/Rs';
 import { useAuth } from '../hooks/useAuth';
 import api from '../api/client';
+import { useT } from '../lib/i18n';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AgentInsights {
@@ -67,6 +68,7 @@ const MODE_COLORS: Record<string, string> = {
 export default function AgentDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useT();
 
   const { data: agentData, isLoading, isError } = useQuery<AgentInsights>({
     queryKey: ['agent-insights'],
@@ -92,7 +94,7 @@ export default function AgentDashboard() {
     return (
       <div className="glass-card animate-fade-in" style={{ padding: 24, textAlign: 'center', color: 'var(--text-light)' }}>
         <AlertCircle style={{ width: 32, height: 32, marginBottom: 8, color: '#ff3b30' }} />
-        <p>Unable to load dashboard. Please try again.</p>
+        <p>{t('Unable to load dashboard. Please try again.')}</p>
       </div>
     );
   }
@@ -107,7 +109,7 @@ export default function AgentDashboard() {
   const pctBorder = d.month_pct >= 80 ? '#34c75930' : d.month_pct >= 50 ? '#ff9f0a30' : '#ff3b3030';
 
   const todaysPayments = (d.recent_payments || []).filter(p => isToday(p.date));
-  const greetingName = d.agent_name || user?.name || 'Agent';
+  const greetingName = d.agent_name || user?.name || t('Agent');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
@@ -115,7 +117,7 @@ export default function AgentDashboard() {
       {/* ═══ 1. HEADER + MONTH PROGRESS ══════════════════════════════════════ */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text)' }}>
-          Hi, {greetingName} 👋
+          {t('Hi, {name} 👋', { name: greetingName })}
         </div>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{todayStr}</div>
       </div>
@@ -130,7 +132,7 @@ export default function AgentDashboard() {
               letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 4,
             }}>
               <Target style={{ width: 12, height: 12 }} />
-              {d.month || new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} Target
+              {t('{month} Target', { month: d.month || new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }) })}
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
               <Rs amount={d.month_collected} />
@@ -182,14 +184,14 @@ export default function AgentDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
               <Zap style={{ width: 12, height: 12, color: '#34c759' }} />
               <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                Today
+                {t('Today')}
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#34c759' }}>
               <Rs amount={d.today_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              {d.today_count} payment{d.today_count !== 1 ? 's' : ''}
+              {t('{n} payments', { n: d.today_count })}
             </div>
           </div>
 
@@ -200,14 +202,14 @@ export default function AgentDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
               <TrendingUp style={{ width: 12, height: 12, color: '#0071e3' }} />
               <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                This Week
+                {t('This Week')}
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0071e3' }}>
               <Rs amount={d.week_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              {d.week_count} payment{d.week_count !== 1 ? 's' : ''}
+              {t('{n} payments', { n: d.week_count })}
             </div>
           </div>
 
@@ -218,14 +220,14 @@ export default function AgentDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
               <Clock style={{ width: 12, height: 12, color: '#5856d6' }} />
               <span style={{ fontSize: '0.65rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                Last Month
+                {t('Last Month')}
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#5856d6' }}>
               <Rs amount={d.last_month_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              previous
+              {t('previous')}
             </div>
           </div>
         </div>
@@ -242,10 +244,10 @@ export default function AgentDashboard() {
           <Flame style={{ width: 24, height: 24, color: '#fff', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: '1rem', fontWeight: 700, color: '#fff' }}>
-              {d.collection_streak} Day Streak!
+              {t('{n} Day Streak!', { n: d.collection_streak })}
             </span>
             <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.85)', marginLeft: 6 }}>
-              Keep collecting daily to maintain it 🔥
+              {t('Keep collecting daily to maintain it 🔥')}
             </span>
           </div>
         </div>
@@ -268,7 +270,7 @@ export default function AgentDashboard() {
         onMouseUp={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
       >
         <Wallet style={{ width: 22, height: 22, color: '#fff' }} />
-        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>Record Payment</span>
+        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{t('Record Payment')}</span>
         <ArrowRight style={{ width: 20, height: 20, color: '#fff' }} />
       </button>
 
@@ -276,7 +278,7 @@ export default function AgentDashboard() {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <CheckCircle2 style={{ width: 20, height: 20, color: '#34c759' }} />
-          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>Today's Collections</h2>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>{t("Today's Collections")}</h2>
           {todaysPayments.length > 0 && (
             <span style={{
               fontSize: '0.75rem', color: 'var(--text-light)', marginLeft: 'auto',
@@ -290,7 +292,7 @@ export default function AgentDashboard() {
         {todaysPayments.length === 0 ? (
           <div className="glass-card animate-fade-in" style={{ padding: 24, textAlign: 'center', color: 'var(--text-light)' }}>
             <Wallet style={{ width: 32, height: 32, marginBottom: 8, color: 'var(--text-light)' }} />
-            <p style={{ margin: 0 }}>No collections yet today. Start collecting!</p>
+            <p style={{ margin: 0 }}>{t('No collections yet today. Start collecting!')}</p>
           </div>
         ) : (
           <div className="glass-card animate-fade-in" style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -367,10 +369,10 @@ export default function AgentDashboard() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
-                {d.priority_count} customer{d.priority_count !== 1 ? 's' : ''} to follow up
+                {t('{n} customers to follow up', { n: d.priority_count })}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-                Paid last month, not renewed yet
+                {t('Paid last month, not renewed yet')}
               </div>
             </div>
           </div>
@@ -384,7 +386,7 @@ export default function AgentDashboard() {
               transition: 'background 0.15s',
             }}
           >
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#ff9f0a' }}>View Follow-up List</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#ff9f0a' }}>{t('View Follow-up List')}</span>
             <ArrowRight style={{ width: 16, height: 16, color: '#ff9f0a' }} />
           </button>
         </div>
@@ -395,7 +397,7 @@ export default function AgentDashboard() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <MapPin style={{ width: 20, height: 20, color: '#0071e3' }} />
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>Your Areas</h2>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0 }}>{t('Your Areas')}</h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {d.my_areas.map((a, i) => (
@@ -424,9 +426,9 @@ export default function AgentDashboard() {
                     {a.area}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', gap: 10 }}>
-                    <span>{a.unpaid} unpaid</span>
+                    <span>{t('{n} unpaid', { n: a.unpaid })}</span>
                     <span style={{ color: '#ff9f0a', fontWeight: 600 }}>
-                      <Rs amount={a.pending} /> pending
+                      <Rs amount={a.pending} /> {t('pending')}
                     </span>
                   </div>
                 </div>
@@ -458,10 +460,10 @@ export default function AgentDashboard() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
-              Open Service Requests ({d.my_open_sr})
+              {t('Open Service Requests ({n})', { n: d.my_open_sr })}
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-              Tap to view and resolve
+              {t('Tap to view and resolve')}
             </div>
           </div>
           <ArrowRight style={{ width: 20, height: 20, color: '#ff3b30', flexShrink: 0 }} />

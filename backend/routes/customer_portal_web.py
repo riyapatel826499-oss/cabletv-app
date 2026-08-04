@@ -118,7 +118,7 @@ def quick_login(body: LoginIn):
                 customer_id = row["customer_id"]
 
         if not customer_id:
-            raise HTTPException(status_code=401, detail="STB / Customer ID not found")
+            raise HTTPException(status_code=401, detail="STB / Customer ID not found · STB / வாடிக்கையாளர் ஐடி கிடைக்கவில்லை")
 
         # Fetch customer record (has masked phone)
         cust = conn.execute(

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, layaApi } from '../api';
 import api from '../api/client';
+import { useT } from '../lib/i18n';
 import {
   Settings as SettingsIcon, Bell, Send, Check, Unlink,
   Shield, Loader2, RefreshCw, Wifi, Upload,
@@ -9,6 +10,7 @@ import {
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [botToken, setBotToken] = useState('');
   const [chatIds, setChatIds] = useState('');
   const [cutoffInput, setCutoffInput] = useState('');
@@ -25,10 +27,10 @@ export default function Settings() {
       (await settingsApi.updateNotifications(data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-notifications'] });
-      flash('success', 'Settings updated');
+      flash('success', t('Settings updated'));
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => flash('error', err?.response?.data?.detail || 'Update failed'),
+    onError: (err: any) => flash('error', err?.response?.data?.detail || t('Update failed')),
   });
 
   const verifyTelegramMut = useMutation({
@@ -39,26 +41,26 @@ export default function Settings() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['settings-notifications'] });
-      flash('success', data.message || 'Telegram bot linked');
+      flash('success', data.message || t('Telegram bot linked'));
       setBotToken('');
       setChatIds('');
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => flash('error', err?.response?.data?.detail || 'Verification failed'),
+    onError: (err: any) => flash('error', err?.response?.data?.detail || t('Verification failed')),
   });
 
   const detectChatsMut = useMutation({
     mutationFn: async () => (await settingsApi.detectChats()).data,
-    onSuccess: (data) => flash('success', data.message || `Detected ${data.chat_count} users`),
+    onSuccess: (data) => flash('success', data.message || t('Detected {n} users', { n: data.chat_count })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => flash('error', err?.response?.data?.detail || 'Detection failed'),
+    onError: (err: any) => flash('error', err?.response?.data?.detail || t('Detection failed')),
   });
 
   const unlinkMut = useMutation({
     mutationFn: async () => (await settingsApi.unlinkTelegram()).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings-notifications'] });
-      flash('success', 'Telegram bot unlinked');
+      flash('success', t('Telegram bot unlinked'));
     },
   });
 
@@ -112,10 +114,10 @@ export default function Settings() {
       <div>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <SettingsIcon style={{ width: 28, height: 28 }} />
-          Settings
+          {t('Settings')}
         </h1>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-          Configure notifications and Telegram bot
+          {t('Configure notifications and Telegram bot')}
         </p>
       </div>
 
@@ -135,17 +137,17 @@ export default function Settings() {
       {/* Notification Settings */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Bell style={{ width: 18, height: 18, color: '#0071e3' }} /> Notifications
+          <Bell style={{ width: 18, height: 18, color: '#0071e3' }} /> {t('Notifications')}
         </h2>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: 18 }}>
-          Control when payment alerts are sent to Telegram
+          {t('Control when payment alerts are sent to Telegram')}
         </p>
 
         {/* Enable/Disable */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Enable Notifications</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Master toggle for all alerts</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{t('Enable Notifications')}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{t('Master toggle for all alerts')}</p>
           </div>
           <ToggleSwitch
             checked={notifSettings?.notify_enabled === 'true'}
@@ -156,8 +158,8 @@ export default function Settings() {
         {/* Payment Scope */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Payment Alerts</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Which payments trigger a notification</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{t('Payment Alerts')}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{t('Which payments trigger a notification')}</p>
           </div>
           <select
             value={notifSettings?.notify_payment_scope ?? 'disconnected'}
@@ -167,16 +169,16 @@ export default function Settings() {
               background: 'var(--bg-secondary)', color: 'var(--text)', fontSize: '0.82rem', cursor: 'pointer',
             }}
           >
-            <option value="all">All payments</option>
-            <option value="disconnected">Disconnected customers only</option>
+            <option value="all">{t('All payments')}</option>
+            <option value="disconnected">{t('Disconnected customers only')}</option>
           </select>
         </div>
 
         {/* Service Scope */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Service Alerts</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Which service requests trigger notifications</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{t('Service Alerts')}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{t('Which service requests trigger notifications')}</p>
           </div>
           <select
             value={notifSettings?.notify_service_scope ?? 'all'}
@@ -186,16 +188,16 @@ export default function Settings() {
               background: 'var(--bg-secondary)', color: 'var(--text)', fontSize: '0.82rem', cursor: 'pointer',
             }}
           >
-            <option value="all">All tickets</option>
-            <option value="high_priority">High priority only</option>
+            <option value="all">{t('All tickets')}</option>
+            <option value="high_priority">{t('High priority only')}</option>
           </select>
         </div>
 
         {/* Cutoff Date */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '0.5px solid var(--border)' }}>
           <div>
-            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>Payment Cutoff Date</p>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Day of month after which unpaid connections are disconnected</p>
+            <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text)' }}>{t('Payment Cutoff Date')}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{t('Day of month after which unpaid connections are disconnected')}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
@@ -229,7 +231,7 @@ export default function Settings() {
                   boxShadow: '0 1px 4px rgba(0,113,227,0.3)',
                 }}
               >
-                Save
+                {t('Save')}
               </button>
             )}
             {/* Saved confirmation */}
@@ -238,11 +240,11 @@ export default function Settings() {
                 display: 'flex', alignItems: 'center', gap: 4,
                 fontSize: '0.78rem', fontWeight: 500, color: '#34c759',
               }}>
-                <Check style={{ width: 14, height: 14 }} /> Saved
+                <Check style={{ width: 14, height: 14 }} /> {t('Saved')}
               </span>
             )}
             {cutoffInput && (Number(cutoffInput) < 1 || Number(cutoffInput) > 28) && (
-              <span style={{ fontSize: '0.72rem', color: '#ff3b30' }}>1-28 only</span>
+              <span style={{ fontSize: '0.72rem', color: '#ff3b30' }}>{t('1-28 only')}</span>
             )}
           </div>
         </div>
@@ -251,10 +253,10 @@ export default function Settings() {
       {/* Telegram Configuration */}
       <div className="glass-card" style={{ padding: '24px' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Send style={{ width: 18, height: 18, color: '#0071e3' }} /> Telegram Bot
+          <Send style={{ width: 18, height: 18, color: '#0071e3' }} /> {t('Telegram Bot')}
         </h2>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: 18 }}>
-          Link a Telegram bot to receive payment and service alerts
+          {t('Link a Telegram bot to receive payment and service alerts')}
         </p>
 
         {/* Status Badge */}
@@ -265,7 +267,7 @@ export default function Settings() {
           color: telegramLinked ? '#34c759' : '#8e8e93',
         }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: telegramLinked ? '#34c759' : '#8e8e93' }} />
-          {telegramLinked ? `Linked (${chatCount} user${chatCount !== 1 ? 's' : ''})` : 'Not linked'}
+          {telegramLinked ? t('Linked ({n} users)', { n: chatCount }) : t('Not linked')}
         </div>
 
         {telegramLinked ? (
@@ -280,11 +282,11 @@ export default function Settings() {
               }}
             >
               {detectChatsMut.isPending ? <Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> : <RefreshCw style={{ width: 16, height: 16 }} />}
-              Detect Users
+              {t('Detect Users')}
             </button>
             <button
               onClick={() => {
-                if (confirm('Unlink Telegram bot? You will stop receiving alerts.')) {
+                if (confirm(t('Unlink Telegram bot? You will stop receiving alerts.'))) {
                   unlinkMut.mutate();
                 }
               }}
@@ -294,14 +296,14 @@ export default function Settings() {
                 color: '#ff3b30', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
               }}
             >
-              <Unlink style={{ width: 16, height: 16 }} /> Unlink Bot
+              <Unlink style={{ width: 16, height: 16 }} /> {t('Unlink Bot')}
             </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>
-                Bot Token (from @BotFather)
+                {t('Bot Token (from @BotFather)')}
               </label>
               <input
                 type="password"
@@ -317,7 +319,7 @@ export default function Settings() {
             </div>
             <div>
               <label style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 6, display: 'block' }}>
-                Chat IDs (optional — leave blank to auto-detect)
+                {t('Chat IDs (optional — leave blank to auto-detect)')}
               </label>
               <input
                 type="text"
@@ -331,7 +333,7 @@ export default function Settings() {
                 }}
               />
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 4 }}>
-                To auto-detect: send /start to your bot first, then click Verify
+                {t('To auto-detect: send /start to your bot first, then click Verify')}
               </p>
             </div>
             <button
@@ -345,9 +347,9 @@ export default function Settings() {
               }}
             >
               {verifyTelegramMut.isPending ? (
-                <><Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> Verifying...</>
+                <><Loader2 style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} /> {t('Verifying...')}</>
               ) : (
-                <><Check style={{ width: 16, height: 16 }} /> Verify & Link</>
+                <><Check style={{ width: 16, height: 16 }} /> {t('Verify & Link')}</>
               )}
             </button>
           </div>
@@ -359,7 +361,7 @@ export default function Settings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Wifi style={{ width: 18, height: 18, color: '#5e5ce6' }} />
           <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)' }}>
-            Laya Internet
+            {t('Laya Internet')}
           </h2>
         </div>
 
@@ -378,7 +380,7 @@ export default function Settings() {
         )}
 
         <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: 14 }}>
-          Sync subscribers from Laya CRM and import monthly statements for auto-reconciliation.
+          {t('Sync subscribers from Laya CRM and import monthly statements for auto-reconciliation.')}
         </p>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -394,9 +396,9 @@ export default function Settings() {
             }}
           >
             {layaSyncMut.isPending ? (
-              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> Syncing...</>
+              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> {t('Syncing...')}</>
             ) : (
-              <><RefreshCw style={{ width: 14, height: 14 }} /> Sync Subscribers</>
+              <><RefreshCw style={{ width: 14, height: 14 }} /> {t('Sync Subscribers')}</>
             )}
           </button>
 
@@ -410,9 +412,9 @@ export default function Settings() {
             }}
           >
             {layaStmtMut.isPending ? (
-              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> Importing...</>
+              <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /> {t('Importing...')}</>
             ) : (
-              <><Upload style={{ width: 14, height: 14 }} /> Import Statement</>
+              <><Upload style={{ width: 14, height: 14 }} /> {t('Import Statement')}</>
             )}
             <input
               type="file"
@@ -470,6 +472,7 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
 
 function BrandingSection() {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [form, setForm] = useState<Record<string, string | number | boolean>>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -494,10 +497,10 @@ function BrandingSection() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (api as any).patch('/operator-settings', { updates: form });
-      setMsg({ ok: true, text: 'Branding saved!' });
+      setMsg({ ok: true, text: t('Branding saved!') });
       queryClient.invalidateQueries({ queryKey: ['operator-settings'] });
     } catch (e: any) {
-      setMsg({ ok: false, text: e?.response?.data?.detail || 'Failed to save' });
+      setMsg({ ok: false, text: e?.response?.data?.detail || t('Failed to save') });
     }
     setSaving(false);
     setTimeout(() => setMsg(null), 4000);
@@ -512,21 +515,21 @@ function BrandingSection() {
   return (
     <div className="glass-card" style={{ padding: '24px' }}>
       <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: '1.1rem' }}>🎨</span> Branding / White-label
+        <span style={{ fontSize: '1.1rem' }}>🎨</span> {t('Branding / White-label')}
       </h2>
       <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: 18 }}>
-        These appear on the public website, customer portal, staff panels, and WhatsApp messages.
+        {t('These appear on the public website, customer portal, staff panels, and WhatsApp messages.')}
       </p>
 
       {isLoading ? (
-        <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>Loading…</div>
+        <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{t('Loading…')}</div>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {BRANDING_FIELDS.map(f => (
               <div key={f.key} style={f.type === 'textarea' ? { gridColumn: '1 / -1' } : undefined}>
                 <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
-                  {f.label}
+                  {t(f.label)}
                 </label>
                 {f.type === 'textarea' ? (
                   <textarea
@@ -544,7 +547,7 @@ function BrandingSection() {
                     style={inp}
                   />
                 )}
-                {f.hint && <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>{f.hint}</div>}
+                {f.hint && <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>{t(f.hint)}</div>}
               </div>
             ))}
           </div>
@@ -552,10 +555,10 @@ function BrandingSection() {
           {/* Prorata toggle */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 18, padding: '14px 16px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)' }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>Prorata billing</div>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>{t('Prorata billing')}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
-                ON = partial-month charges on reconnection & late-month payments (SSN style).<br />
-                OFF = always charge full month(s), no day-based splits.
+                {t('ON = partial-month charges on reconnection & late-month payments (SSN style).')}<br />
+                {t('OFF = always charge full month(s), no day-based splits.')}
               </div>
             </div>
             <button
@@ -565,7 +568,7 @@ function BrandingSection() {
                 background: (form.prorata_enabled ?? true) ? '#22c55e' : '#94a3b8',
                 position: 'relative', transition: 'background 0.2s', flexShrink: 0,
               }}
-              aria-label="Toggle prorata"
+              aria-label={t('Toggle prorata')}
             >
               <span style={{
                 position: 'absolute', top: 3, left: (form.prorata_enabled ?? true) ? 27 : 3,
@@ -579,7 +582,7 @@ function BrandingSection() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
               <div>
                 <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
-                  Billing cycle day
+                  {t('Billing cycle day')}
                 </label>
                 <input
                   type="number"
@@ -590,12 +593,12 @@ function BrandingSection() {
                   style={inp}
                 />
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
-                  Reconnect prorata counts days till this − 1. Default 13 (cycle 13th–12th).
+                  {t('Reconnect prorata counts days till this − 1. Default 13 (cycle 13th–12th).')}
                 </div>
               </div>
               <div>
                 <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
-                  Prorata-until day
+                  {t('Prorata-until day')}
                 </label>
                 <input
                   type="number"
@@ -606,7 +609,7 @@ function BrandingSection() {
                   style={inp}
                 />
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
-                  Late-month payments charge till this day of next month. Default 16.
+                  {t('Late-month payments charge till this day of next month. Default 16.')}
                 </div>
               </div>
             </div>
@@ -622,7 +625,7 @@ function BrandingSection() {
             }}
           >
             {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-            {saving ? 'Saving…' : 'Save Branding'}
+            {saving ? t('Saving…') : t('Save Branding')}
           </button>
 
           {msg && (

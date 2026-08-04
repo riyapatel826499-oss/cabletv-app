@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { plansApi, customersApi, stbApi } from '../api';
 import { fmtRs } from '../lib/format';
+import { useT } from '../lib/i18n';
 import {
   UserPlus,
   Loader2,
@@ -23,6 +24,7 @@ const MSOS = ['GTPL', 'TACTV', 'SCV'] as const;
 type MSO = (typeof MSOS)[number];
 
 export default function AddCustomer() {
+  const { t } = useT();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -64,7 +66,7 @@ export default function AddCustomer() {
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        'Failed to create customer. Please try again.';
+        t('Failed to create customer. Please try again.');
       setError(msg);
     },
   });
@@ -73,12 +75,12 @@ export default function AddCustomer() {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) return setError('Name is required');
-    if (!phone.trim()) return setError('Phone is required');
-    if (!area.trim()) return setError('Area is required');
-    if (!stbNumber.trim()) return setError('STB Number is required');
-    if (!planId) return setError('Plan is required');
-    if (!connectionFee.trim()) return setError('Connection Fee is required');
+    if (!name.trim()) return setError(t('Name is required'));
+    if (!phone.trim()) return setError(t('Phone is required'));
+    if (!area.trim()) return setError(t('Area is required'));
+    if (!stbNumber.trim()) return setError(t('STB Number is required'));
+    if (!planId) return setError(t('Plan is required'));
+    if (!connectionFee.trim()) return setError(t('Connection Fee is required'));
 
     const payload: Record<string, unknown> = {
       name: name.trim(),
@@ -103,10 +105,10 @@ export default function AddCustomer() {
         <div className="glass-card" style={{ padding: 48, textAlign: 'center', maxWidth: 380 }}>
           <CheckCircle style={{ width: 48, height: 48, color: '#34c759', margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text)' }}>
-            Customer Created!
+            {t('Customer Created!')}
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 8 }}>
-            {success.name} has been added successfully.
+            {t('{name} has been added successfully.', { name: success.name })}
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20 }}>
             <button
@@ -122,7 +124,7 @@ export default function AddCustomer() {
                 cursor: 'pointer',
               }}
             >
-              View Customer
+              {t('View Customer')}
             </button>
             <button
               onClick={() => {
@@ -146,7 +148,7 @@ export default function AddCustomer() {
                 cursor: 'pointer',
               }}
             >
-              Add Another
+              {t('Add Another')}
             </button>
           </div>
         </div>
@@ -191,7 +193,7 @@ export default function AddCustomer() {
             fontWeight: 500,
           }}
         >
-          <ArrowLeft style={{ width: 16, height: 16 }} /> Back
+          <ArrowLeft style={{ width: 16, height: 16 }} /> {t('Back')}
         </button>
         <div>
           <h1
@@ -206,10 +208,10 @@ export default function AddCustomer() {
             }}
           >
             <UserPlus style={{ width: 26, height: 26 }} />
-            Add Customer
+            {t('Add Customer')}
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: 2 }}>
-            Create a new customer record and connection
+            {t('Create a new customer record and connection')}
           </p>
         </div>
       </div>
@@ -242,20 +244,20 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                Name <span style={{ color: '#ff3b30' }}>*</span>
+                {t('Name')} <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 style={inputStyle}
-                placeholder="Full name"
+                placeholder={t('Full name')}
                 required
               />
             </div>
             <div>
               <label style={labelStyle}>
-                Phone <span style={{ color: '#ff3b30' }}>*</span>
+                {t('Phone')} <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <input
                 type="tel"
@@ -271,27 +273,27 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                Area <span style={{ color: '#ff3b30' }}>*</span>
+                {t('Area')} <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <input
                 type="text"
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
                 style={inputStyle}
-                placeholder="Area / locality"
+                placeholder={t('Area / locality')}
                 required
               />
             </div>
             <div>
               <label style={labelStyle}>
-                Address <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span>
+                {t('Address')} <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>{t('(optional)')}</span>
               </label>
               <input
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 style={inputStyle}
-                placeholder="Door no, street"
+                placeholder={t('Door no, street')}
               />
             </div>
           </div>
@@ -300,14 +302,14 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                STB Number <span style={{ color: '#ff3b30' }}>*</span>
+                {t('STB Number')} <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <select
                 value={stbNumber}
                 onChange={(e) => setStbNumber(e.target.value)}
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
-                <option value="">Select an STB</option>
+                <option value="">{t('Select an STB')}</option>
                 {availableStbs.map((s) => (
                   <option key={s.id} value={s.stb_no}>
                     {s.stb_no}
@@ -316,7 +318,7 @@ export default function AddCustomer() {
               </select>
               {availableStbs.length === 0 && (
                 <p style={{ fontSize: '0.72rem', color: '#ff9f0a', marginTop: 4 }}>
-                  No spare STBs in inventory for {mso}. Add STBs to inventory first.
+                  {t('No spare STBs in inventory for {mso}. Add STBs to inventory first.', { mso })}
                 </p>
               )}
             </div>
@@ -338,7 +340,7 @@ export default function AddCustomer() {
                 ))}
               </select>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 4 }}>
-                Used to filter plans only
+                {t('Used to filter plans only')}
               </p>
             </div>
           </div>
@@ -347,14 +349,14 @@ export default function AddCustomer() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label style={labelStyle}>
-                Plan <span style={{ color: '#ff3b30' }}>*</span>
+                {t('Plan')} <span style={{ color: '#ff3b30' }}>*</span>
               </label>
               <select
                 value={planId}
                 onChange={(e) => setPlanId(e.target.value)}
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
-                <option value="">Select a plan</option>
+                <option value="">{t('Select a plan')}</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} — ₹{fmtRs(p.amount)}
@@ -363,12 +365,12 @@ export default function AddCustomer() {
               </select>
               {plans.length === 0 && (
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: 4 }}>
-                  No active plans for {mso}
+                  {t('No active plans for {mso}', { mso })}
                 </p>
               )}
             </div>
             <div>
-              <label style={labelStyle}>Activation Date</label>
+              <label style={labelStyle}>{t('Activation Date')}</label>
               <input
                 type="date"
                 value={activationDate}
@@ -381,7 +383,7 @@ export default function AddCustomer() {
           {/* Connection Fee */}
           <div>
             <label style={labelStyle}>
-              Connection Fee <span style={{ color: '#ff3b30' }}>*</span>
+              {t('Connection Fee')} <span style={{ color: '#ff3b30' }}>*</span>
             </label>
             <div style={{ position: 'relative' }}>
               <span
@@ -403,7 +405,7 @@ export default function AddCustomer() {
                 value={connectionFee}
                 onChange={(e) => setConnectionFee(e.target.value)}
                 style={{ ...inputStyle, paddingLeft: 40 }}
-                placeholder="0 (one-time new connection charge)"
+                placeholder={t('0 (one-time new connection charge)')}
               />
             </div>
           </div>
@@ -433,12 +435,12 @@ export default function AddCustomer() {
             {createMut.isPending ? (
               <>
                 <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
-                Creating...
+                {t('Creating...')}
               </>
             ) : (
               <>
                 <Tv style={{ width: 18, height: 18 }} />
-                Create Customer
+                {t('Create Customer')}
               </>
             )}
           </button>

@@ -35,8 +35,10 @@ import {
   Globe,
 } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import LangToggle from './LangToggle';
 import { useState, useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { useT } from '../lib/i18n';
 
 // ── Role-based permissions ─────────────────────────────────────────────────
 // Each route maps to the roles that can access it.
@@ -160,6 +162,7 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useT();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [fontScale, setFontScale] = useState(100);
@@ -259,8 +262,8 @@ export default function Layout() {
         const dismissed = localStorage.getItem('ios-install-dismissed') === 'true';
         if (!dismissed) {
           // Small delay so it appears after page load
-          const t = setTimeout(() => setShowIOSPrompt(true), 2000);
-          return () => clearTimeout(t);
+          const timer = setTimeout(() => setShowIOSPrompt(true), 2000);
+          return () => clearTimeout(timer);
         }
       }
     }, [isIOS, isStandalone]);
@@ -434,7 +437,7 @@ export default function Layout() {
                   Wasool
                 </h2>
                 <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>
-                  Cable TV Management
+                  {t('Cable TV Management')}
                 </p>
               </div>
             </div>
@@ -481,7 +484,7 @@ export default function Layout() {
                 }}
               >
                 <Icon style={{ width: 18, height: 18 }} />
-                {label}
+                {t(label)}
               </NavLink>
             ))}
 
@@ -520,7 +523,7 @@ export default function Layout() {
                     }}
                   >
                     <GroupIcon style={{ width: 16, height: 16 }} />
-                    {group.label}
+                    {t(group.label)}
                     <ChevronRight
                       style={{
                         width: 14,
@@ -568,7 +571,7 @@ export default function Layout() {
                       }}
                     >
                       <Icon style={{ width: 16, height: 16 }} />
-                      {label}
+                      {t(label)}
                     </NavLink>
                   ))}
                 </div>
@@ -609,7 +612,7 @@ export default function Layout() {
                       color: 'rgba(255,255,255,0.95)',
                     }}
                   >
-                    {user?.name || 'User'}
+                    {user?.name || t('User')}
                   </p>
                   <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>
                     {user?.role || ''}
@@ -726,7 +729,7 @@ export default function Layout() {
                   }}
                 >
                   <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Text Size: {fontScale}%
+                    {t('Text Size: {n}%', { n: fontScale })}
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
                     <button
@@ -803,10 +806,13 @@ export default function Layout() {
             {/* Activity Bell */}
             <NotificationBell />
 
+            {/* Language toggle */}
+            <LangToggle dark={darkMode} />
+
             {/* Hard refresh — clear caches & SW, reload from server */}
             <button
               onClick={handleHardRefresh}
-              title="Hard refresh — clears cache & loads latest version"
+              title={t('Hard refresh — clears cache & loads latest version')}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'var(--bg-secondary)',
@@ -900,7 +906,7 @@ export default function Layout() {
             }}
           >
             <Receipt style={{ width: 20, height: 20 }} />
-            Collect
+            {t('Collect')}
           </button>
         )}
 
@@ -930,14 +936,14 @@ export default function Layout() {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                  Install Wasool App
+                  {t('Install Wasool App')}
                 </p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: 1.4, marginBottom: 8 }}>
-                  Get the app on your home screen for quick access
+                  {t('Get the app on your home screen for quick access')}
                 </p>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text)', lineHeight: 1.5 }}>
-                  Tap <Share style={{ width: 13, height: 13, display: 'inline', verticalAlign: 'middle', color: 'var(--primary)' }} /> in Safari bar, then{' '}
-                  <strong>Add to Home Screen</strong>
+                  {t('Tap')} <Share style={{ width: 13, height: 13, display: 'inline', verticalAlign: 'middle', color: 'var(--primary)' }} /> {t('in Safari bar, then')}{' '}
+                  <strong>{t('Add to Home Screen')}</strong>
                 </p>
               </div>
               <button
@@ -983,10 +989,10 @@ export default function Layout() {
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                  Install Wasool App
+                  {t('Install Wasool App')}
                 </p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: 1.4 }}>
-                  Add to home screen for quick access — works offline
+                  {t('Add to home screen for quick access — works offline')}
                 </p>
               </div>
               <button
@@ -1018,7 +1024,7 @@ export default function Layout() {
                 boxShadow: '0 4px 14px rgba(0,113,227,0.3)',
               }}
             >
-              Install App
+              {t('Install App')}
             </button>
           </div>
         )}
@@ -1044,7 +1050,7 @@ export default function Layout() {
             }}
           >
             <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 500 }}>
-              New version available
+              {t('New version available')}
             </span>
             <button
               onClick={() => updateServiceWorker(true)}
@@ -1060,7 +1066,7 @@ export default function Layout() {
                 whiteSpace: 'nowrap',
               }}
             >
-              Update
+              {t('Update')}
             </button>
             <button
               onClick={() => setNeedRefresh(false)}
@@ -1072,7 +1078,7 @@ export default function Layout() {
                 cursor: 'pointer',
               }}
             >
-              Later
+              {t('Later')}
             </button>
           </div>
         )}

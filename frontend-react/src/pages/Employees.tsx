@@ -5,6 +5,7 @@ import {
   UserCog, Plus, Phone, X, KeyRound, Ban, Search,
   CheckCircle2, Shield, Eye, EyeOff,
 } from 'lucide-react';
+import { useT } from '../lib/i18n';
 
 interface Employee {
   id: number;
@@ -29,6 +30,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function Employees() {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
@@ -67,10 +69,10 @@ export default function Employees() {
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <UserCog style={{ width: 28, height: 28 }} />
-            Employees
+            {t('Employees')}
           </h1>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-light)', marginTop: 2 }}>
-            {activeCount} active of {employees.length} total
+            {t('{a} active of {b} total', { a: activeCount, b: employees.length })}
           </p>
         </div>
         <button
@@ -82,7 +84,7 @@ export default function Employees() {
             boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
           }}
         >
-          <Plus style={{ width: 18, height: 18 }} /> Add Employee
+          <Plus style={{ width: 18, height: 18 }} /> {t('Add Employee')}
         </button>
       </div>
 
@@ -92,7 +94,7 @@ export default function Employees() {
           <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--text-light)' }} />
           <input
             type="text"
-            placeholder="Search employees..."
+            placeholder={t('Search employees...')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -113,20 +115,20 @@ export default function Employees() {
         ) : !filtered.length ? (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-light)' }}>
             <UserCog style={{ width: 32, height: 32, margin: '0 auto 8px', opacity: 0.3 }} />
-            {search ? 'No matching employees' : 'No employees found'}
+            {search ? t('No matching employees') : t('No employees found')}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table className="glass-table" style={{ boxShadow: 'none', borderRadius: 0 }}>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Username</th>
-                  <th>Role</th>
-                  <th>Phone</th>
-                  <th>Payments</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Username')}</th>
+                  <th>{t('Role')}</th>
+                  <th>{t('Phone')}</th>
+                  <th>{t('Payments')}</th>
+                  <th>{t('Status')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -158,7 +160,7 @@ export default function Employees() {
                           padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 600,
                           background: isActive ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)',
                           color: isActive ? '#34c759' : '#ff3b30',
-                        }}>{emp.status}</span>
+                        }}>{t(emp.status)}</span>
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
@@ -168,7 +170,7 @@ export default function Employees() {
                             background: 'transparent', color: 'var(--text)', fontSize: '0.75rem',
                             fontWeight: 500, cursor: 'pointer', marginRight: 4,
                           }}
-                        >Edit</button>
+                        >{t('Edit')}</button>
                         <button
                           onClick={() => setResetTarget(emp)}
                           style={{
@@ -176,22 +178,22 @@ export default function Employees() {
                             background: 'transparent', color: 'var(--text)', fontSize: '0.75rem',
                             fontWeight: 500, cursor: 'pointer', marginRight: 4,
                           }}
-                        ><KeyRound style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />Password</button>
+                        ><KeyRound style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />{t('Password')}</button>
                         {isActive ? (
                           <button
                             onClick={() => {
                               if (emp.role === 'admin') {
-                                alert('Cannot deactivate admin. Change role first.');
+                                alert(t('Cannot deactivate admin. Change role first.'));
                                 return;
                               }
-                              if (confirm(`Deactivate ${emp.name}?`)) deactivateMut.mutate(emp.id);
+                              if (confirm(t('Deactivate {name}?', { name: emp.name }))) deactivateMut.mutate(emp.id);
                             }}
                             style={{
                               padding: '5px 10px', borderRadius: 8,
                               border: '0.5px solid rgba(255,59,48,0.3)', background: 'rgba(255,59,48,0.05)',
                               color: '#ff3b30', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
                             }}
-                          ><Ban style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />Deactivate</button>
+                          ><Ban style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />{t('Deactivate')}</button>
                         ) : (
                           <button
                             onClick={() => toggleStatusMut.mutate({ id: emp.id, status: 'Active' })}
@@ -200,7 +202,7 @@ export default function Employees() {
                               border: '0.5px solid rgba(52,199,89,0.3)', background: 'rgba(52,199,89,0.05)',
                               color: '#34c759', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
                             }}
-                          ><CheckCircle2 style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />Activate</button>
+                          ><CheckCircle2 style={{ width: 12, height: 12, display: 'inline', marginRight: 2 }} />{t('Activate')}</button>
                         )}
                       </td>
                     </tr>
@@ -221,6 +223,7 @@ export default function Employees() {
 
 function NewEmployeeModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [form, setForm] = useState({ username: '', password: '', name: '', phone: '', role: 'collection_agent' });
   const [error, setError] = useState('');
 
@@ -231,7 +234,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
       onClose();
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => setError(err?.response?.data?.detail || 'Failed to create employee'),
+    onError: (err: any) => setError(err?.response?.data?.detail || t('Failed to create employee')),
   });
 
   const update = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -246,7 +249,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 440, width: '90%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Plus style={{ width: 20, height: 20, color: '#0071e3' }} /> New Employee
+            <Plus style={{ width: 20, height: 20, color: '#0071e3' }} /> {t('New Employee')}
           </h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
@@ -254,38 +257,38 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Full Name *</label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Full Name *')}</label>
             <input style={inputStyle} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Ravi Kumar" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Username *</label>
+              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Username *')}</label>
               <input style={{ ...inputStyle, fontFamily: 'monospace' }} value={form.username} onChange={e => update('username', e.target.value.toLowerCase())} placeholder="ravi" />
             </div>
             <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Password *</label>
-              <input type="text" style={inputStyle} value={form.password} onChange={e => update('password', e.target.value)} placeholder="Min 4 chars" />
+              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Password *')}</label>
+              <input type="text" style={inputStyle} value={form.password} onChange={e => update('password', e.target.value)} placeholder={t('Min 4 chars')} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Phone</label>
+              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Phone')}</label>
               <input style={inputStyle} value={form.phone} onChange={e => update('phone', e.target.value)} placeholder="9876543210" />
             </div>
             <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Role</label>
+              <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Role')}</label>
               <select style={inputStyle} value={form.role} onChange={e => update('role', e.target.value)}>
-                <option value="admin">Admin</option>
-                <option value="support">Support</option>
-                <option value="collection_agent">Collection Agent</option>
-                <option value="service_agent">Service Agent</option>
-                <option value="collection_point">Collection Point</option>
+                <option value="admin">{t('Admin')}</option>
+                <option value="support">{t('Support')}</option>
+                <option value="collection_agent">{t('Collection Agent')}</option>
+                <option value="service_agent">{t('Service Agent')}</option>
+                <option value="collection_point">{t('Collection Point')}</option>
               </select>
             </div>
           </div>
           {error && <p style={{ fontSize: '0.78rem', color: '#ff3b30' }}>{error}</p>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>{t('Cancel')}</button>
             <button
               onClick={() => createMut.mutate()}
               disabled={!form.name || !form.username || !form.password || createMut.isPending}
@@ -295,7 +298,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
                 opacity: (!form.name || !form.username || !form.password || createMut.isPending) ? 0.5 : 1,
               }}
             >
-              {createMut.isPending ? 'Creating...' : 'Create'}
+              {createMut.isPending ? t('Creating...') : t('Create')}
             </button>
           </div>
         </div>
@@ -306,6 +309,7 @@ function NewEmployeeModal({ onClose }: { onClose: () => void }) {
 
 function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const { t } = useT();
   const [name, setName] = useState(employee.name);
   const [phone, setPhone] = useState(employee.phone || '');
   const [role, setRole] = useState(employee.role);
@@ -318,7 +322,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
       onClose();
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => setError(err?.response?.data?.detail || 'Update failed'),
+    onError: (err: any) => setError(err?.response?.data?.detail || t('Update failed')),
   });
 
   const inputStyle = {
@@ -332,7 +336,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 400, width: '90%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserCog style={{ width: 20, height: 20, color: '#0071e3' }} /> Edit Employee
+            <UserCog style={{ width: 20, height: 20, color: '#0071e3' }} /> {t('Edit Employee')}
           </h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
@@ -340,35 +344,35 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Name</label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Name')}</label>
             <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Phone</label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Phone')}</label>
             <input style={inputStyle} value={phone} onChange={e => setPhone(e.target.value)} />
           </div>
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>Role</label>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>{t('Role')}</label>
             <select style={inputStyle} value={role} onChange={e => setRole(e.target.value)}>
-              <option value="admin">Admin</option>
-              <option value="support">Support</option>
-              <option value="collection_agent">Collection Agent</option>
-              <option value="service_agent">Service Agent</option>
-              <option value="collection_point">Collection Point</option>
+              <option value="admin">{t('Admin')}</option>
+              <option value="support">{t('Support')}</option>
+              <option value="collection_agent">{t('Collection Agent')}</option>
+              <option value="service_agent">{t('Service Agent')}</option>
+              <option value="collection_point">{t('Collection Point')}</option>
             </select>
           </div>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Shield style={{ width: 12, height: 12 }} /> Username: <strong style={{ fontFamily: 'monospace' }}>{employee.username}</strong> (cannot change)
+            <Shield style={{ width: 12, height: 12 }} /> {t('Username')}: <strong style={{ fontFamily: 'monospace' }}>{employee.username}</strong> {t('(cannot change)')}
           </p>
           {error && <p style={{ fontSize: '0.78rem', color: '#ff3b30' }}>{error}</p>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>{t('Cancel')}</button>
             <button
               onClick={() => updateMut.mutate()}
               disabled={updateMut.isPending}
               style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer', opacity: updateMut.isPending ? 0.5 : 1 }}
             >
-              {updateMut.isPending ? 'Saving...' : 'Save'}
+              {updateMut.isPending ? t('Saving...') : t('Save')}
             </button>
           </div>
         </div>
@@ -378,6 +382,7 @@ function EditEmployeeModal({ employee, onClose }: { employee: Employee; onClose:
 }
 
 function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const { t } = useT();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showCurrent, setShowCurrent] = useState(false);
@@ -386,7 +391,7 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
     mutationFn: async () => (await employeesApi.resetPassword(employee.id, password)).data,
     onSuccess: () => onClose(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => setError(err?.response?.data?.detail || 'Reset failed'),
+    onError: (err: any) => setError(err?.response?.data?.detail || t('Reset failed')),
   });
 
   return (
@@ -394,7 +399,7 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
       <div onClick={e => e.stopPropagation()} className="glass-card animate-fade-in" style={{ padding: 28, borderRadius: 16, maxWidth: 380, width: '90%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <KeyRound style={{ width: 18, height: 18, color: '#ff9f0a' }} /> Password
+            <KeyRound style={{ width: 18, height: 18, color: '#ff9f0a' }} /> {t('Password')}
           </h3>
           <button onClick={onClose} style={{ padding: 4, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
@@ -412,13 +417,13 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Current Password
+                {t('Current Password')}
               </span>
               <button
                 onClick={() => setShowCurrent(!showCurrent)}
                 style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: '#0071e3' }}
               >
-                {showCurrent ? <><EyeOff style={{ width: 13, height: 13 }} />Hide</> : <><Eye style={{ width: 13, height: 13 }} />Show</>}
+                {showCurrent ? <><EyeOff style={{ width: 13, height: 13 }} />{t('Hide')}</> : <><Eye style={{ width: 13, height: 13 }} />{t('Show')}</>}
               </button>
             </div>
             <p style={{ fontSize: '0.95rem', fontWeight: 600, fontFamily: 'monospace', color: 'var(--text)', marginTop: 4, letterSpacing: '0.5px' }}>
@@ -429,13 +434,13 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
 
         {/* New Password Input */}
         <label style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-light)', marginBottom: 4, display: 'block' }}>
-          Set New Password
+          {t('Set New Password')}
         </label>
         <input
           type="text"
           value={password}
           onChange={e => setPassword(e.target.value)}
-          placeholder="New password (min 4 chars)"
+          placeholder={t('New password (min 4 chars)')}
           style={{
             width: '100%', padding: '10px 14px', borderRadius: 10,
             border: '0.5px solid var(--border)', background: 'var(--bg-secondary)',
@@ -444,7 +449,7 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
         />
         {error && <p style={{ fontSize: '0.78rem', color: '#ff3b30', marginTop: 8 }}>{error}</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 12, border: '0.5px solid var(--border)', background: 'transparent', color: 'var(--text)', fontSize: '0.88rem', cursor: 'pointer' }}>{t('Cancel')}</button>
           <button
             onClick={() => resetMut.mutate()}
             disabled={password.length < 4 || resetMut.isPending}
@@ -454,7 +459,7 @@ function ResetPasswordModal({ employee, onClose }: { employee: Employee; onClose
               opacity: (password.length < 4 || resetMut.isPending) ? 0.5 : 1,
             }}
           >
-            {resetMut.isPending ? 'Resetting...' : 'Reset Password'}
+            {resetMut.isPending ? t('Resetting...') : t('Reset Password')}
           </button>
         </div>
       </div>
