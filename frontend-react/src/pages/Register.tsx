@@ -154,7 +154,7 @@ export default function Register() {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 18, fontSize: '.8rem', color: '#6b7280' }}>
-          {t('Already have an account?')} <Link to="/app/login" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>{t('Log in')}</Link>
+          {t('Already have an account?')} <Link to="/login" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>{t('Log in')}</Link>
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

@@ -12,7 +12,10 @@ import { I18nProvider } from './lib/i18n'
 // This runs BEFORE React mounts, in the main HTML thread (not SW).
 // It can't be intercepted by the old SW because it's a JS import,
 // not a navigation request.
-if ('serviceWorker' in navigator) {
+// Bundled native app (Capacitor): no server origin — skip SW entirely.
+const IS_NATIVE = typeof (window as any).Capacitor !== 'undefined';
+
+if ('serviceWorker' in navigator && !IS_NATIVE) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/app/sw.js', { scope: '/app/' })
       .then((reg) => {

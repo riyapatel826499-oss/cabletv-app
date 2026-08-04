@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE = '/api';
+// Bundled native app (Capacitor) has no server origin — call the live API directly.
+import { appUrl } from '../lib/native';
+
+const IS_NATIVE = typeof (window as any).Capacitor !== 'undefined';
+const API_BASE = IS_NATIVE ? 'https://wasool.co.in/api' : '/api';
 
 // Create axios instance with auth interceptor
 const api = axios.create({
@@ -25,7 +29,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       // React app is mounted under /app — redirect to its login, not the legacy one.
-      window.location.href = '/app/login';
+      window.location.href = appUrl('/login');
     }
     return Promise.reject(error);
   }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { appUrl } from '../lib/native';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../lib/i18n';
@@ -195,7 +196,7 @@ export default function Login() {
 
         <p style={{ textAlign: 'center', marginTop: 22, fontSize: '0.78rem', color: '#7e839a' }}>
           {t('New?')}{' '}
-          <a href="/app/register" style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>{t('Create account')}</a>
+          <a href={appUrl('/register')} style={{ color: '#5aa2ff', fontWeight: 700, textDecoration: 'none' }}>{t('Create account')}</a>
         </p>
         <p style={{ textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: '#7e839a' }}>
           © {new Date().getFullYear()} Wasool. {t('All rights reserved.')}

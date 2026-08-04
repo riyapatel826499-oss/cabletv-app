@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Wasool</string>
+    <string name="title_activity_main">Wasool</string>
+    <string name="package_name">com.ssncables.wasool</string>
+    <string name="custom_url_scheme">com.ssncables.wasool</string>
+</resources>

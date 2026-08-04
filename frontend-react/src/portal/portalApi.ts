@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { appUrl } from '../lib/native';
 
 const TOKEN_KEY = 'wasool_portal_token';
 const CUSTOMER_KEY = 'wasool_portal_customer';
@@ -21,7 +22,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(CUSTOMER_KEY);
-      window.location.href = '/app/portal';
+      window.location.href = appUrl('/portal');
     }
     return Promise.reject(err);
   },

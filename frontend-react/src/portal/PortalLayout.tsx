@@ -3,6 +3,7 @@ import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { getPortalToken, clearToken } from './portalApi';
 import LangToggle from '../components/LangToggle';
 import { useT } from '../lib/i18n';
+import { appUrl } from '../lib/native';
 
 const tabStyle = (active: boolean): React.CSSProperties => ({
   flex: 1, textAlign: 'center', padding: '8px 0', fontSize: '0.75rem',
@@ -65,15 +66,15 @@ export default function PortalLayout() {
   }, []);
 
   if (!token) {
-    return <Navigate to="/app/portal" replace />;
+    return <Navigate to="/portal" replace />;
   }
 
-  const path = loc.pathname.replace('/app/portal', '') || '/home';
+  const path = loc.pathname.replace(/^\/(portal)?/, '') || '/home';
 
   const tabs = [
-    { path: '/home', label: t('Home'), href: '/app/portal/home' },
-    { path: '/history', label: t('History'), href: '/app/portal/history' },
-    { path: '/support', label: t('Support'), href: '/app/portal/support' },
+    { path: '/home', label: t('Home'), href: appUrl('/portal/home') },
+    { path: '/history', label: t('History'), href: appUrl('/portal/history') },
+    { path: '/support', label: t('Support'), href: appUrl('/portal/support') },
   ];
 
   return (

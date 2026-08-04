@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { appUrl } from '../lib/native';
 import api from './portalApi';
 import { useT } from '../lib/i18n';
 
@@ -123,7 +124,7 @@ export default function PortalHome() {
             {t('Pay now (₹{n})', { n: amt })}
           </a>
         )}
-        <a href="/app/portal/history"
+        <a href={appUrl('/portal/history')}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             padding: '12px', borderRadius: 12, background: '#e8eefc', color: '#2563eb',
@@ -132,7 +133,7 @@ export default function PortalHome() {
         >
           {t('Payment history')}
         </a>
-        <a href="/app/portal/support"
+        <a href={appUrl('/portal/support')}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             padding: '12px', borderRadius: 12, background: '#fef6e7', color: '#92400e',

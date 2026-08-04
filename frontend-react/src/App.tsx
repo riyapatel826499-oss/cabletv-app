@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Layout from './components/Layout';
@@ -164,13 +164,18 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Bundled native app (Capacitor) loads from a local WebView — hash routing
+  // avoids server-side path handling. Web keeps clean /app/* URLs.
+  const IS_NATIVE = typeof (window as any).Capacitor !== 'undefined';
+  const Router = IS_NATIVE ? HashRouter : BrowserRouter;
+
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="/app">
+      <Router basename={IS_NATIVE ? undefined : '/app'}>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
-      </BrowserRouter>
+      </Router>
     </QueryClientProvider>
   );
 }

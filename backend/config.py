@@ -39,7 +39,7 @@ PASSWORD_MIN_LENGTH = 4
 PIN_LENGTH = 4
 
 # CORS — restrict to actual origins
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://rscloud.live").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,https://rscloud.live,https://localhost,capacitor://localhost").split(",")
 
 # Rate limiting
 AUTH_RATE_LIMIT=os.getenv("AUTH_RATE_LIMIT", "5/minute")
