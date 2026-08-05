@@ -47,6 +47,9 @@ class User(Base):
     created_at: Mapped[Optional[str]] = mapped_column(String(100))
     status: Mapped[Optional[str]] = mapped_column(String(50), default="active")
     permissions: Mapped[Optional[str]] = mapped_column(Text)
+    # JSON: {"payment": true, "reconnection": true, "daily_summary": true, ...}
+    # Missing key = enabled (safe default). Admin-managed via Settings UI.
+    notif_prefs: Mapped[Optional[str]] = mapped_column(Text)
     operator_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("operators.id"))
 
     # relationships

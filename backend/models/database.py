@@ -278,6 +278,7 @@ def init_db():
     _safe_alter_list = [
         ("users", "status", "TEXT DEFAULT 'Active'"),
         ("users", "permissions", "TEXT"),
+        ("users", "notif_prefs", "TEXT"),
         ("customers", "status", "TEXT DEFAULT 'Active'"),
         ("customers", "surrendered_date", "TEXT"),
         ("customers", "surrender_reason", "TEXT"),

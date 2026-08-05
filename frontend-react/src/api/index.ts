@@ -213,3 +213,12 @@ export const mapApi = {
 export const onlinePaymentsApi = {
   list: () => api.get('/online-payments'),
 };
+
+// ── Push Notifications / Notification Preferences (admin) ──────────────────
+export const pushApi = {
+  notifTypes: () => api.get('/push/notif-types'),
+  prefs: () => api.get('/push/prefs'),
+  updatePrefs: (userId: number, prefs: Record<string, boolean>) =>
+    api.put(`/push/prefs/${userId}`, { prefs }),
+  test: () => api.post('/push/test'),
+};

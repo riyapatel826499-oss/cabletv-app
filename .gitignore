@@ -41,3 +41,4 @@ backups/
 
 # Temp/junk files
 backend/static/
+capacitor-www/

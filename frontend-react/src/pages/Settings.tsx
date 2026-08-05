@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { settingsApi, layaApi } from '../api';
+import { settingsApi, layaApi, pushApi } from '../api';
 import api from '../api/client';
 import { useT } from '../lib/i18n';
 import {
   Settings as SettingsIcon, Bell, Send, Check, Unlink,
-  Shield, Loader2, RefreshCw, Wifi, Upload,
+  Shield, Loader2, RefreshCw, Wifi, Upload, Save, User,
 } from 'lucide-react';
 
 export default function Settings() {
@@ -430,6 +430,9 @@ export default function Settings() {
       {/* ── Branding / White-label Settings ── */}
       <BrandingSection />
 
+      {/* ── Notification Preferences (admin) ── */}
+      <NotificationPrefsSection />
+
     </div>
   );
 }
@@ -627,6 +630,171 @@ function BrandingSection() {
             {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
             {saving ? t('Saving…') : t('Save Branding')}
           </button>
+
+          {msg && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6,
+              background: msg.ok ? 'rgba(52,199,89,0.1)' : 'rgba(255,59,48,0.1)',
+              color: msg.ok ? '#34c759' : '#ff3b30', fontSize: '0.82rem', fontWeight: 500,
+            }}>
+              {msg.ok ? <Check size={16} /> : <Shield size={16} />}
+              {msg.text}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Notification Preferences (admin: which notification types reach which user) ──
+
+function NotificationPrefsSection() {
+  const queryClient = useQueryClient();
+  const { t } = useT();
+  const [drafts, setDrafts] = useState<Record<number, Record<string, boolean>>>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['notif-prefs'],
+    queryFn: async () => {
+      try {
+        return (await pushApi.prefs()).data;
+      } catch (e: any) {
+        if (e?.response?.status === 403) { setForbidden(true); return null; }
+        throw e;
+      }
+    },
+    retry: false,
+  });
+
+  const users: { id: number; username: string; name: string; role: string; prefs: Record<string, boolean> }[] = data?.users || [];
+  const types: Record<string, string> = data?.types || {};
+
+  useEffect(() => {
+    if (!users.length) return;
+    const d: Record<number, Record<string, boolean>> = {};
+    users.forEach(u => { d[u.id] = { ...(u.prefs || {}) }; });
+    setDrafts(d);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Missing key in prefs = enabled (backend default). Drafts hold explicit true/false.
+  const isOn = (userId: number, type: string) => (drafts[userId]?.[type] ?? true) !== false;
+
+  const toggle = (userId: number, type: string) => {
+    setDrafts(prev => {
+      const p = { ...(prev[userId] || {}) };
+      p[type] = !(p[type] ?? true);
+      return { ...prev, [userId]: p };
+    });
+  };
+
+  async function saveUser(userId: number) {
+    setSavingId(userId);
+    setMsg(null);
+    try {
+      await pushApi.updatePrefs(userId, drafts[userId] || {});
+      setMsg({ ok: true, text: t('Saved') });
+      queryClient.invalidateQueries({ queryKey: ['notif-prefs'] });
+    } catch (e: any) {
+      setMsg({ ok: false, text: e?.response?.data?.detail || t('Failed to save') });
+    }
+    setSavingId(null);
+    setTimeout(() => setMsg(null), 3500);
+  }
+
+  if (forbidden) {
+    return (
+      <div className="glass-card" style={{ padding: '24px' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Bell size={16} /> {t('Notification Preferences')}
+        </h2>
+        <p style={{ fontSize: '0.82rem', color: 'var(--text-light)' }}>
+          {t('Only Admin can manage notification settings.')}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass-card" style={{ padding: '24px' }}>
+      <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Bell size={16} /> {t('Notification Preferences')}
+      </h2>
+      <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: 18 }}>
+        {t('Choose which notification types each staff member receives on their phone.')}
+      </p>
+
+      {isLoading ? (
+        <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{t('Loading…')}</div>
+      ) : users.length === 0 ? (
+        <div style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{t('No staff users found.')}</div>
+      ) : (
+        <>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 620, fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-light)', fontWeight: 500 }}>
+                    {t('Staff')}
+                  </th>
+                  {Object.entries(types).map(([key, label]) => (
+                    <th key={key} style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--text-light)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      {t(label)}
+                    </th>
+                  ))}
+                  <th style={{ padding: '8px 10px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'rgba(94,92,230,0.12)', color: '#5e5ce6', flexShrink: 0,
+                        }}>
+                          <User size={15} />
+                        </span>
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text)' }}>{u.name}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{u.username} · {u.role}</div>
+                        </div>
+                      </div>
+                    </td>
+                    {Object.keys(types).map(key => (
+                      <td key={key} style={{ textAlign: 'center', padding: '10px 6px' }}>
+                        <ToggleSwitch checked={isOn(u.id, key)} onChange={() => toggle(u.id, key)} />
+                      </td>
+                    ))}
+                    <td style={{ textAlign: 'right', padding: '10px' }}>
+                      <button
+                        onClick={() => saveUser(u.id)}
+                        disabled={savingId === u.id}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 10,
+                          border: 'none', background: savingId === u.id ? 'var(--text-light)' : '#2563eb',
+                          color: '#fff', fontWeight: 600, fontSize: '0.78rem', cursor: savingId === u.id ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {savingId === u.id
+                          ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                          : <Save size={13} />}
+                        {savingId === u.id ? t('Saving…') : t('Save')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 12 }}>
+            {t('Regular payments play one sound; reconnection alerts play a different sound on your phone.')}
+          </p>
 
           {msg && (
             <div style={{

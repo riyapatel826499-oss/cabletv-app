@@ -97,23 +97,31 @@ async def _get_access_token() -> str | None:
         return None
 
 
-async def send_fcm(token: str, title: str, body: str, data: dict | None = None) -> bool:
-    """Send a single FCM message to one device token. Returns success."""
+async def send_fcm(token: str, title: str, body: str, data: dict | None = None, notif_type: str = "", sound: str = "default") -> bool:
+    """Send a single FCM message to one device token. Returns success.
+
+    `notif_type` is passed through in the data payload so the app can play
+    the right in-app sound. `sound` names a bundled raw resource in the APK
+    (e.g. "payment" → res/raw/payment.wav) for the system-tray sound.
+    """
     sa = _load_sa()
     if not sa or not token:
         return False
     access = await _get_access_token()
     if not access:
         return False
+    data_dict = dict(data or {})
+    if notif_type:
+        data_dict["notif_type"] = notif_type
     payload = {
         "message": {
             "token": token,
             "notification": {"title": title, "body": body},
             "android": {
                 "priority": "HIGH",
-                "notification": {"sound": "default", "priority": "HIGH"},
+                "notification": {"sound": sound, "priority": "HIGH"},
             },
-            "data": {k: str(v) for k, v in (data or {}).items()},
+            "data": {k: str(v) for k, v in data_dict.items()},
         }
     }
     try:
@@ -132,7 +140,7 @@ async def send_fcm(token: str, title: str, body: str, data: dict | None = None) 
         return False
 
 
-async def send_fcm_to_user(user_id: int, title: str, body: str, data: dict | None = None) -> int:
+async def send_fcm_to_user(user_id: int, title: str, body: str, data: dict | None = None, notif_type: str = "", sound: str = "default") -> int:
     """Send FCM to ALL tokens registered for a user. Returns count sent."""
     if not fcm_enabled():
         return 0
@@ -143,6 +151,6 @@ async def send_fcm_to_user(user_id: int, title: str, body: str, data: dict | Non
         ).fetchall()
     sent = 0
     for row in rows:
-        if await send_fcm(row["token"], title, body, data):
+        if await send_fcm(row["token"], title, body, data, notif_type, sound):
             sent += 1
     return sent

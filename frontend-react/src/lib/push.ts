@@ -32,14 +32,16 @@ export async function initPushNotifications(): Promise<void> {
       } catch { /* non-fatal */ }
     });
 
-    // Foreground notification received → play sound (system tray shows natively)
-    PushNotifications.addListener('pushNotificationReceived', () => {
-      playNotificationSound();
+    // Foreground notification received → play the right sound (system tray shows natively)
+    PushNotifications.addListener('pushNotificationReceived', (n: any) => {
+      const data = n?.data || {};
+      playNotificationSound(data.notif_type);
     });
 
     // Notification tapped → open app (already foreground)
-    PushNotifications.addListener('pushNotificationActionPerformed', () => {
-      playNotificationSound();
+    PushNotifications.addListener('pushNotificationActionPerformed', (n: any) => {
+      const data = n?.notification?.data || n?.data || {};
+      playNotificationSound(data.notif_type);
     });
   } catch (e) {
     console.warn('[push] FCM init skipped:', e);

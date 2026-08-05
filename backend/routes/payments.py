@@ -313,7 +313,8 @@ def create_payment(
         except Exception:
             pass  # WA receipt failure should not break payment
 
-    # Push notification: Reconnection alert for disconnected customers
+    # Push notification: ALL payments push to admin+support.
+    # Regular → "payment" type (single ding). Reconnection/disconnected → "reconnection" type (alert sound).
     if result:
         try:
             from routes.push import send_push_to_roles
@@ -326,7 +327,47 @@ def create_payment(
                     title="🔌 Reconnection Payment",
                     body=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
                     tag="reconnection",
-                    data={"url": "/", "customer_id": data.customer_id}
+                    data={"url": "/", "customer_id": data.customer_id, "notif_type": "reconnection"},
+                    notif_type="reconnection",
+                )
+            else:
+                send_push_to_roles(
+                    ["admin", "support"],
+                    title="💰 Payment Received",
+                    body=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} · {data.payment_mode or 'Cash'} · {data.month_year or ''}",
+                    tag="payment",
+                    data={"url": "/payments", "customer_id": data.customer_id, "notif_type": "payment"},
+                    notif_type="payment",
+                )
+        except Exception:
+            pass
+
+    # In-app bell notification for every payment (type drives the sound in-app)
+    if result:
+        try:
+            from routes.notifications import _create_notification
+            conn_status = (connection_dict.get("status") or "").lower() if connection_dict else ""
+            was_disconnected = conn_status in ("disconnected", "suspended", "inactive")
+            is_reconnection = (data.payment_type or "regular") == "reconnection"
+            if was_disconnected or is_reconnection:
+                _create_notification(
+                    db,
+                    type="reconnection",
+                    title="🔌 Reconnection Payment",
+                    message=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} — reconnect now!",
+                    status="warning",
+                    customer_id=data.customer_id,
+                    operator_id=op_id(current_user),
+                )
+            else:
+                _create_notification(
+                    db,
+                    type="payment",
+                    title="💰 Payment Received",
+                    message=f"{payment_data.get('customer_name', '')} ({data.customer_id}) paid ₹{data.amount:,.0f} · {data.payment_mode or 'Cash'}",
+                    status="success",
+                    customer_id=data.customer_id,
+                    operator_id=op_id(current_user),
                 )
         except Exception:
             pass

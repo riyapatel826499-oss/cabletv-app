@@ -3,7 +3,6 @@ import { Bell, Check, CheckCheck, Wifi, Tv, AlertTriangle, XCircle, RefreshCw, Z
 import { notificationsApi } from '../api';
 import { playNotificationSound } from '../lib/sound';
 import { useT, translate } from '../lib/i18n';
-
 interface Notification {
   id: number;
   type: string;
@@ -71,7 +70,9 @@ export default function NotificationBell() {
       } else {
         const newUnread = items.filter(n => !n.is_read && !seenIdsRef.current.has(n.id));
         if (newUnread.length > 0) {
-          playNotificationSound();
+          // Play the sound matching the most important new notification type
+          const newest = newUnread[0];
+          playNotificationSound(newest.type);
           items.forEach(n => seenIdsRef.current.add(n.id));
         }
       }

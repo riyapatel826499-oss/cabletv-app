@@ -271,5 +271,17 @@ const settings: Record<string, string> = {
   'New version available': 'புதிய பதிப்பு கிடைக்கிறது',
   'Later': 'பிறகு',
   'Prefix: ': 'முன்னொட்டு: ',
+  // Notification Preferences (admin UI)
+  'Notification Preferences': 'அறிவிப்பு விருப்பத்தேர்வுகள்',
+  'Choose which notification types each staff member receives on their phone.': 'ஒவ்வொரு ஊழியரும் தங்கள் போனில் பெறும் அறிவிப்பு வகைகளைத் தேர்வு செய்யவும்.',
+  'Only Admin can manage notification settings.': 'நிர்வாகி மட்டுமே அறிவிப்பு அமைப்புகளை நிர்வகிக்க முடியும்.',
+  'No staff users found.': 'ஊழியர் பயனர்கள் எதுவும் இல்லை.',
+  'Regular payments play one sound; reconnection alerts play a different sound on your phone.': 'வழக்கமான பணம் செலுத்தல்கள் ஒரு ஒலியும், மறு இணைப்பு எச்சரிக்கைகள் வேறு ஒலியும் இயக்கும்.',
+  // Notification type labels (from backend NOTIF_TYPES)
+  'Payment Received': 'பணம் பெறப்பட்டது',
+  'Reconnection Payment': 'மறு இணைப்பு கட்டணம்',
+  'Daily Summary': 'தினசரி சுருக்கம்',
+  'STB Swap': 'STB மாற்றம்',
+  'Test Notification': 'சோதனை அறிவிப்பு',
 };
 export default settings;

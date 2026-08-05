@@ -112,14 +112,20 @@ def push_test(current_user=Depends(get_current_user)):
     sent_fcm = 0
     try:
         import asyncio
-        sent_fcm = asyncio.run(send_fcm_to_user(current_user["id"], "🔔 Test Notification", f"FCM push working! Hello {current_user['name']}."))
+        from routes.fcm import send_fcm_to_user
+        sent_fcm = asyncio.run(send_fcm_to_user(
+            current_user["id"], "🔔 Test Notification",
+            f"FCM push working! Hello {current_user['name']}.",
+            {"_force": True}, "test", "default"))
     except Exception as e:
         print(f"[push] fcm test error: {e}")
     sent_web = send_push_to_user(
         current_user["id"],
         title="🔔 Test Notification",
         body=f"Push notifications are working! Hello {current_user['name']}.",
-        tag="test"
+        tag="test",
+        data={"_force": True},
+        notif_type="test",
     )
     return {"status": "sent", "web": sent_web, "fcm": sent_fcm}
 
@@ -150,8 +156,71 @@ def fcm_status(current_user=Depends(get_current_user)):
 
 # ── Push Sending Utility ──
 
-def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None):
-    """Send a push notification to all subscriptions of a user (web push + FCM native)."""
+# Notification types (push + sound aware). Each maps to a per-user pref key
+# (user.notif_prefs). Missing key = enabled.
+NOTIF_TYPES = {
+    "payment": "Payment Received",
+    "reconnection": "Reconnection Payment",
+    "daily_summary": "Daily Summary",
+    "wallet_alert": "GTPL Wallet Low",
+    "swap": "STB Swap",
+    "test": "Test Notification",
+}
+
+
+def get_user_notif_prefs(user_id: int) -> dict:
+    """Return a user's notification prefs dict (missing key = enabled)."""
+    try:
+        with get_conn() as conn:
+            row = conn.execute(
+                "SELECT notif_prefs FROM users WHERE id=?", (user_id,)
+            ).fetchone()
+        raw = (row[0] if row else None) or "{}"
+        prefs = json.loads(raw) if isinstance(raw, str) else {}
+        if not isinstance(prefs, dict):
+            prefs = {}
+    except Exception:
+        prefs = {}
+    return prefs
+
+
+def notif_enabled(user_id: int, notif_type: str) -> bool:
+    """Whether a user has this notification type enabled (default True)."""
+    # Only gate on known types; unknown/empty → always deliver
+    if notif_type not in NOTIF_TYPES:
+        return True
+    prefs = get_user_notif_prefs(user_id)
+    return prefs.get(notif_type, True)
+
+
+def notify_fcm(user_id: int, title: str, body: str, data: dict = None, notif_type: str = ""):
+    """Fire-and-forget FCM native push for a user (respects their prefs)."""
+    try:
+        from routes.fcm import send_fcm_to_user
+        import asyncio
+        # system-tray sound: bundled res/raw resource per type (APK side).
+        sound = "default"
+        if notif_type == "payment":
+            sound = "payment"
+        elif notif_type == "reconnection":
+            sound = "reconnection"
+        asyncio.create_task(
+            send_fcm_to_user(user_id, title, body, data or {}, notif_type, sound)
+        )
+    except Exception:
+        pass
+
+
+def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None, notif_type: str = ""):
+    """Send a push notification to all subscriptions of a user (web push + FCM native).
+
+    Respects the user's notification prefs for `notif_type`. Pass `_force=True`
+    in data to bypass prefs (used by the manual test endpoint).
+    """
+    # Respect per-user notification prefs (unless forced by test endpoint)
+    if not (data or {}).get("_force") and not notif_enabled(user_id, notif_type):
+        return 0
+
     with get_conn() as conn:
         subs = conn.execute(
             "SELECT * FROM push_subscriptions WHERE user_id=?",
@@ -159,12 +228,7 @@ def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: 
         ).fetchall()
 
     # FCM native devices (fire-and-forget; fcm.py no-ops if not configured)
-    try:
-        from routes.fcm import send_fcm_to_user
-        import asyncio
-        asyncio.create_task(send_fcm_to_user(user_id, title, body, data or {}))
-    except Exception:
-        pass
+    notify_fcm(user_id, title, body, data, notif_type)
 
     if not subs:
         return 0
@@ -204,8 +268,8 @@ def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: 
     return sent
 
 
-def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None):
-    """Send push notification to all users with given roles."""
+def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None, notif_type: str = ""):
+    """Send push notification to all users with given roles (per-user prefs respected)."""
     with get_conn() as conn:
         users = conn.execute(
             "SELECT id FROM users WHERE role IN ({}) AND status=?".format(
@@ -216,7 +280,7 @@ def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: 
 
     total = 0
     for user in users:
-        total += send_push_to_user(user["id"], title, body, tag, data)
+        total += send_push_to_user(user["id"], title, body, tag, data, notif_type)
     return total
 
 
@@ -225,6 +289,74 @@ def _remove_subscription(sub_id: int):
     with get_conn() as conn:
         conn.execute("DELETE FROM push_subscriptions WHERE id=?", (sub_id,))
         conn.commit()
+
+
+# ── Notification Preferences (admin-managed per-user settings) ──
+
+class NotifPrefsUpdate(BaseModel):
+    prefs: dict  # {"payment": true, "reconnection": false, ...}
+
+
+@router.get("/push/notif-types")
+def get_notif_types(current_user=Depends(get_current_user)):
+    """List available notification types + their labels (for the admin UI)."""
+    return {"types": NOTIF_TYPES}
+
+
+@router.get("/push/prefs")
+def list_notif_prefs(current_user=Depends(get_current_user)):
+    """List all staff users + their notification prefs. Admin only."""
+    if current_user["role"] not in ("admin", "master"):
+        raise HTTPException(status_code=403, detail="Only Admin can manage notification settings")
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, username, name, role, notif_prefs FROM users ORDER BY role, name"
+        ).fetchall()
+    users = []
+    for r in rows:
+        raw = r["notif_prefs"] or "{}"
+        try:
+            prefs = json.loads(raw) if isinstance(raw, str) else {}
+        except Exception:
+            prefs = {}
+        if not isinstance(prefs, dict):
+            prefs = {}
+        users.append({
+            "id": r["id"],
+            "username": r["username"],
+            "name": r["name"],
+            "role": r["role"],
+            "prefs": prefs,
+        })
+    return {"users": users, "types": NOTIF_TYPES}
+
+
+@router.put("/push/prefs/{user_id}")
+def update_notif_prefs(
+    user_id: int,
+    body: NotifPrefsUpdate,
+    current_user=Depends(get_current_user),
+):
+    """Set a user's notification prefs. Admin only."""
+    if current_user["role"] not in ("admin", "master"):
+        raise HTTPException(status_code=403, detail="Only Admin can manage notification settings")
+    # Validate: only known types, bool values
+    clean = {}
+    for k, v in (body.prefs or {}).items():
+        if k in NOTIF_TYPES:
+            clean[k] = bool(v)
+    with get_conn() as conn:
+        exists = conn.execute(
+            "SELECT id FROM users WHERE id=?", (user_id,)
+        ).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail="User not found")
+        conn.execute(
+            "UPDATE users SET notif_prefs=? WHERE id=?",
+            (json.dumps(clean), user_id),
+        )
+        conn.commit()
+    return {"status": "updated", "user_id": user_id, "prefs": clean}
 
 
 # ── Daily Summary Endpoint (called by cron) ──
@@ -284,6 +416,6 @@ def send_daily_summary(
     )
 
     target_roles = [r.strip() for r in role.split(",")]
-    sent = send_push_to_roles(target_roles, title, body, tag="daily-summary")
+    sent = send_push_to_roles(target_roles, title, body, tag="daily-summary", notif_type="daily_summary")
 
     return {"sent": sent, "date": date_str, "collected": pay_total, "payments": pay_count}
