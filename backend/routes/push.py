@@ -126,9 +126,26 @@ def push_test(current_user=Depends(get_current_user)):
 
 @router.get("/push/fcm-status")
 def fcm_status(current_user=Depends(get_current_user)):
-    """Report whether FCM is configured on this deployment."""
+    """Report whether FCM is configured on this deployment (with detail)."""
+    import os
     from routes.fcm import fcm_enabled
-    return {"fcm_enabled": fcm_enabled()}
+    sa_inline = os.getenv("FCM_SERVICE_ACCOUNT", "")
+    sa_path = os.getenv("FCM_SERVICE_ACCOUNT_JSON", "")
+    detail = "missing"
+    if sa_inline:
+        detail = "FCM_SERVICE_ACCOUNT set"
+        try:
+            json.loads(sa_inline)
+            detail += " (valid JSON)"
+        except Exception:
+            detail += " (INVALID JSON — check value)"
+    elif sa_path:
+        detail = f"FCM_SERVICE_ACCOUNT_JSON set (path: {sa_path})"
+        if os.path.exists(sa_path):
+            detail += " (file exists)"
+        else:
+            detail += " (FILE NOT FOUND on container)"
+    return {"fcm_enabled": fcm_enabled(), "detail": detail}
 
 
 # ── Push Sending Utility ──
