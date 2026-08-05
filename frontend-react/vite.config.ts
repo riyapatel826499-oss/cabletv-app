@@ -5,9 +5,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
-  // Served under /app so the React app coexists with the legacy vanilla-JS app
+  // Web: served under /app so the React app coexists with the legacy vanilla-JS app
   // (which keeps the root, /login, /dashboard). Assets emit under /app/.
-  base: '/app/',
+  // Native (Capacitor APK): relative './' base — the WebView serves from
+  // https://localhost/ where '/app/' does not exist (white screen without this).
+  base: process.env.VITE_NATIVE ? './' : '/app/',
   plugins: [
     react(),
     tailwindcss(),
@@ -85,7 +87,10 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: '../backend/static',  // Build directly to backend for Railway to serve
+    // Web build → backend/static (Railway serves under /app).
+    // Native build (VITE_NATIVE=1) → ../capacitor-www, synced into the APK
+    // by `npx cap sync android`. Kept separate so the web bundle is untouched.
+    outDir: process.env.VITE_NATIVE ? '../capacitor-www' : '../backend/static',
     emptyOutDir: true,
   },
 })
