@@ -108,10 +108,15 @@ function RoleRoute({ path, element }: { path: string; element: React.ReactNode }
 }
 
 // ── Role-based dashboard switch ────────────────────────────────────────────
+// Backend semantics (deps_orm.is_agent_role): 'support' is NOT restricted —
+// support sees ALL transactions for reconciliation → full Dashboard.
+// Only genuinely restricted roles (agent, collection_point, service_agent,
+// collector, lco) get the personal AgentDashboard.
+const AGENT_ROLES = ['agent', 'collection_point', 'service_agent', 'collector', 'lco'];
 function DashboardSwitch() {
   const { user } = useAuth();
   const role = user?.role;
-  const isAgent = role && !['master', 'admin'].includes(role);
+  const isAgent = role ? AGENT_ROLES.includes(role) : false;
   return isAgent ? <AgentDashboard /> : <Dashboard />;
 }
 
