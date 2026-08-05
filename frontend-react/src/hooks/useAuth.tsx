@@ -1,5 +1,6 @@
 import { useState, useContext, createContext, type ReactNode } from 'react';
 import { getStoredUser, login as apiLogin, logout as apiLogout } from '../api/auth';
+import { initPushNotifications, unregisterPushNotifications } from '../lib/push';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -18,16 +19,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading] = useState(false);
 
   const login = async (username: string, password: string) => {
-    const res = await apiLogin({ username, password });
-    localStorage.setItem('token', res.access_token);
-    localStorage.setItem('user', JSON.stringify(res.user));
-    setUser(res.user);
-  };
+      const res = await apiLogin({ username, password });
+      localStorage.setItem('token', res.access_token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      setUser(res.user);
+      // Fire-and-forget FCM device registration (native app only)
+      initPushNotifications();
+    };
 
-  const logout = () => {
-    apiLogout();
-    setUser(null);
-  };
+    const logout = () => {
+      // Native app: unregister this device's FCM token
+      unregisterPushNotifications();
+      apiLogout();
+      setUser(null);
+    };
 
   return (
     <AuthContext.Provider

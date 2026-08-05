@@ -53,6 +53,51 @@ def push_unsubscribe(sub: PushSubscription, current_user=Depends(get_current_use
     return {"status": "unsubscribed"}
 
 
+# ── FCM (native app) device tokens ─────────────────────────────────
+
+class FcmRegisterBody(BaseModel):
+    token: str
+    platform: str = "android"
+
+
+@router.post("/push/fcm-register")
+def fcm_register(body: FcmRegisterBody, current_user=Depends(get_current_user)):
+    """Register the native app's FCM device token for this user."""
+    token = (body.token or "").strip()
+    if len(token) < 50:  # FCM tokens are long
+        raise HTTPException(status_code=400, detail="Invalid FCM token")
+    with get_conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM fcm_tokens WHERE token=?", (token,)
+        ).fetchone()
+        if existing:
+            # Re-point to this user (token may have moved devices)
+            conn.execute(
+                "UPDATE fcm_tokens SET user_id=?, platform=? WHERE id=?",
+                (current_user["id"], body.platform, existing["id"])
+            )
+        else:
+            conn.execute(
+                "INSERT INTO fcm_tokens (user_id, operator_id, token, platform) VALUES (?,?,?,?)",
+                (current_user["id"], current_user.get("operator_id", 1), token, body.platform)
+            )
+        conn.commit()
+    return {"status": "registered"}
+
+
+@router.post("/push/fcm-unregister")
+def fcm_unregister(body: FcmRegisterBody, current_user=Depends(get_current_user)):
+    """Remove a device token (e.g. on logout)."""
+    token = (body.token or "").strip()
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM fcm_tokens WHERE token=? AND user_id=?",
+            (token, current_user["id"])
+        )
+        conn.commit()
+    return {"status": "unregistered"}
+
+
 @router.get("/push/vapid-key")
 def get_vapid_key():
     """Return the public VAPID key for the frontend."""
@@ -74,12 +119,20 @@ def push_test(current_user=Depends(get_current_user)):
 # ── Push Sending Utility ──
 
 def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: dict = None):
-    """Send a push notification to all subscriptions of a user."""
+    """Send a push notification to all subscriptions of a user (web push + FCM native)."""
     with get_conn() as conn:
         subs = conn.execute(
             "SELECT * FROM push_subscriptions WHERE user_id=?",
             (user_id,)
         ).fetchall()
+
+    # FCM native devices (fire-and-forget; fcm.py no-ops if not configured)
+    try:
+        from routes.fcm import send_fcm_to_user
+        import asyncio
+        asyncio.create_task(send_fcm_to_user(user_id, title, body, data or {}))
+    except Exception:
+        pass
 
     if not subs:
         return 0

@@ -482,6 +482,19 @@ class PushSubscription(Base):
 
 
 # ---------------------------------------------------------------------------
+# FCM DEVICE TOKENS (native Android/iOS app push)
+# ---------------------------------------------------------------------------
+class FcmToken(Base):
+    __tablename__ = "fcm_tokens"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    operator_id: Mapped[Optional[int]] = mapped_column(Integer)
+    token: Mapped[Optional[str]] = mapped_column(Text, unique=True)
+    platform: Mapped[Optional[str]] = mapped_column(String(20))  # android / ios
+    created_at: Mapped[Optional[str]] = mapped_column(String(100))
+
+
+# ---------------------------------------------------------------------------
 # SMS LOG
 # ---------------------------------------------------------------------------
 class ActivityNotification(Base):
