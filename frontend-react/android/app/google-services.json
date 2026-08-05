@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "547269308453",
+    "project_id": "wasool-5c685",
+    "storage_bucket": "wasool-5c685.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:547269308453:android:e0063d268b0e13cc7ecfcc",
+        "android_client_info": {
+          "package_name": "com.ssncables.wasool"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAW0SItRsQqG9KsxT4RjgwiYJB-YreMS1s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
