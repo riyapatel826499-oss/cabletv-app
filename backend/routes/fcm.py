@@ -3,13 +3,13 @@ Firebase Cloud Messaging (FCM) sender — HTTP v1 API with service-account JWT.
 Zero heavy deps: uses httpx + cryptography (already in venv).
 
 Config: FCM_SERVICE_ACCOUNT_JSON (env) = path to Firebase service-account JSON.
-If unset, all FCM functions are no-ops (web push still works).
+        FCM_SERVICE_ACCOUNT (env)      = OR the raw JSON content inline (container use).
+If neither set, all FCM functions are no-ops (web push still works).
 """
 import json
 import os
 import time
 import logging
-from datetime import datetime, timezone, timedelta
 
 import httpx
 from cryptography.hazmat.primitives import hashes, serialization
@@ -18,23 +18,32 @@ from cryptography.hazmat.primitives.asymmetric import padding
 logger = logging.getLogger("wasool.fcm")
 
 _SA_PATH = os.getenv("FCM_SERVICE_ACCOUNT_JSON", "")
+_SA_INLINE = os.getenv("FCM_SERVICE_ACCOUNT", "")
 _cached_sa = None
 _token_cache = {"token": None, "exp": 0}
 
 
 def _load_sa():
     global _cached_sa
-    if not _SA_PATH or not os.path.exists(_SA_PATH):
-        return None
-    if _cached_sa is None:
+    if _cached_sa is not None:
+        return _cached_sa
+    if _SA_INLINE:
+        try:
+            _cached_sa = json.loads(_SA_INLINE)
+            return _cached_sa
+        except Exception as e:
+            logger.error(f"[fcm] inline service account parse failed: {e}")
+            return None
+    if _SA_PATH and os.path.exists(_SA_PATH):
         with open(_SA_PATH) as f:
             _cached_sa = json.load(f)
-    return _cached_sa
+        return _cached_sa
+    return None
 
 
 def fcm_enabled() -> bool:
     """True when a service account is configured."""
-    return bool(_SA_PATH) and os.path.exists(_SA_PATH)
+    return _load_sa() is not None
 
 
 def _sign_jwt(sa: dict) -> str:

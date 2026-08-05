@@ -104,16 +104,31 @@ def get_vapid_key():
     return {"publicKey": VAPID_PUBLIC_KEY}
 
 
+from routes.fcm import send_fcm_to_user
+
 @router.post("/push/test")
 def push_test(current_user=Depends(get_current_user)):
-    """Send a test push notification to the current user."""
-    send_push_to_user(
+    """Send a test push notification to the current user (web push + FCM native)."""
+    sent_fcm = 0
+    try:
+        import asyncio
+        sent_fcm = asyncio.run(send_fcm_to_user(current_user["id"], "🔔 Test Notification", f"FCM push working! Hello {current_user['name']}."))
+    except Exception as e:
+        print(f"[push] fcm test error: {e}")
+    sent_web = send_push_to_user(
         current_user["id"],
         title="🔔 Test Notification",
         body=f"Push notifications are working! Hello {current_user['name']}.",
         tag="test"
     )
-    return {"status": "sent"}
+    return {"status": "sent", "web": sent_web, "fcm": sent_fcm}
+
+
+@router.get("/push/fcm-status")
+def fcm_status(current_user=Depends(get_current_user)):
+    """Report whether FCM is configured on this deployment."""
+    from routes.fcm import fcm_enabled
+    return {"fcm_enabled": fcm_enabled()}
 
 
 # ── Push Sending Utility ──
