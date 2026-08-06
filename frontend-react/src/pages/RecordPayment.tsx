@@ -165,7 +165,7 @@ export default function RecordPayment() {
   const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
   // Operator settings for business name on receipts
-  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; care_phone?: string; phone?: string; wa_receipt_template?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
+  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; care_phone?: string; phone?: string; wa_receipt_template?: string; wa_receipt_template_ta?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
     queryKey: ['operator-settings-public'],
     queryFn: async () => {
       const r = await fetch('/api/portal/settings');
@@ -412,6 +412,16 @@ export default function RecordPayment() {
     const payPhone = opSettings?.care_phone || opSettings?.phone || '7708551139';
     const bizName = opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services';
     const upi = opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank';
+    // Tamil month names for the Tamil block
+    const TA_MONTHS = ['ஜனவரி','பிப்ரவரி','மார்ச்','ஏப்ரல்','மே','ஜூன்','ஜூலை','ஆகஸ்ட்','செப்டம்பர்','அக்டோபர்','நவம்பர்','டிசம்பர்'];
+    const TA_MODE: Record<string,string> = { Cash: 'ரொக்கம்', GPay: 'ஜிபே', PhonePe: 'போன்பே', UPI: 'யூபிஐ', Bank: 'வங்கி', Other: 'மற்றவை' };
+    const taDate = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${TA_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    const taMonth = (mLabel: string) => {
+      try { const d = new Date(month + '-01'); return `${TA_MONTHS[d.getMonth()]} ${d.getFullYear()}`; } catch { return mLabel; }
+    };
+    const monthTa = taMonth(monthLabel);
+    const dateTa = taDate(new Date());
+    const validityTa = receiptExpiry ? (() => { try { return taDate(new Date(receiptExpiry)); } catch { return receiptExpiry; } })() : '';
     // Render editable template from Settings (placeholders), falls back to built-in message
     const renderReceipt = (tpl: string) => {
       const vars: Record<string, string> = {
@@ -425,12 +435,18 @@ export default function RecordPayment() {
         valid_till: validityStr,
         upi,
         phone: payPhone,
+        // Tamil placeholders
+        month_ta: monthTa,
+        mode_ta: TA_MODE[mode] ?? mode,
+        date_ta: dateTa,
+        valid_till_ta: validityTa,
       };
       return tpl.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
     };
     const template = opSettings?.wa_receipt_template?.trim();
+    const templateTa = opSettings?.wa_receipt_template_ta?.trim();
     const receiptMsg = template
-      ? renderReceipt(template)
+      ? renderReceipt(template) + (templateTa ? `\n\n${renderReceipt(templateTa)}` : '')
       : // Built-in fallback
         `*${bizName}*\n` +
         `${t('Payment Receipt')}\n` +

@@ -473,9 +473,15 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
   { key: 'app_name', label: 'App Name', type: 'text', hint: 'e.g. Wasool' },
   {
     key: 'wa_receipt_template',
-    label: 'WhatsApp Receipt Message',
+    label: 'WhatsApp Receipt Message (English)',
     type: 'textarea',
     hint: 'Placeholders: {business} {customer} {customer_id} {amount} {month} {mode} {date} {valid_till} {upi} {phone}',
+  },
+  {
+    key: 'wa_receipt_template_ta',
+    label: 'WhatsApp Receipt Message (தமிழ்)',
+    type: 'textarea',
+    hint: 'Tamil block sent below English. Extra placeholders: {month_ta} {mode_ta} {date_ta} {valid_till_ta}',
   },
 ];
 
@@ -544,7 +550,7 @@ function BrandingSection() {
                   <textarea
                     value={String(form[f.key] ?? '')}
                     onChange={e => set(f.key, e.target.value)}
-                    rows={f.key === 'wa_receipt_template' ? 10 : 3}
+                    rows={f.key.startsWith('wa_receipt_template') ? 10 : 3}
                     style={{ ...inp, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.8rem' }}
                   />
                 ) : (

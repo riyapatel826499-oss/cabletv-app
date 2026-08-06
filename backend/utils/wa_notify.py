@@ -36,52 +36,105 @@ def _render_template(template, **vars):
     return text
 
 
+# Tamil month names + day abbreviations for receipts
+_TAMIL_MONTHS = {
+    1: "ஜனவரி", 2: "பிப்ரவரி", 3: "மார்ச்", 4: "ஏப்ரல்",
+    5: "மே", 6: "ஜூன்", 7: "ஜூலை", 8: "ஆகஸ்ட்",
+    9: "செப்டம்பர்", 10: "அக்டோபர்", 11: "நவம்பர்", 12: "டிசம்பர்",
+}
+_TAMIL_MODE = {
+    "Cash": "ரொக்கம்",
+    "GPay": "ஜிபே",
+    "PhonePe": "போன்பே",
+    "UPI": "யூபிஐ",
+    "Bank": "வங்கி",
+    "Other": "மற்றவை",
+}
+
+
+def _tamil_month(date_obj):
+    return _TAMIL_MONTHS.get(date_obj.month, "")
+
+
+def _format_ta_date(date_obj):
+    """DD MMM YYYY in Tamil (e.g. 06 ஆகஸ்ட் 2026)."""
+    return f"{date_obj.day:02d} {_tamil_month(date_obj)} {date_obj.year}"
+
+
+def _mode_ta(mode):
+    if not mode:
+        return ""
+    return _TAMIL_MODE.get(mode, mode)
+
+
 def send_payment_receipt(customer_name, phone, amount, month_year,
                          plan_name=None, payment_mode=None, collector_name=None,
                          expiry_date=None, upi_id="selvanayakiammancables-3@okhdfcbank",
                          care_phone="7708551139",
                          business_name="Sree Selvanaayakki Amman Cables & Internet Services",
                          customer_id=None,
-                         template=None):
+                         template=None,
+                         template_ta=None):
     jid = _normalize_phone(phone)
     if not jid or not _wa_bridge_available():
         return False
     month_display = month_year or ""
+    month_display_ta = month_year or ""
     try:
         parts = month_year.split("-")
         from datetime import datetime
-        month_display = datetime(int(parts[1]), int(parts[0]), 1).strftime("%B %Y")
+        m_obj = datetime(int(parts[1]), int(parts[0]), 1)
+        month_display = m_obj.strftime("%B %Y")
+        month_display_ta = _format_ta_date(m_obj)  # e.g. 01 ஆகஸ்ட் 2026 — strip day
+        month_display_ta = " ".join(month_display_ta.split()[1:])  # ஆகஸ்ட் 2026
     except Exception:
         pass
     expiry_display = ""
+    expiry_display_ta = ""
     if expiry_date:
         try:
-            parts = expiry_date.split("-")
-            expiry_display = parts[2] + "-" + parts[1] + "-" + parts[0]
+            from datetime import datetime as _dt
+            e_dt = _dt.strptime(expiry_date, "%Y-%m-%d")
+            expiry_display = e_dt.strftime("%d-%m-%Y")
+            expiry_display_ta = _format_ta_date(e_dt)
         except Exception:
             expiry_display = expiry_date
     from datetime import date as _date
     date_display = ""
+    date_display_ta = ""
     try:
-        date_display = _date.today().strftime("%d %b %Y")
+        today = _date.today()
+        date_display = today.strftime("%d %b %Y")
+        date_display_ta = _format_ta_date(today)
     except Exception:
         pass
 
+    vars_all = {
+        "business": business_name,
+        "customer": customer_name,
+        "customer_id": customer_id or "",
+        "amount": f"{amount:,.0f}",
+        "month": month_display,
+        "mode": payment_mode or "",
+        "date": date_display,
+        "valid_till": expiry_display,
+        "upi": upi_id,
+        "phone": care_phone or "",
+        "plan": plan_name or "",
+        "collector": collector_name or "",
+        # Tamil-only placeholders
+        "month_ta": month_display_ta,
+        "mode_ta": _mode_ta(payment_mode),
+        "date_ta": date_display_ta,
+        "valid_till_ta": expiry_display_ta,
+    }
+
     if template:
-        message = _render_template(template, {
-            "business": business_name,
-            "customer": customer_name,
-            "customer_id": customer_id or "",
-            "amount": f"{amount:,.0f}",
-            "month": month_display,
-            "mode": payment_mode or "",
-            "date": date_display,
-            "valid_till": expiry_display,
-            "upi": upi_id,
-            "phone": care_phone or "",
-            "plan": plan_name or "",
-            "collector": collector_name or "",
-        })
+        message = _render_template(template, **vars_all)
+        # Append Tamil block when a Tamil template is configured
+        if template_ta and template_ta.strip():
+            ta_msg = _render_template(template_ta, **vars_all)
+            message = message + "\n\n" + ta_msg
     else:
         # Fallback: original emoji format
         lines = ["\u2705 *Payment Received*", "", "\U0001f464 " + customer_name,

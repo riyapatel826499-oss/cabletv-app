@@ -317,6 +317,7 @@ def create_payment(
                 upi_id=_os.get("upi_reconnect_id") or "selvanayakiammancables-3@okhdfcbank",
                 care_phone=_os.get("care_phone") or "7708551139",
                 template=_os.get("wa_receipt_template") or None,
+                template_ta=_os.get("wa_receipt_template_ta") or None,
             )
         except Exception:
             pass  # WA receipt failure should not break payment

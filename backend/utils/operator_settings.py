@@ -33,6 +33,7 @@ DEFAULT_SETTINGS = {
     # WhatsApp payment receipt template. Placeholders substituted at send time:
     #   {business} {customer} {customer_id} {amount} {month} {mode} {date}
     #   {valid_till} {upi} {phone}
+    #   Tamil-only: {month_ta} {mode_ta} {date_ta} {valid_till_ta}
     "wa_receipt_template": (
         "*{business}*\n"
         "Payment Receipt\n"
@@ -48,6 +49,23 @@ DEFAULT_SETTINGS = {
         "UPI for next time: {upi}\n"
         "GPay / PhonePe: {phone}\n\n"
         "- Regards, {business}"
+    ),
+    # Tamil version of the same receipt — sent below the English one in one message
+    "wa_receipt_template_ta": (
+        "*{business}*\n"
+        "பணம் செலுத்திய ரசீது\n"
+        "-----------------------------\n"
+        "வாடிக்கையாளர்: {customer} ({customer_id})\n"
+        "செலுத்திய தொகை: ₹{amount}\n"
+        "மாதம்: {month_ta}\n"
+        "செலுத்தும் முறை: {mode_ta}\n"
+        "தேதி: {date_ta}\n"
+        "செல்லுபடியாகும் வரை: {valid_till_ta}\n"
+        "-----------------------------\n"
+        "பணம் செலுத்தியதற்கு நன்றி.\n"
+        "அடுத்த முறை UPI: {upi}\n"
+        "GPay / PhonePe: {phone}\n\n"
+        "- நன்றி, {business}"
     ),
 }
 
