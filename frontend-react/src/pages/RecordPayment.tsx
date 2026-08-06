@@ -165,7 +165,7 @@ export default function RecordPayment() {
   const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
   // Operator settings for business name on receipts
-  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; care_phone?: string; phone?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
+  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; care_phone?: string; phone?: string; wa_receipt_template?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
     queryKey: ['operator-settings-public'],
     queryFn: async () => {
       const r = await fetch('/api/portal/settings');
@@ -410,21 +410,42 @@ export default function RecordPayment() {
       } catch { validityStr = receiptExpiry; }
     }
     const payPhone = opSettings?.care_phone || opSettings?.phone || '7708551139';
-    const receiptMsg =
-      `*${opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services'}*\n` +
-      `${t('Payment Receipt')}\n` +
-      `-----------------------------\n` +
-      `${t('Customer: {name} ({id})', { name: selectedCustomer?.name ?? '', id: selectedCustomer?.customer_id ?? '' })}\n` +
-      `${t('Amount paid: ₹{amount}', { amount: fmtRs(finalAmount) })}\n` +
-      `${t('For: {month}', { month: monthLabel })}${months > 1 ? t(' ({n} months)', { n: months }) : ''}\n` +
-      `${t('Mode: {m}', { m: mode })}\n` +
-      `${t('Date: {d}', { d: dateStr })}\n` +
-      (validityStr ? `${t('Valid till: {d}', { d: validityStr })}\n` : '') +
-      `-----------------------------\n` +
-      `${t('Thank you for your payment.')}\n` +
-      `${t('UPI for next time: {upi}', { upi: opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank' })}\n` +
-      `${t('GPay / PhonePe: {num}', { num: payPhone })}\n\n` +
-      `- ${t('Regards, {business}', { business: opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services' })}`;
+    const bizName = opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services';
+    const upi = opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank';
+    // Render editable template from Settings (placeholders), falls back to built-in message
+    const renderReceipt = (tpl: string) => {
+      const vars: Record<string, string> = {
+        business: bizName,
+        customer: selectedCustomer?.name ?? '',
+        customer_id: selectedCustomer?.customer_id ?? '',
+        amount: fmtRs(finalAmount),
+        month: monthLabel + (months > 1 ? ` (${t('{n} mo', { n: months })})` : ''),
+        mode,
+        date: dateStr,
+        valid_till: validityStr,
+        upi,
+        phone: payPhone,
+      };
+      return tpl.replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? '');
+    };
+    const template = opSettings?.wa_receipt_template?.trim();
+    const receiptMsg = template
+      ? renderReceipt(template)
+      : // Built-in fallback
+        `*${bizName}*\n` +
+        `${t('Payment Receipt')}\n` +
+        `-----------------------------\n` +
+        `${t('Customer: {name} ({id})', { name: selectedCustomer?.name ?? '', id: selectedCustomer?.customer_id ?? '' })}\n` +
+        `${t('Amount paid: ₹{amount}', { amount: fmtRs(finalAmount) })}\n` +
+        `${t('For: {month}', { month: monthLabel })}${months > 1 ? t(' ({n} months)', { n: months }) : ''}\n` +
+        `${t('Mode: {m}', { m: mode })}\n` +
+        `${t('Date: {d}', { d: dateStr })}\n` +
+        (validityStr ? `${t('Valid till: {d}', { d: validityStr })}\n` : '') +
+        `-----------------------------\n` +
+        `${t('Thank you for your payment.')}\n` +
+        `${t('UPI for next time: {upi}', { upi })}\n` +
+        `${t('GPay / PhonePe: {num}', { num: payPhone })}\n\n` +
+        `- ${t('Regards, {business}', { business: bizName })}`;
     const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(receiptMsg)}`;
     const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem', padding: '4px 0' };
     return (

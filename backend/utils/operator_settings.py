@@ -30,6 +30,25 @@ DEFAULT_SETTINGS = {
     "prorata_target_day": 16,
     "primary_color": "#5aa2ff",
     "secondary_color": "#8b5cff",
+    # WhatsApp payment receipt template. Placeholders substituted at send time:
+    #   {business} {customer} {customer_id} {amount} {month} {mode} {date}
+    #   {valid_till} {upi} {phone}
+    "wa_receipt_template": (
+        "*{business}*\n"
+        "Payment Receipt\n"
+        "-----------------------------\n"
+        "Customer: {customer} ({customer_id})\n"
+        "Amount paid: ₹{amount}\n"
+        "For: {month}\n"
+        "Mode: {mode}\n"
+        "Date: {date}\n"
+        "Valid till: {valid_till}\n"
+        "-----------------------------\n"
+        "Thank you for your payment.\n"
+        "UPI for next time: {upi}\n"
+        "GPay / PhonePe: {phone}\n\n"
+        "- Regards, {business}"
+    ),
 }
 
 

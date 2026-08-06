@@ -306,6 +306,7 @@ def create_payment(
                 _os = _op_settings(_c, operator_id=op_id(current_user))
             send_payment_receipt(
                 customer_name=payment_data.get("customer_name", ""),
+                customer_id=data.customer_id,
                 phone=payment_data.get("customer_phone", ""),
                 amount=data.amount,
                 month_year=data.month_year or "",
@@ -315,6 +316,7 @@ def create_payment(
                 expiry_date=expiry_date,
                 upi_id=_os.get("upi_reconnect_id") or "selvanayakiammancables-3@okhdfcbank",
                 care_phone=_os.get("care_phone") or "7708551139",
+                template=_os.get("wa_receipt_template") or None,
             )
         except Exception:
             pass  # WA receipt failure should not break payment

@@ -27,11 +27,22 @@ def _wa_bridge_available():
     except Exception:
         return False
 
+def _render_template(template, **vars):
+    if not template:
+        return ""
+    text = template
+    for k, v in vars.items():
+        text = text.replace("{" + k + "}", str(v or ""))
+    return text
+
+
 def send_payment_receipt(customer_name, phone, amount, month_year,
                          plan_name=None, payment_mode=None, collector_name=None,
                          expiry_date=None, upi_id="selvanayakiammancables-3@okhdfcbank",
                          care_phone="7708551139",
-                         business_name="Sree Selvanaayakki Amman Cables & Internet Services"):
+                         business_name="Sree Selvanaayakki Amman Cables & Internet Services",
+                         customer_id=None,
+                         template=None):
     jid = _normalize_phone(phone)
     if not jid or not _wa_bridge_available():
         return False
@@ -49,24 +60,46 @@ def send_payment_receipt(customer_name, phone, amount, month_year,
             expiry_display = parts[2] + "-" + parts[1] + "-" + parts[0]
         except Exception:
             expiry_display = expiry_date
-    lines = ["\u2705 *Payment Received*", "", "\U0001f464 " + customer_name,
-             "\U0001f4b0 Amount: *\u20b9" + f"{amount:,.0f}" + "*",
-             "\U0001f4c5 Month: " + month_display]
-    if plan_name:
-        lines.append("\U0001f4fa Plan: " + plan_name)
-    if payment_mode:
-        icons = {"Cash":"\U0001f4b5","GPay":"\U0001f4f1","PhonePe":"\U0001f4f1","UPI":"\U0001f4f1","Bank":"\U0001f3e6"}
-        lines.append(icons.get(payment_mode,"\U0001f4b3") + " Mode: " + payment_mode)
-    if collector_name:
-        lines.append("\U0001f9d1 Collected by: " + collector_name)
-    if expiry_display:
-        lines.append("\U0001f4c6 Valid till: " + expiry_display)
-    lines.extend(["", "\u2014 *" + business_name + "*",
-                  "\U0001f4f1 GPay / PhonePe: " + care_phone,
-                  "\U0001f4b3 UPI: " + upi_id])
-    lines.extend(["", "Regards,", "*" + business_name + "*"])
+    from datetime import date as _date
+    date_display = ""
     try:
-        payload = json.dumps({"chatId": jid, "message": "\n".join(lines)}).encode()
+        date_display = _date.today().strftime("%d %b %Y")
+    except Exception:
+        pass
+
+    if template:
+        message = _render_template(template, {
+            "business": business_name,
+            "customer": customer_name,
+            "customer_id": customer_id or "",
+            "amount": f"{amount:,.0f}",
+            "month": month_display,
+            "mode": payment_mode or "",
+            "date": date_display,
+            "valid_till": expiry_display,
+            "upi": upi_id,
+            "phone": care_phone or "",
+            "plan": plan_name or "",
+            "collector": collector_name or "",
+        })
+    else:
+        # Fallback: original emoji format
+        lines = ["\u2705 *Payment Received*", "", "\U0001f464 " + customer_name,
+                 "\U0001f4b0 Amount: *\u20b9" + f"{amount:,.0f}" + "*",
+                 "\U0001f4c5 Month: " + month_display]
+        if plan_name:
+            lines.append("\U0001f4fa Plan: " + plan_name)
+        if payment_mode:
+            icons = {"Cash":"\U0001f4b5","GPay":"\U0001f4f1","PhonePe":"\U0001f4f1","UPI":"\U0001f4f1","Bank":"\U0001f3e6"}
+            lines.append(icons.get(payment_mode,"\U0001f4b3") + " Mode: " + payment_mode)
+        if collector_name:
+            lines.append("\U0001f9d1 Collected by: " + collector_name)
+        if expiry_display:
+            lines.append("\U0001f4c6 Valid till: " + expiry_display)
+        lines.extend(["", "\u2014 *" + business_name + "*"])
+        message = "\n".join(lines)
+    try:
+        payload = json.dumps({"chatId": jid, "message": message}).encode()
         req = urllib.request.Request(WA_BRIDGE_URL, data=payload, headers={"Content-Type":"application/json"}, method="POST")
         return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("success", False)
     except Exception as e:

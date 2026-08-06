@@ -68,4 +68,5 @@ def public_portal_settings():
         "prorata_enabled": settings.get("prorata_enabled", DEFAULT_SETTINGS["prorata_enabled"]),
         "prorata_billing_day": settings.get("prorata_billing_day", DEFAULT_SETTINGS["prorata_billing_day"]),
         "prorata_target_day": settings.get("prorata_target_day", DEFAULT_SETTINGS["prorata_target_day"]),
+        "wa_receipt_template": settings.get("wa_receipt_template", DEFAULT_SETTINGS["wa_receipt_template"]),
     }

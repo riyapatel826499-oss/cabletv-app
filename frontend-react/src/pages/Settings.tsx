@@ -471,6 +471,12 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
   { key: 'map_lng', label: 'Map Longitude', type: 'number', hint: 'e.g. 77.2013613' },
   { key: 'map_radius_km', label: 'Map Radius (km)', type: 'number', hint: 'e.g. 3' },
   { key: 'app_name', label: 'App Name', type: 'text', hint: 'e.g. Wasool' },
+  {
+    key: 'wa_receipt_template',
+    label: 'WhatsApp Receipt Message',
+    type: 'textarea',
+    hint: 'Placeholders: {business} {customer} {customer_id} {amount} {month} {mode} {date} {valid_till} {upi} {phone}',
+  },
 ];
 
 function BrandingSection() {
@@ -538,8 +544,8 @@ function BrandingSection() {
                   <textarea
                     value={String(form[f.key] ?? '')}
                     onChange={e => set(f.key, e.target.value)}
-                    rows={3}
-                    style={{ ...inp, resize: 'vertical' }}
+                    rows={f.key === 'wa_receipt_template' ? 10 : 3}
+                    style={{ ...inp, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.8rem' }}
                   />
                 ) : (
                   <input
