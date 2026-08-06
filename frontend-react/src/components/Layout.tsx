@@ -407,7 +407,10 @@ export default function Layout() {
           {/* Brand */}
           <div
             style={{
-              padding: '24px 20px',
+              paddingTop: 'calc(24px + env(safe-area-inset-top))',
+              paddingBottom: 24,
+              paddingLeft: 20,
+              paddingRight: 20,
               borderBottom: '0.5px solid rgba(255,255,255,0.08)',
             }}
           >
@@ -582,7 +585,10 @@ export default function Layout() {
           {/* Footer / User */}
           <div
             style={{
-              padding: '20px',
+              paddingTop: 20,
+              paddingBottom: 'calc(20px + env(safe-area-inset-bottom))',
+              paddingLeft: 20,
+              paddingRight: 20,
               borderTop: '0.5px solid rgba(255,255,255,0.08)',
             }}
           >
@@ -663,7 +669,10 @@ export default function Layout() {
           style={{
             position: 'sticky',
             top: 0,
-            padding: '14px 16px',
+            paddingTop: 'calc(14px + env(safe-area-inset-top))',
+            paddingBottom: 14,
+            paddingLeft: 16,
+            paddingRight: 16,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -873,7 +882,7 @@ export default function Layout() {
             onClick={() => navigate('/payments/new')}
             style={{
               position: 'fixed',
-              bottom: 24,
+              bottom: 'calc(24px + env(safe-area-inset-bottom))',
               right: 24,
               zIndex: 50,
               display: 'flex',

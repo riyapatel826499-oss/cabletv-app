@@ -62,7 +62,7 @@ export default function PortalLogin() {
   const labelStyle: React.CSSProperties = { fontWeight: 700, fontSize: '.95rem', display: 'block', marginBottom: 6 };
 
   return (
-    <div className="wp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+    <div className="wp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))', paddingLeft: 16, paddingRight: 16 }}>
       <PortalStyle />
       <div className="wp-card" style={{ width: '100%', maxWidth: 420, padding: '28px 22px' }}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>

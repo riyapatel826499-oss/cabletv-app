@@ -89,7 +89,9 @@ export default function PortalLayout() {
       {/* Header */}
       <div
         style={{
-          background: '#0b1020', color: '#fff', padding: '14px 16px',
+          background: '#0b1020', color: '#fff',
+          paddingTop: 'calc(14px + env(safe-area-inset-top))',
+          paddingBottom: 14, paddingLeft: 16, paddingRight: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}
       >
@@ -120,6 +122,7 @@ export default function PortalLayout() {
         style={{
           display: 'flex', background: '#fff', borderTop: '1px solid #e5e7eb',
           position: 'sticky', bottom: 0,
+          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
         {tabs.map((t) => {

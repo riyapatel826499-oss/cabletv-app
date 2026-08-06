@@ -58,7 +58,10 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0 16px',
+        paddingTop: 'calc(16px + env(safe-area-inset-top))',
+        paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
+        paddingLeft: 16,
+        paddingRight: 16,
         background:
           'radial-gradient(1100px 700px at 10% -10%, rgba(79,140,255,0.25), transparent 58%),' +
           'radial-gradient(1000px 700px at 105% 0%, rgba(139,92,255,0.22), transparent 55%),' +

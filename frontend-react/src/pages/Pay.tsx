@@ -154,7 +154,8 @@ export default function Pay() {
     <div
       style={{
         minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 16px', background: 'linear-gradient(135deg, #eef2ff 0%, #f6f7fb 100%)',
+        paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))', paddingLeft: 16, paddingRight: 16,
+        background: 'linear-gradient(135deg, #eef2ff 0%, #f6f7fb 100%)',
       }}
     >
       <div

@@ -60,7 +60,7 @@ export default function Register() {
 
   if (step === 'success' && result) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#f5f7fa' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))', paddingLeft: 24, paddingRight: 24, background: '#f5f7fa' }}>
         <div style={{ ...card, textAlign: 'center' }}>
           <div style={{ width: 56, height: 56, borderRadius: 28, background: '#e7f8ee', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
             <CheckCircle size={28} color="#16a34a" />
@@ -86,7 +86,7 @@ export default function Register() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#f5f7fa' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingBottom: 'calc(24px + env(safe-area-inset-bottom))', paddingLeft: 24, paddingRight: 24, background: '#f5f7fa' }}>
       <div style={card}>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <Building2 size={32} color="#5aa2ff" style={{ marginBottom: 6 }} />
