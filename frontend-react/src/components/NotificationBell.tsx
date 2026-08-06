@@ -179,7 +179,7 @@ export default function NotificationBell() {
             top: 'calc(100% + 8px)',
             right: 0,
             width: Math.min(380, typeof window !== 'undefined' ? window.innerWidth - 32 : 380),
-            maxHeight: '70vh',
+            maxHeight: 'calc(100vh - 140px - env(safe-area-inset-bottom))',
             background: 'var(--bg-card)',
             backdropFilter: 'var(--glass)',
             WebkitBackdropFilter: 'var(--glass)',
@@ -257,7 +257,7 @@ export default function NotificationBell() {
           </div>
 
           {/* Notification list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0', paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
             {notifications.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-light)', fontSize: '0.82rem' }}>
                 <Bell style={{ width: 28, height: 28, margin: '0 auto 8px', opacity: 0.3, display: 'block' }} />
@@ -341,10 +341,8 @@ export default function NotificationBell() {
                           color: 'var(--text-light)',
                           lineHeight: 1.4,
                           margin: 0,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
                         }}
                       >
                         {n.message}
