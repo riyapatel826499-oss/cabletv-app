@@ -25,6 +25,12 @@ DEFAULT_SETTINGS = {
     "map_lng": 77.2013613,
     "map_radius_km": 3,
     "care_phone": "7708551139",
+    # Notification chime per type — name of a bundled res/raw resource in the
+    # APK (payment.wav, reconnection.wav, chime.wav, ding.wav, beep.wav,
+    # bell.wav) or "default" for the system default sound.
+    "notif_sound_payment": "payment",
+    "notif_sound_reconnection": "reconnection",
+    "notif_sound_general": "default",
     "prorata_enabled": True,
     "prorata_billing_day": 13,
     "prorata_target_day": 16,

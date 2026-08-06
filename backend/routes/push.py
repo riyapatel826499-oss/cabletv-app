@@ -193,17 +193,40 @@ def notif_enabled(user_id: int, notif_type: str) -> bool:
     return prefs.get(notif_type, True)
 
 
+def _sound_for_type(user_id: int, notif_type: str) -> str:
+    """Pick the operator's configured chime for a notification type.
+
+    Falls back to per-type defaults (payment → payment, reconnection →
+    reconnection, else system default) if settings are missing.
+    """
+    try:
+        from conn import get_conn
+        from utils.operator_settings import get_settings
+        with get_conn() as conn:
+            row = conn.execute("SELECT operator_id FROM users WHERE id=?", (user_id,)).fetchone()
+            oid = row["operator_id"] if row and row["operator_id"] else 1
+            s = get_settings(conn, oid)
+        if notif_type == "payment":
+            return s.get("notif_sound_payment") or "payment"
+        if notif_type == "reconnection":
+            return s.get("notif_sound_reconnection") or "reconnection"
+        return s.get("notif_sound_general") or "default"
+    except Exception:
+        if notif_type == "payment":
+            return "payment"
+        if notif_type == "reconnection":
+            return "reconnection"
+        return "default"
+
+
 def notify_fcm(user_id: int, title: str, body: str, data: dict = None, notif_type: str = ""):
     """Fire-and-forget FCM native push for a user (respects their prefs)."""
     try:
         from routes.fcm import send_fcm_to_user
         import asyncio
-        # system-tray sound: bundled res/raw resource per type (APK side).
-        sound = "default"
-        if notif_type == "payment":
-            sound = "payment"
-        elif notif_type == "reconnection":
-            sound = "reconnection"
+        # system-tray sound: bundled res/raw resource per type (APK side),
+        # operator-configurable via white-label settings.
+        sound = _sound_for_type(user_id, notif_type)
         asyncio.create_task(
             send_fcm_to_user(user_id, title, body, data or {}, notif_type, sound)
         )

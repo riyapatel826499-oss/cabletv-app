@@ -485,6 +485,16 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
   },
 ];
 
+const CHIME_OPTIONS: { value: string; label: string }[] = [
+  { value: 'default', label: 'System default' },
+  { value: 'payment', label: 'Payment chime' },
+  { value: 'reconnection', label: 'Reconnection chime' },
+  { value: 'chime', label: 'Soft chime' },
+  { value: 'ding', label: 'Cash ding' },
+  { value: 'beep', label: 'Digital beep' },
+  { value: 'bell', label: 'Gentle bell' },
+];
+
 function BrandingSection() {
   const queryClient = useQueryClient();
   const { t } = useT();
@@ -629,6 +639,55 @@ function BrandingSection() {
               </div>
             </div>
           )}
+
+          {/* Notification chimes */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 18 }}>
+            <div>
+              <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                {t('Payment chime')}
+              </label>
+              <select
+                value={String(form.notif_sound_payment ?? 'payment')}
+                onChange={e => setForm(p => ({ ...p, notif_sound_payment: e.target.value }))}
+                style={inp}
+              >
+                {CHIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
+              </select>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                {t('Sound played when a payment is recorded.')}
+              </div>
+            </div>
+            <div>
+              <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                {t('Reconnection chime')}
+              </label>
+              <select
+                value={String(form.notif_sound_reconnection ?? 'reconnection')}
+                onChange={e => setForm(p => ({ ...p, notif_sound_reconnection: e.target.value }))}
+                style={inp}
+              >
+                {CHIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
+              </select>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                {t('Sound played when a connection is reconnected.')}
+              </div>
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                {t('General chime')}
+              </label>
+              <select
+                value={String(form.notif_sound_general ?? 'default')}
+                onChange={e => setForm(p => ({ ...p, notif_sound_general: e.target.value }))}
+                style={inp}
+              >
+                {CHIME_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
+              </select>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                {t('Sound for all other notifications (reminders, system).')}
+              </div>
+            </div>
+          </div>
 
           <button
             onClick={save}
