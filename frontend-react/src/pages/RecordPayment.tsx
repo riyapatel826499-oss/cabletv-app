@@ -134,6 +134,7 @@ export default function RecordPayment() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [receiptExpiry, setReceiptExpiry] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -164,7 +165,7 @@ export default function RecordPayment() {
   const cutoffDate = notifSettings?.cutoff_date ?? '12';
 
   // Operator settings for business name on receipts
-  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
+  const { data: opSettings } = useQuery<{business_name?: string; upi_reconnect_id?: string; care_phone?: string; phone?: string; prorata_enabled?: boolean; prorata_billing_day?: number; prorata_target_day?: number}>({
     queryKey: ['operator-settings-public'],
     queryFn: async () => {
       const r = await fetch('/api/portal/settings');
@@ -366,7 +367,7 @@ export default function RecordPayment() {
     setSubmitting(true);
     try {
       const monthYear = month.split('-').reverse().join('-');
-      await paymentsApi.create({
+      const resp = await paymentsApi.create({
         customer_id: selectedCustomer.customer_id,
         connection_id: selectedConnId || undefined,
         plan_id: selectedPlanId || undefined,
@@ -379,6 +380,9 @@ export default function RecordPayment() {
         discount_reason: discountReason || undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
+      // Real post-payment expiry from the server (used for "Valid till" on the receipt)
+      const newExpiry = (resp as { expiry_date?: string | null }).expiry_date;
+      if (newExpiry) setReceiptExpiry(newExpiry);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['customer', String(selectedCustomer.customer_id)] });
@@ -398,6 +402,14 @@ export default function RecordPayment() {
       monthLabel = new Date(month + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
     } catch { /* keep raw */ }
     const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    // Real validity = post-payment expiry from server, formatted as DD MMM YYYY
+    let validityStr = '';
+    if (receiptExpiry) {
+      try {
+        validityStr = new Date(receiptExpiry).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      } catch { validityStr = receiptExpiry; }
+    }
+    const payPhone = opSettings?.care_phone || opSettings?.phone || '7708551139';
     const receiptMsg =
       `*${opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services'}*\n` +
       `${t('Payment Receipt')}\n` +
@@ -407,9 +419,12 @@ export default function RecordPayment() {
       `${t('For: {month}', { month: monthLabel })}${months > 1 ? t(' ({n} months)', { n: months }) : ''}\n` +
       `${t('Mode: {m}', { m: mode })}\n` +
       `${t('Date: {d}', { d: dateStr })}\n` +
+      (validityStr ? `${t('Valid till: {d}', { d: validityStr })}\n` : '') +
       `-----------------------------\n` +
       `${t('Thank you for your payment.')}\n` +
-      `${t('UPI for next time: {upi}', { upi: opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank' })}`;
+      `${t('UPI for next time: {upi}', { upi: opSettings?.upi_reconnect_id || 'selvanayakiammancables-3@okhdfcbank' })}\n` +
+      `${t('GPay / PhonePe: {num}', { num: payPhone })}\n\n` +
+      `- ${t('Regards, {business}', { business: opSettings?.business_name || 'Sree Selvanaayakki Amman Cables & Internet Services' })}`;
     const waLink = `https://wa.me/${waPhone}?text=${encodeURIComponent(receiptMsg)}`;
     const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.85rem', padding: '4px 0' };
     return (
@@ -425,6 +440,7 @@ export default function RecordPayment() {
             <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('For')}</span><span style={{ color: 'var(--text)' }}>{monthLabel}{months > 1 ? ` (${t('{n} mo', { n: months })})` : ''}</span></div>
             <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Mode')}</span><span style={{ color: 'var(--text)' }}>{mode}</span></div>
             <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Date')}</span><span style={{ color: 'var(--text)' }}>{dateStr}</span></div>
+            {validityStr && <div style={row}><span style={{ color: 'var(--text-light)' }}>{t('Valid till')}</span><span style={{ color: 'var(--text)', fontWeight: 500 }}>{validityStr}</span></div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {waPhone && (

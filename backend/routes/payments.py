@@ -300,6 +300,10 @@ def create_payment(
     # Send WhatsApp payment receipt to customer
     if result:
         try:
+            from utils.operator_settings import get_settings as _op_settings
+            from conn import get_conn as _get_conn
+            with _get_conn() as _c:
+                _os = _op_settings(_c, operator_id=op_id(current_user))
             send_payment_receipt(
                 customer_name=payment_data.get("customer_name", ""),
                 phone=payment_data.get("customer_phone", ""),
@@ -309,6 +313,8 @@ def create_payment(
                 payment_mode=data.payment_mode,
                 collector_name=payment_data.get("collector_name", ""),
                 expiry_date=expiry_date,
+                upi_id=_os.get("upi_reconnect_id") or "selvanayakiammancables-3@okhdfcbank",
+                care_phone=_os.get("care_phone") or "7708551139",
             )
         except Exception:
             pass  # WA receipt failure should not break payment
@@ -372,6 +378,8 @@ def create_payment(
         except Exception:
             pass
 
+    # Return the post-payment expiry so the receipt can show the real validity date
+    payment_data["expiry_date"] = expiry_date
     return payment_data
 
 

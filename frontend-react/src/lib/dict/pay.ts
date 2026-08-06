@@ -90,6 +90,10 @@ export default {
   ' ({n} months)': ' ({n} மாதங்கள்)',
   'Thank you for your payment.': 'உங்கள் பணம் செலுத்தலுக்கு நன்றி.',
   'UPI for next time: {upi}': 'அடுத்த முறைக்கான UPI: {upi}',
+  'Valid till: {d}': 'செல்லுபடி: {d}',
+  'Valid till': 'செல்லுபடி',
+  'GPay / PhonePe: {num}': 'GPay / PhonePe: {num}',
+  'Regards, {business}': 'நன்றி, {business}',
 
   // ── WhatsApp reminder templates (shared with MapView) ──
   'STB No: {stb}  |  Mobile: your registered number': 'STB எண்: {stb}  |  மொபைல்: உங்கள் பதிவு செய்த எண்',

@@ -29,7 +29,8 @@ def _wa_bridge_available():
 
 def send_payment_receipt(customer_name, phone, amount, month_year,
                          plan_name=None, payment_mode=None, collector_name=None,
-                         expiry_date=None,
+                         expiry_date=None, upi_id="selvanayakiammancables-3@okhdfcbank",
+                         care_phone="7708551139",
                          business_name="Sree Selvanaayakki Amman Cables & Internet Services"):
     jid = _normalize_phone(phone)
     if not jid or not _wa_bridge_available():
@@ -60,7 +61,10 @@ def send_payment_receipt(customer_name, phone, amount, month_year,
         lines.append("\U0001f9d1 Collected by: " + collector_name)
     if expiry_display:
         lines.append("\U0001f4c6 Valid till: " + expiry_display)
-    lines.extend(["", "\u2014 *" + business_name + "*"])
+    lines.extend(["", "\u2014 *" + business_name + "*",
+                  "\U0001f4f1 GPay / PhonePe: " + care_phone,
+                  "\U0001f4b3 UPI: " + upi_id])
+    lines.extend(["", "Regards,", "*" + business_name + "*"])
     try:
         payload = json.dumps({"chatId": jid, "message": "\n".join(lines)}).encode()
         req = urllib.request.Request(WA_BRIDGE_URL, data=payload, headers={"Content-Type":"application/json"}, method="POST")
