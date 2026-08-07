@@ -313,14 +313,53 @@ def create_portal_complaint(body: ComplaintIn, authorization: str = Header(None)
         raise HTTPException(status_code=400, detail="Description is required")
 
     with _get_conn() as conn:
+        # Fetch customer info (operator, area, phone) so the notification is usable.
+        cust = conn.execute(
+            "SELECT customer_id, operator_id, name, phone, area FROM customers WHERE customer_id = ?",
+            [customer_id],
+        ).fetchone()
+        op_id = (cust["operator_id"] if cust and cust["operator_id"] else 1) if cust else 1
+
         tno = _gen_ticket_no(conn)
         now = datetime.now().isoformat()
-        conn.execute(
+        # Auto-assign to a free service agent for this operator (if any).
+        assigned_to = None
+        try:
+            ag = conn.execute(
+                "SELECT id FROM users WHERE role='service_agent' AND status='Active' "
+                "AND operator_id=? ORDER BY id LIMIT 1",
+                [op_id],
+            ).fetchone()
+            if ag:
+                assigned_to = ag["id"]
+        except Exception:
+            assigned_to = None
+        from conn import insert_and_get_id
+        sr_id = insert_and_get_id(
+            conn,
             "INSERT INTO service_requests (ticket_no, customer_id, type, category, description, "
-            "status, source, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "status, source, created_by, assigned_to, operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [tno, customer_id, body.type, "portal", body.description.strip(),
-             "Open", "portal", "Customer (Portal)", now],
+             "open", "portal", "Customer (Portal)", assigned_to, op_id, now],
         )
         conn.commit()
 
-    return {"ticket_no": tno, "status": "Open", "message": "Problem reported. We'll contact you soon."}
+        # Enriched row for TG card + notifications
+        sr = {
+            "id": sr_id, "ticket_no": tno, "customer_id": customer_id,
+            "customer_name": cust["name"] if cust else customer_id,
+            "customer_phone": cust["phone"] if cust else None,
+            "customer_area": cust["area"] if cust else None,
+            "type": body.type, "category": "portal",
+            "priority": "medium", "description": body.description.strip(),
+            "status": "open", "source": "portal", "assigned_to": assigned_to,
+            "created_at": now,
+        }
+    # Fire notifications outside the DB transaction (safe no-op on failure):
+    # posts to the TG complaints group AND alerts admins/support/service agents.
+    from routes.service_requests import _notify_sr_to_group_and_bell
+    with _get_conn() as nconn:
+        _notify_sr_to_group_and_bell(nconn, sr, op_id)
+
+    return {"ticket_no": tno, "status": "open",
+            "message": "Problem reported. We'll contact you soon."}

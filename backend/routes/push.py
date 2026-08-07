@@ -163,9 +163,10 @@ NOTIF_TYPES = {
     "reconnection": "Reconnection Payment",
     "daily_summary": "Daily Summary",
     "wallet_alert": "GTPL Wallet Low",
-    "swap": "STB Swap",
-    "test": "Test Notification",
-}
+        "swap": "STB Swap",
+        "service_request": "New Service Request",
+        "test": "Test Notification",
+    }
 
 
 def get_user_notif_prefs(user_id: int) -> dict:
@@ -291,15 +292,21 @@ def send_push_to_user(user_id: int, title: str, body: str, tag: str = "", data: 
     return sent
 
 
-def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None, notif_type: str = ""):
-    """Send push notification to all users with given roles (per-user prefs respected)."""
+def send_push_to_roles(roles: list, title: str, body: str, tag: str = "", data: dict = None, notif_type: str = "", operator_id: int = None):
+    """Send push notification to all users with given roles (per-user prefs respected).
+
+    Pass `operator_id` to scope to one operator's staff (multi-tenant safety).
+    Without it, notifies matching roles across ALL operators.
+    """
     with get_conn() as conn:
-        users = conn.execute(
-            "SELECT id FROM users WHERE role IN ({}) AND status=?".format(
-                ",".join(["?"] * len(roles))
-            ),
-            roles + ["Active"]
-        ).fetchall()
+        sql = "SELECT id FROM users WHERE role IN ({}) AND status=? ".format(
+            ",".join(["?"] * len(roles))
+        )
+        params: list = roles + ["Active"]
+        if operator_id:
+            sql += "AND operator_id = ?"
+            params.append(operator_id)
+        users = conn.execute(sql, params).fetchall()
 
     total = 0
     for user in users:

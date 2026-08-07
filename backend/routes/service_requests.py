@@ -41,6 +41,67 @@ def gen_ticket_no(prefix='SR', conn=None):
        return f"{date_prefix}-{num:03d}"
    return f"{date_prefix}-{_time.strftime('%H%M')}"
 router = APIRouter(prefix="/api", tags=["Service Requests"])
+
+# Roles that must be notified when a new service request is raised.
+_SR_NOTIFY_ROLES = ["master", "admin", "support", "service_agent"]
+
+
+def notify_sr_created(conn, sr, operator_id: int):
+    """Alert admins / support / service agents about a new service request.
+
+    Writes a bell notification row for the operator and fires web-push + FCM
+    to every active user in the notify-roles under that operator. Safe no-op
+    if anything fails — the SR itself is already committed.
+    """
+    title = f"New Service: {sr.get('ticket_no')}"
+    body = f"{sr.get('customer_name', 'Customer')} — {sr.get('customer_area') or 'no area'} ({sr.get('type') or 'issue'})"
+    try:
+        # 1) Bell row (single per operator — bell list is operator-scoped)
+        from datetime import datetime as _dt
+        now = _dt.utcnow().isoformat()
+        conn.execute(
+            "INSERT INTO activity_notifications "
+            "(type, title, message, status, customer_id, operator_id, is_read, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            ("service_request", title, body, "warning",
+             sr.get("customer_id"), operator_id, now),
+        )
+        conn.commit()
+    except Exception:
+        pass
+    # 2) Web push + FCM to all relevant staff (respects per-user prefs)
+    try:
+        from routes.push import send_push_to_roles
+        send_push_to_roles(
+            _SR_NOTIFY_ROLES, title, body,
+            tag="service_request",
+            data={"type": "service_request", "ticket_no": sr.get("ticket_no"),
+                  "open_sr": "1"},
+            notif_type="service_request",
+            operator_id=operator_id,
+        )
+    except Exception:
+        pass
+
+
+def _notify_sr_to_group_and_bell(conn, sr, operator_id: int):
+    """Post the ticket card to the TG complaints group AND notify staff."""
+    # TG group (replaces manual sharing — nobody has to relay it).
+    if SR_GROUP_ID and SR_BOT_TOKEN:
+        try:
+            msg_id = post_new_ticket(dict(sr), is_admin=False)
+            if msg_id:
+                conn.execute(
+                    "UPDATE service_requests SET tg_message_id = ? WHERE id = ?",
+                    (msg_id, sr["id"]),
+                )
+                conn.commit()
+                sr["tg_message_id"] = msg_id
+        except Exception:
+            pass
+    notify_sr_created(conn, sr, operator_id)
+
+
 # --- Models ---
 class ServiceRequestCreate(BaseModel):
    ticket_no: str

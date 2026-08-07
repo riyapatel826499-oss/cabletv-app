@@ -28,10 +28,17 @@ const PRESETS = [
 ];
 
 const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  Open:      { color: '#92400e', bg: '#fef6e7' },
-  'In Progress': { color: '#1e40af', bg: '#dbeafe' },
-  Resolved:  { color: '#137a3f', bg: '#e7f8ee' },
-  Closed:    { color: '#6b7280', bg: '#f3f4f6' },
+  open:              { color: '#92400e', bg: '#fef6e7' },
+  acknowledged:      { color: '#92400e', bg: '#fef6e7' },
+  'in_progress':     { color: '#1e40af', bg: '#dbeafe' },
+  on_the_way:        { color: '#1e40af', bg: '#dbeafe' },
+  resolved:          { color: '#137a3f', bg: '#e7f8ee' },
+  settled:           { color: '#137a3f', bg: '#e7f8ee' },
+  closed:            { color: '#6b7280', bg: '#f3f4f6' },
+};
+const STATUS_LABEL: Record<string, string> = {
+  open: 'Open', acknowledged: 'Acknowledged', 'in_progress': 'In Progress',
+  on_the_way: 'On the way', resolved: 'Resolved', settled: 'Settled', closed: 'Closed',
 };
 
 function statusBadge(s: string) {
@@ -187,7 +194,7 @@ export default function PortalSupport() {
                 <span style={{ fontWeight: 600, fontSize: '0.85rem', flex: 1, minWidth: 0 }}>
                   {c.description}
                 </span>
-                <span style={statusBadge(c.status)}>{t(c.status)}</span>
+                <span style={statusBadge(c.status)}>{t(STATUS_LABEL[c.status] || c.status)}</span>
               </div>
               <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 4 }}>
                 {c.ticket_no}
