@@ -50,7 +50,7 @@ export default function ServiceRequests() {
   const { t } = useT();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<SRStatus | ''>('');
-  const [showNew, setShowNew] = useState(false);
+  const [showNew, setShowNew] = useState<false | 'app' | 'phone'>(false);
 
   const { data: srs = [], isLoading } = useQuery({
     queryKey: ['service-requests', statusFilter],
@@ -102,17 +102,30 @@ export default function ServiceRequests() {
             {t('Track and manage customer complaints and service tickets')}
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
-            borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
-            fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
-          }}
-        >
-          <Plus style={{ width: 18, height: 18 }} /> {t('New Ticket')}
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setShowNew('phone')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
+              borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #34c759 0%, #0ca678 100%)', color: '#fff',
+              fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(52,199,89,0.25)',
+            }}
+          >
+            <Phone style={{ width: 17, height: 17 }} /> {t('Log Phone Complaint')}
+          </button>
+          <button
+            onClick={() => setShowNew('app')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px',
+              borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #5aa2ff 0%, #8b5cff 100%)', color: '#fff',
+              fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,113,227,0.2)',
+            }}
+          >
+            <Plus style={{ width: 18, height: 18 }} /> {t('New Ticket')}
+          </button>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -199,6 +212,11 @@ export default function ServiceRequests() {
                         {sr.category && (
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', display: 'block' }}>{sr.category}</span>
                         )}
+                        {sr.source === 'phone' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, padding: '1px 7px', borderRadius: 20, fontSize: '0.66rem', fontWeight: 600, background: 'rgba(52,199,89,0.12)', color: '#137a3f' }}>
+                            <Phone style={{ width: 10, height: 10 }} />{t('Phone')}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <span style={{
@@ -240,12 +258,12 @@ export default function ServiceRequests() {
         )}
       </div>
 
-      {showNew && <NewTicketModal onClose={() => setShowNew(false)} />}
+      {showNew && <NewTicketModal source={showNew} onClose={() => setShowNew(false)} />}
     </div>
   );
 }
 
-function NewTicketModal({ onClose }: { onClose: () => void }) {
+function NewTicketModal({ source, onClose }: { source: 'app' | 'phone'; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { t } = useT();
   const [customerId, setCustomerId] = useState('');
@@ -270,7 +288,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
       return (await serviceRequestsApi.create({
         ticket_no: ticketNo,
         customer_id: customerId,
-        type, category, priority, description,
+        type, category, priority, description, source,
       })).data;
     },
     onSuccess: () => {
@@ -297,6 +315,17 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
             <X style={{ width: 20, height: 20, color: 'var(--text-light)' }} />
           </button>
         </div>
+
+        {source === 'phone' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14,
+            borderRadius: 10, background: 'rgba(52,199,89,0.1)', border: '0.5px solid rgba(52,199,89,0.4)',
+            fontSize: '0.82rem', color: '#137a3f', fontWeight: 500,
+          }}>
+            <Phone style={{ width: 15, height: 15 }} />
+            {t('Logging a complaint taken over the phone — details captured so the service agent can follow up.')}
+          </div>
+        )}
 
         {/* Customer search */}
         <div style={{ marginBottom: 14 }}>

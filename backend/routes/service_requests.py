@@ -214,7 +214,13 @@ async def create_service_request(
            except Exception as exc:
                # Non-fatal; application continues without TG post
                pass
-       return {"message": "Service request created", "ticket_no": sr["ticket_no"]}
+           # Notify admin/support/service agents via bell + web-push + FCM.
+           # (TG card was already posted above by this endpoint — do not re-post.)
+           try:
+               notify_sr_created(conn, dict(sr), op_id(current_user) or 1)
+           except Exception:
+               pass
+           return {"message": "Service request created", "ticket_no": sr["ticket_no"]}
 @router.get("/service-requests/")
 async def list_service_requests(
    status: str = "",

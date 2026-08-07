@@ -105,8 +105,8 @@ export const operatorsApi = {
 export const serviceRequestsApi = {
   list: (params?: Record<string, string>) => api.get('/service-requests/', { params }),
   get: (ticketNo: string) => api.get(`/service-requests/${ticketNo}`),
-  create: (data: { ticket_no: string; customer_id: string; type: string; category: string; priority: string; description: string }) =>
-    api.post('/service-requests/', data),
+  create: (data: { ticket_no: string; customer_id: string; type: string; category: string; priority: string; description: string; source?: string }) =>
+      api.post('/service-requests/', data),
   updateStatus: (ticketNo: string, status: string) =>
     api.put(`/service-requests/${ticketNo}/status`, { status }),
   assign: (ticketNo: string, assignedTo: number) =>
