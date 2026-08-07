@@ -49,6 +49,11 @@ const settings: Record<string, string> = {
   'Branding / White-label': 'பிராண்டிங் / ஒயிட்-லேபிள்',
   'These appear on the public website, customer portal, staff panels, and WhatsApp messages.': 'இவை பொது இணையதளம், வாடிக்கையாளர் போர்டல், ஊழியர் பேனல்கள் மற்றும் வாட்ஸ்அப் செய்திகளில் தோன்றும்.',
   'Prorata billing': 'பிரோராட்டா பில்லிங்',
+  'Service request auto-escalation (SLA)': 'சேவை கோரிக்கை தானியங்கி மேல்நிலை (SLA)',
+  'ON = if a service agent does not acknowledge a ticket within the time below, it is escalated to admins (bell + push).': 'ON = சேவை முகவர் கீழே உள்ள நேரத்திற்குள் ஒரு டிக்கெட்டை ஏற்கவில்லை என்றால், அது நிர்வாகிகளுக்கு மேல்நிலைக்கு அனுப்பப்படும் (மணி + புஷ்).',
+  'Acknowledge within (minutes)': 'நிமிடங்களுக்குள் ஏற்று',
+  'Escalate if not acknowledged within this many minutes. Default 15.': 'இந்த நிமிடங்களுக்குள் ஏற்றுக்கொள்ளப்படாவிட்டால் மேல்நிலைக்கு அனுப்பவும். இயல்பு 15.',
+  'ON = always charge full month(s)': 'ON = எப்போதும் முழு மாதங்களை வசூலிக்கவும்',
   'ON = partial-month charges on reconnection & late-month payments (SSN style).': 'ஆன் = மறு இணைப்பு மற்றும் மாத இறுதி பணம் செலுத்தல்களில் பகுதி மாத கட்டணம் (SSN பாணி).',
   'OFF = always charge full month(s), no day-based splits.': 'ஆஃப் = எப்போதும் முழு மாத கட்டணம், நாள் அடிப்படையிலான பிரிவு இல்லை.',
   'Toggle prorata': 'பிரோராட்டாவை மாற்று',
@@ -210,6 +215,10 @@ const settings: Record<string, string> = {
   'low': 'குறைவு',
   'medium': 'நடுத்தரம்',
   'high': 'அதிகம்',
+  'Escalated': 'மேல்நிலைக்கு கொண்டு செல்லப்பட்டது',
+  'Log Phone Complaint': 'தொலைபேசி புகார் பதிவு',
+  'Phone': 'தொலைபேசி',
+  'Logging a complaint taken over the phone — details captured so the service agent can follow up.': 'தொலைபேசி மூலம் பெற்ற புகாரைப் பதிவு செய்கிறது — சேவை முகவர் தொடர்ந்து செயல்பட விவரங்கள் சேமிக்கப்படுகின்றன.',
 
   // ── Plans ──
   'Manage pricing plans per MSO': 'ஒவ்வொரு MSO க்கும் விலை திட்டங்களை நிர்வகிக்கவும்',

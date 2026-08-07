@@ -44,6 +44,9 @@ router = APIRouter(prefix="/api", tags=["Service Requests"])
 
 # Roles that must be notified when a new service request is raised.
 _SR_NOTIFY_ROLES = ["master", "admin", "support", "service_agent"]
+# Escalation flags ADMINS ONLY (excludes the unresponsive service agent).
+_SR_ESCALATE_ROLES = ["master", "admin"]
+DEFAULT_SLA_MINUTES = 15
 
 
 def notify_sr_created(conn, sr, operator_id: int):
@@ -100,6 +103,103 @@ def _notify_sr_to_group_and_bell(conn, sr, operator_id: int):
         except Exception:
             pass
     notify_sr_created(conn, sr, operator_id)
+
+
+def escalate_sr_for_sla(conn, sr, operator_id: int):
+    """Alert admins that a service request was not acknowledged in time.
+
+    Called by the background SLA escalator when a ticket sits unacknowledged
+    past the operator's sr_sla_minutes. Marks the escalated_at column and
+    flags admins (not the unresponsive service agent) via bell + web-push + FCM.
+    Safe no-op if anything fails — sync happens in the escalator.
+    """
+    try:
+        conn.execute(
+            "UPDATE service_requests SET escalated_at = CURRENT_TIMESTAMP WHERE id = ? AND escalated_at IS NULL",
+            (sr["id"],),
+        )
+        conn.commit()
+    except Exception:
+        pass
+    title = f"⚠️ Escalated: {sr.get('ticket_no')} not acknowledged"
+    body = (
+        f"{sr.get('customer_name', 'Customer')} — {sr.get('customer_area') or 'no area'} "
+        f"({sr.get('type') or 'issue'}) waited too long; service agent hasn't acknowledged."
+    )
+    try:
+        from datetime import datetime as _dt
+        now = _dt.utcnow().isoformat()
+        conn.execute(
+            "INSERT INTO activity_notifications "
+            "(type, title, message, status, customer_id, operator_id, is_read, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            ("sr_escalated", title, body, "danger",
+             sr.get("customer_id"), operator_id, now),
+        )
+        conn.commit()
+    except Exception:
+        pass
+    try:
+        from routes.push import send_push_to_roles
+        send_push_to_roles(
+            _SR_ESCALATE_ROLES, title, body,
+            tag="sr_escalated",
+            data={"type": "sr_escalated", "ticket_no": sr.get("ticket_no")},
+            notif_type="sr_escalated",
+            operator_id=operator_id,
+        )
+    except Exception:
+        pass
+
+
+def run_sla_escalation_sweep():
+    """Background sweep: flag unacknowledged service requests past SLA.
+
+    For every operator with sr_sla_enabled=True, finds open/assigned tickets
+    that have NOT been acknowledged within sr_sla_minutes, and escalates them
+    to admins (once — guarded by escalated_at). Detects ack via the
+    acknowledged_at column set when the service agent taps ACK.
+
+    Runs in the background task started at server startup. Safe — wraps every
+    operator in its own try so one failure never stops the rest.
+    """
+    from utils.operator_settings import get_settings
+    try:
+        with get_conn() as conn:
+            # status may be NULL/'active'/'Active'/'inactive' across engines — scan
+            # all operators; inactive ones simply won't have SLA enabled.
+            operators = conn.execute(
+                "SELECT id FROM operators"
+            ).fetchall()
+            if not operators:
+                return
+            minutes = DEFAULT_SLA_MINUTES
+            for op in operators:
+                opid = op["id"]
+                try:
+                    settings = get_settings(conn, opid)
+                    if not settings.get("sr_sla_enabled"):
+                        continue
+                    try:
+                        minutes = int(settings.get("sr_sla_minutes", 15))
+                    except (TypeError, ValueError):
+                        minutes = DEFAULT_SLA_MINUTES
+                    cutoff = (datetime.utcnow() - timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M:%S")
+                    rows = conn.execute(
+                        "SELECT * FROM service_requests WHERE operator_id = ? "
+                        "AND acknowledged_at IS NULL AND escalated_at IS NULL "
+                        "AND status IN ('open','assigned','in_progress') AND created_at < ?",
+                        (opid, cutoff),
+                    ).fetchall()
+                    for r in rows:
+                        try:
+                            escalate_sr_for_sla(conn, dict(r), opid)
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+    except Exception:
+        pass
 
 
 # --- Models ---

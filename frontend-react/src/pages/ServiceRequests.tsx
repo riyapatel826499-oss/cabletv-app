@@ -29,6 +29,7 @@ interface ServiceRequest {
   created_at: string;
   updated_at?: string;
   acknowledged_at?: string;
+  escalated_at?: string;
   resolved_at?: string;
 }
 
@@ -229,6 +230,14 @@ export default function ServiceRequests() {
                           padding: '3px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 600,
                           background: cfg.bg, color: cfg.color,
                         }}>{t(cfg.label)}</span>
+                        {sr.escalated_at && (
+                          <span style={{
+                            display: 'block', marginTop: 3, padding: '2px 10px', borderRadius: 20,
+                            fontSize: '0.68rem', fontWeight: 700, background: 'rgba(255,59,48,0.15)', color: '#ff3b30',
+                          }}>
+                            ⚠️ {t('Escalated')}
+                          </span>
+                        )}
                       </td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-light)', whiteSpace: 'nowrap' }}>{fmtDate(sr.created_at)}</td>
                       <td style={{ textAlign: 'right' }}>

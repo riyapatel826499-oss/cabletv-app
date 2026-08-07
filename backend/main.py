@@ -130,6 +130,15 @@ try:
 except Exception:
     pass
 
+# Special: service-request SLA escalator sweep
+run_sla_escalation_sweep = None
+try:
+    from routes.service_requests import run_sla_escalation_sweep
+except Exception:
+    pass
+
+
+# ---------------------------------------------------------------------------
 # CORS config
 try:
     from config import CORS_ORIGINS
@@ -215,7 +224,19 @@ async def lifespan(app: FastAPI):
     else:
         task = None
 
+    # Background task: service-request SLA escalation sweep (every 60s)
+    async def sla_escalator():
+        while True:
+            try:
+                await asyncio.to_thread(run_sla_escalation_sweep)
+            except Exception as e:
+                print(f"SLA escalator error: {e}")
+            await asyncio.sleep(60)
+
+    sla_task = asyncio.create_task(sla_escalator())
+
     yield
+    sla_task.cancel()
     if task:
         task.cancel()
 

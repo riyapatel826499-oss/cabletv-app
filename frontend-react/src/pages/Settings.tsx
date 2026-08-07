@@ -640,6 +640,52 @@ function BrandingSection() {
             </div>
           )}
 
+          {/* Service-request SLA escalation */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20, padding: '14px 16px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>{t('Service request auto-escalation (SLA)')}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+                {t('ON = if a service agent does not acknowledge a ticket within the time below, it is escalated to admins (bell + push).')}
+              </div>
+            </div>
+            <button
+              onClick={() => setForm(p => ({ ...p, sr_sla_enabled: !(p.sr_sla_enabled ?? false) }))}
+              style={{
+                minWidth: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: (form.sr_sla_enabled ?? false) ? '#22c55e' : '#94a3b8',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+              aria-label={t('Toggle SLA escalation')}
+            >
+              <span style={{
+                position: 'absolute', top: 3, left: (form.sr_sla_enabled ?? false) ? 27 : 3,
+                width: 24, height: 24, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </button>
+          </div>
+
+          {(form.sr_sla_enabled ?? false) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 14 }}>
+              <div>
+                <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                  {t('Acknowledge within (minutes)')}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  value={String(form.sr_sla_minutes ?? 15)}
+                  onChange={e => setForm(p => ({ ...p, sr_sla_minutes: Number(e.target.value) || 15 }))}
+                  style={inp}
+                />
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                  {t('Escalate if not acknowledged within this many minutes. Default 15.')}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Notification chimes */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 18 }}>
             <div>

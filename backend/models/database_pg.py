@@ -353,6 +353,7 @@ def init_db():
         tg_message_id INTEGER,
         acknowledged_at TIMESTAMP,
         on_the_way_at TIMESTAMP,
+        escalated_at TIMESTAMP,
         ack_lat DOUBLE PRECISION,
         ack_lng DOUBLE PRECISION,
         otw_lat DOUBLE PRECISION,

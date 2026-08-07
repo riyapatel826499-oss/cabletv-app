@@ -359,6 +359,7 @@ class ServiceRequest(Base):
     updated_at: Mapped[Optional[str]] = mapped_column(String(100))
     acknowledged_at: Mapped[Optional[str]] = mapped_column(String(100))
     on_the_way_at: Mapped[Optional[str]] = mapped_column(String(100))
+    escalated_at: Mapped[Optional[str]] = mapped_column(String(100))
     ack_lat: Mapped[Optional[float]] = mapped_column(Float)
     ack_lng: Mapped[Optional[float]] = mapped_column(Float)
     otw_lat: Mapped[Optional[float]] = mapped_column(Float)

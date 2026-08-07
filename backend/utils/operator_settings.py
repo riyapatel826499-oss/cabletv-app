@@ -34,6 +34,10 @@ DEFAULT_SETTINGS = {
     "prorata_enabled": True,
     "prorata_billing_day": 13,
     "prorata_target_day": 16,
+    # Service-request acknowledgment SLA — if a ticket is not acknowledged by
+    # its service agent within sr_sla_minutes, it is escalated to admins.
+    "sr_sla_enabled": False,
+    "sr_sla_minutes": 15,
     "primary_color": "#5aa2ff",
     "secondary_color": "#8b5cff",
     # WhatsApp payment receipt template. Placeholders substituted at send time:

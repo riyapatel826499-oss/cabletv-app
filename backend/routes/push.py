@@ -164,8 +164,9 @@ NOTIF_TYPES = {
     "daily_summary": "Daily Summary",
     "wallet_alert": "GTPL Wallet Low",
         "swap": "STB Swap",
-        "service_request": "New Service Request",
-        "test": "Test Notification",
+                "service_request": "New Service Request",
+                "sr_escalated": "Service Request Escalated",
+                "test": "Test Notification",
     }
 
 
