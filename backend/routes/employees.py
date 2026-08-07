@@ -39,11 +39,12 @@ class PasswordUpdate(BaseModel):
     password: str
 
 
-VALID_ROLES = ["admin", "support", "collection_agent", "service_agent"]
+VALID_ROLES = ["admin", "support", "collection_agent", "service_agent", "collection_point"]
 ROLE_LABELS = {
     "admin": "Admin",
     "support": "Support",
     "collection_agent": "Collection Agent",
+    "collection_point": "Collection Point",
     "service_agent": "Service Agent",
 }
 
@@ -121,6 +122,7 @@ def get_roles(current_user=Depends(get_current_user)):
             {"value": "support", "label": "Support", "description": "Manage employees, collect payments, view customers. Cannot delete payments/customers"},
             {"value": "collection_agent", "label": "Collection Agent", "description": "Collect payments, view and search customers"},
             {"value": "service_agent", "label": "Service Agent", "description": "Collect payments, handle service requests and complaints"},
+            {"value": "collection_point", "label": "Collection Point", "description": "Simple pay-point: search customer, record payment, view own collections"},
         ]
     }
 

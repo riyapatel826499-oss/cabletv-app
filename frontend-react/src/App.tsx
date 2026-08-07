@@ -66,15 +66,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // ── Role-based route guard ──────────────────────────────────────────────────
 const _ALL = ['master', 'admin', 'agent', 'collection_agent', 'support'];
 const _CP = [..._ALL, 'collection_point'];
+const _NO_CP = _ALL;
 
 const ROUTE_ROLES: Record<string, string[]> = {
   '/':                    _CP,
   '/customers/:id':       _CP,
   '/payments/new':        _CP,
   '/my-collections':      _CP,
-  '/reports':             _CP,
-  '/service-requests':    _CP,
   // Staff only (no collection_point)
+  '/reports':             _NO_CP,
+  '/service-requests':    _NO_CP,
   '/customers':           _ALL,
   '/unpaid':              _ALL,
   '/not-renewed':         _ALL,

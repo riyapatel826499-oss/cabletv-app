@@ -48,16 +48,21 @@ import { useT } from '../lib/i18n';
 type Role = 'master' | 'admin' | 'agent' | 'collection_agent' | 'support' | 'service_agent' | 'collection_point';
 
 const ALL_ROLES: Role[] = ['master', 'admin', 'agent', 'collection_agent', 'support', 'service_agent'];
+// Collection Point = a shop that takes payments. Minimal surface: dashboard,
+// customer detail, record payment, own collections. Nothing else.
 const CP: Role[] = [...ALL_ROLES, 'collection_point'];
+// "All except collection_point" — staff lists that exclude the pay-point role.
+const NO_CP: Role[] = ALL_ROLES;
 
 const ROUTE_PERMISSIONS: Record<string, Role[]> = {
+  // Collection-point-friendly (dashboard, customer detail, collect, own lists)
   '/':                    CP,                                  // Dashboard
   '/customers/:id':       CP,                                  // Customer detail (clickable from collections)
   '/payments/new':        CP,                                  // Record payment (via floating Collect button)
-  '/my-collections':      CP,                                  // Own collections
-  '/reports':             CP,                                  // Reports (backend auto-filters)
-  '/service-requests':    CP,                                  // View/resolve SRs
+  '/my-collections':      CP,                                  // Own collections (date-period filter built in)
   // Staff only (no collection_point)
+  '/reports':             NO_CP,
+  '/service-requests':    NO_CP,
   '/customers':           ALL_ROLES,                           // View customers list
   '/unpaid':              ALL_ROLES,                           // Collection work
   '/not-renewed':         ALL_ROLES,

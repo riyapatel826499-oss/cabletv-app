@@ -69,6 +69,9 @@ export default function AgentDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useT();
+  // Collection Point = pay-point shop: hide chasing/follow-up/service sections
+  // that navigate to routes collection points are not allowed to open.
+  const isCP = user?.role === 'collection_point';
 
   const { data: agentData, isLoading, isError } = useQuery<AgentInsights>({
     queryKey: ['agent-insights'],
@@ -357,7 +360,7 @@ export default function AgentDashboard() {
       </div>
 
       {/* ═══ 5. FOLLOW UP TODAY ═══════════════════════════════════════════════ */}
-      {d.priority_count > 0 && (
+      {d.priority_count > 0 && !isCP && (
         <div className="glass-card animate-fade-in" style={{
           padding: 18, borderLeft: '4px solid #ff9f0a',
         }}>
@@ -393,7 +396,7 @@ export default function AgentDashboard() {
       )}
 
       {/* ═══ 6. MY AREAS ══════════════════════════════════════════════════════ */}
-      {d.my_areas && d.my_areas.length > 0 && (
+      {d.my_areas && d.my_areas.length > 0 && !isCP && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <MapPin style={{ width: 20, height: 20, color: '#0071e3' }} />
@@ -440,7 +443,7 @@ export default function AgentDashboard() {
       )}
 
       {/* ═══ 7. SERVICE REQUESTS ══════════════════════════════════════════════ */}
-      {d.my_open_sr > 0 && (
+      {d.my_open_sr > 0 && !isCP && (
         <div
           onClick={() => navigate('/service-requests')}
           className="glass-card animate-fade-in"
