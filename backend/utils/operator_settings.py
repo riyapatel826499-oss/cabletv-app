@@ -38,6 +38,15 @@ DEFAULT_SETTINGS = {
     # its service agent within sr_sla_minutes, it is escalated to admins.
     "sr_sla_enabled": False,
     "sr_sla_minutes": 15,
+    # When an SR escalates, also ping the customer on WhatsApp with this template.
+    # Placeholders: {business} {customer} {ticket_no} {type} {care_phone}
+    "sr_escalation_wa": False,
+    "wa_escalation_template": (
+        "*{business}*\n\n"
+        "Hi {customer}, your request {ticket_no} ({type}) is being followed up urgently.\n"
+        "Our team will contact you shortly. Sorry for the delay.\n\n"
+        "For help: {care_phone}"
+    ),
     "primary_color": "#5aa2ff",
     "secondary_color": "#8b5cff",
     # WhatsApp payment receipt template. Placeholders substituted at send time:

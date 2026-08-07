@@ -158,3 +158,23 @@ def send_payment_receipt(customer_name, phone, amount, month_year,
     except Exception as e:
         logger.warning("WA receipt error for %s: %s", jid, e)
         return False
+
+
+def send_wa_message(phone, message):
+    """Send an arbitrary WhatsApp message to the customer via the Baileys bridge.
+
+    Returns True only if the bridge is connected and the message was accepted.
+    Safe no-op (returns False) if phone invalid or bridge down.
+    """
+    jid = _normalize_phone(phone)
+    if not jid or not _wa_bridge_available():
+        return False
+    try:
+        payload = json.dumps({"chatId": jid, "message": message}).encode()
+        req = urllib.request.Request(
+            WA_BRIDGE_URL, data=payload,
+            headers={"Content-Type": "application/json"}, method="POST")
+        return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("success", False)
+    except Exception as e:
+        logger.warning("WA message error for %s: %s", jid, e)
+        return False

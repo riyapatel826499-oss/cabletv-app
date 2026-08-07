@@ -109,9 +109,10 @@ def escalate_sr_for_sla(conn, sr, operator_id: int):
     """Alert admins that a service request was not acknowledged in time.
 
     Called by the background SLA escalator when a ticket sits unacknowledged
-    past the operator's sr_sla_minutes. Marks the escalated_at column and
-    flags admins (not the unresponsive service agent) via bell + web-push + FCM.
-    Safe no-op if anything fails — sync happens in the escalator.
+    past the operator's sr_sla_minutes. Marks the escalated_at column, flags
+    admins (not the unresponsive service agent) via bell + web-push + FCM, and
+    optionally pings the customer on WhatsApp when the operator has
+    sr_escalation_wa enabled. Safe no-op if anything fails.
     """
     try:
         conn.execute(
@@ -121,9 +122,22 @@ def escalate_sr_for_sla(conn, sr, operator_id: int):
         conn.commit()
     except Exception:
         pass
+    # Enrich customer details (sweep passes a bare SR row; phone/name live on customers)
+    cust = {}
+    try:
+        cust = conn.execute(
+            "SELECT name, phone, area FROM customers WHERE customer_id = ?",
+            (sr.get("customer_id"),),
+        ).fetchone()
+        cust = dict(cust) if cust else {}
+    except Exception:
+        cust = {}
+    customer_name = sr.get("customer_name") or cust.get("name") or "Customer"
+    customer_phone = sr.get("customer_phone") or cust.get("phone")
+    customer_area = sr.get("customer_area") or cust.get("area") or "no area"
     title = f"⚠️ Escalated: {sr.get('ticket_no')} not acknowledged"
     body = (
-        f"{sr.get('customer_name', 'Customer')} — {sr.get('customer_area') or 'no area'} "
+        f"{customer_name} — {customer_area} "
         f"({sr.get('type') or 'issue'}) waited too long; service agent hasn't acknowledged."
     )
     try:
@@ -150,6 +164,26 @@ def escalate_sr_for_sla(conn, sr, operator_id: int):
         )
     except Exception:
         pass
+    # Ping the customer on WhatsApp if the operator enabled it
+    if customer_phone:
+        try:
+            from utils.operator_settings import get_settings
+            from utils.wa_notify import send_wa_message
+            settings = get_settings(conn, operator_id)
+            if settings.get("sr_escalation_wa"):
+                tmpl = settings.get("wa_escalation_template") or ""
+                msg = tmpl
+                for k, v in {
+                    "business": settings.get("business_name", "Wasool"),
+                    "customer": customer_name,
+                    "ticket_no": sr.get("ticket_no", ""),
+                    "type": str(sr.get("type") or "request").replace("_", " "),
+                    "care_phone": settings.get("care_phone", ""),
+                }.items():
+                    msg = msg.replace("{" + k + "}", str(v))
+                send_wa_message(customer_phone, msg)
+        except Exception:
+            pass
 
 
 def run_sla_escalation_sweep():

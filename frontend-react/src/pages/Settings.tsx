@@ -686,6 +686,48 @@ function BrandingSection() {
             </div>
           )}
 
+          {/* WhatsApp ping to customer on escalation */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, padding: '14px 16px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-secondary)' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text)' }}>{t('WhatsApp customer ping on escalation')}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: 2 }}>
+                {t('ON = when a ticket escalates, the customer also gets a WhatsApp message that their issue is being followed up urgently.')}
+              </div>
+            </div>
+            <button
+              onClick={() => setForm(p => ({ ...p, sr_escalation_wa: !(p.sr_escalation_wa ?? false) }))}
+              style={{
+                minWidth: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: (form.sr_escalation_wa ?? false) ? '#22c55e' : '#94a3b8',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}
+              aria-label={t('Toggle WhatsApp escalation ping')}
+            >
+              <span style={{
+                position: 'absolute', top: 3, left: (form.sr_escalation_wa ?? false) ? 27 : 3,
+                width: 24, height: 24, borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }} />
+            </button>
+          </div>
+
+          {(form.sr_escalation_wa ?? false) && (
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontWeight: 500, fontSize: '0.82rem', color: 'var(--text)', marginBottom: 4, display: 'block' }}>
+                {t('Escalation WhatsApp message')}
+              </label>
+              <textarea
+                value={String(form.wa_escalation_template ?? '')}
+                onChange={e => setForm(p => ({ ...p, wa_escalation_template: e.target.value }))}
+                rows={4}
+                style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-light)', marginTop: 3 }}>
+                {t('Placeholders: {business} {customer} {ticket_no} {type} {care_phone}')}
+              </div>
+            </div>
+          )}
+
           {/* Notification chimes */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 18 }}>
             <div>
