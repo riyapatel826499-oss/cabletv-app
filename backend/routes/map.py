@@ -183,13 +183,15 @@ def customers_map(
         prv_tgt = prev_dt.strftime("%m-%Y")
 
     with _get_conn() as conn:
-        # This month params
+        # This month params — pass the TARGET month (not cm, which is None when
+        # a date range is used) so the param list matches the month-coverage
+        # subquery (2 params: paypakka bridge date window).
         ms, me, cm = get_date_range(paid_from, paid_to)
-        paid_params = paid_subquery_params(ms, me, cm)
+        paid_params = paid_subquery_params(ms, me, tgt)
 
         # Last month params
         ms2, me2, cm2 = get_date_range(prev_from, prev_to)
-        prev_params = paid_subquery_params(ms2, me2, cm2)
+        prev_params = paid_subquery_params(ms2, me2, prv_tgt)
 
         subq = paid_customer_subquery(tgt)
         prev_subq = paid_customer_subquery(prv_tgt)

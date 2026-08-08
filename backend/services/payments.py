@@ -31,77 +31,81 @@ def get_date_range(paid_from=None, paid_to=None):
 
 
 def paid_customer_subquery(current_month):
-    """Return (SQL subquery, params) to find distinct customer_ids who paid.
+    """Return SQL subquery to find distinct customer_ids PAID for the target month.
 
-    Checks three sources:
-    1. Local payments within the current month's date range (monthly payers)
-    2. Paypakka payments within the current month's date range (monthly payers)
-    3. Advance payments — customers whose total months_paid from their earliest
-       month_year COVERS the target month (annual / multi-month payers).
+    CORRECT SEMANTIC (since 2026-08-08, commit after aef0f04):
+    a customer is paid for the target month iff some payment COVERS it —
+    the window [month(month_year), month(month_year) + months_paid) contains
+    the target month index. Payment COLLECTION DATE is irrelevant: a payment
+    collected on Aug 1 for month_year 07-2026 covers July only, so that
+    customer is DUE for August (yellow), not green.
 
-    `current_month` is the TARGET month as 'MM-YYYY' (e.g. '08-2026').
-    Pass it to test coverage against a specific viewed month; pass None to
-    test against today (CURRENT_DATE).
+    This replaces the old MIN(month_year)+SUM(months_paid) heuristic, which
+    assumed payments were contiguous from the first payment and over-counted
+    customers with gaps (prod 2026-08-08: heuristic said ~345 paid for Aug
+    2026 vs 25 with per-payment coverage) — the root cause of the collection
+    map showing July-only payers as green.
 
-    IMPORTANT: advance coverage is STRICTLY GREATER THAN the target month.
-    MIN(month_year) + SUM(months_paid) gives the FIRST UNPAID month, so a
-    customer whose paid months end exactly AT the target month (e.g. paid
-    through July, checking August) is NOT covered — they are due. Using `>=`
-    here wrongly marks them paid (green on the collection map) — the exact
-    bug fixed 2026-08-08.
+    `current_month` = target month as 'MM-YYYY' (e.g. '08-2026').
+    When None → DATE-RANGE mode: any payment collected within
+    [month_start, month_end] counts (used by paid-filter dropdowns, where a
+    date window is the intended semantic).
     """
     if current_month:
-        # 'MM-YYYY' → month index = yyyy*12 + mm
+        # 'MM-YYYY' → month index = yyyy*12 + mm (e.g. 08-2026 → 24320)
         _mm, _yyyy = int(current_month[:2]), int(current_month[3:7])
-        current_month_expr = f"{_yyyy} * 12 + {_mm}"
-    else:
-        current_month_expr = None
+        _target = _yyyy * 12 + _mm
 
-    if DB_ENGINE == "postgresql":
-        cmp_expr = (
-            "EXTRACT(YEAR FROM CURRENT_DATE) * 12 + EXTRACT(MONTH FROM CURRENT_DATE)"
-            if current_month_expr is None else current_month_expr)
-        advance_sql = (
-            "SELECT customer_id FROM payments "
-            "GROUP BY customer_id "
-            "HAVING "
-            "  EXTRACT(YEAR FROM TO_DATE(MIN(month_year), 'MM-YYYY')) * 12 + "
-            "  EXTRACT(MONTH FROM TO_DATE(MIN(month_year), 'MM-YYYY')) + "
-            "  COALESCE(SUM(months_paid), 0) "
-            "  > " + cmp_expr
-        )
-    else:
-        cmp_expr = (
-            "CAST(STRFTIME('%Y', 'now') AS INTEGER) * 12 + CAST(STRFTIME('%m', 'now') AS INTEGER)"
-            if current_month_expr is None else current_month_expr)
-        advance_sql = (
-            "SELECT customer_id FROM payments "
-            "GROUP BY customer_id "
-            "HAVING "
-            "  CAST(SUBSTR(MIN(month_year), 4, 4) AS INTEGER) * 12 + "
-            "  CAST(SUBSTR(MIN(month_year), 1, 2) AS INTEGER) + "
-            "  COALESCE(SUM(months_paid), 0) "
-            "  > " + cmp_expr
+        if DB_ENGINE == "postgresql":
+            start_expr = (
+                "EXTRACT(YEAR FROM TO_DATE(p.month_year, 'MM-YYYY')) * 12 + "
+                "EXTRACT(MONTH FROM TO_DATE(p.month_year, 'MM-YYYY'))")
+            local_sql = (
+                "SELECT DISTINCT p.customer_id FROM payments p "
+                f"WHERE p.month_year ~ '^[0-9]{{2}}-[0-9]{{4}}$' "
+                f"  AND ({start_expr}) <= {_target} "
+                f"  AND {_target} < ({start_expr}) + COALESCE(p.months_paid, 1)"
+            )
+        else:
+            start_expr = (
+                "CAST(SUBSTR(p.month_year, 4, 4) AS INTEGER) * 12 + "
+                "CAST(SUBSTR(p.month_year, 1, 2) AS INTEGER)")
+            local_sql = (
+                "SELECT DISTINCT p.customer_id FROM payments p "
+                "WHERE p.month_year GLOB '[0-9][0-9]-[0-9][0-9][0-9][0-9]' "
+                f"  AND ({start_expr}) <= {_target} "
+                f"  AND {_target} < ({start_expr}) + COALESCE(p.months_paid, 1)"
+            )
+
+        return (
+            "SELECT DISTINCT customer_id FROM ("
+            + local_sql +
+            " UNION "
+            "SELECT customer_id FROM paypakka_payments "
+            "WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?"
+            ")"
         )
 
+    # --- DATE-RANGE mode (current_month is None): payments collected in window.
     return (
         "SELECT DISTINCT customer_id FROM ("
         "SELECT customer_id FROM payments WHERE collected_at >= ? AND collected_at <= ? "
         "UNION "
         "SELECT customer_id FROM paypakka_payments "
-        "WHERE paypakka_created_at >= ? AND paypakka_created_at <= ? "
-        "UNION "
-        + advance_sql +
+        "WHERE paypakka_created_at >= ? AND paypakka_created_at <= ?"
         ")"
     )
 
 
 def paid_subquery_params(month_start, month_end, current_month):
     """Return the parameter list for paid_customer_subquery().
-    
-    Always returns 4 params (date range for both local and paypakka).
-    The advance-payment UNION uses CURRENT_DATE and needs no params.
+
+    Month-coverage mode (current_month given): only the paypakka bridge uses
+    the date window → 2 params. Date-range mode (current_month None): both
+    local and paypakka windows → 4 params. Must match paid_customer_subquery().
     """
+    if current_month:
+        return [month_start, month_end]
     return [month_start, month_end, month_start, month_end]
 
 
