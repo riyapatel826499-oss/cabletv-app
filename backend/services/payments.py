@@ -32,14 +32,35 @@ def get_date_range(paid_from=None, paid_to=None):
 
 def paid_customer_subquery(current_month):
     """Return (SQL subquery, params) to find distinct customer_ids who paid.
-    
+
     Checks three sources:
     1. Local payments within the current month's date range (monthly payers)
     2. Paypakka payments within the current month's date range (monthly payers)
     3. Advance payments — customers whose total months_paid from their earliest
-       month_year covers the current month (annual / multi-month payers).
+       month_year COVERS the target month (annual / multi-month payers).
+
+    `current_month` is the TARGET month as 'MM-YYYY' (e.g. '08-2026').
+    Pass it to test coverage against a specific viewed month; pass None to
+    test against today (CURRENT_DATE).
+
+    IMPORTANT: advance coverage is STRICTLY GREATER THAN the target month.
+    MIN(month_year) + SUM(months_paid) gives the FIRST UNPAID month, so a
+    customer whose paid months end exactly AT the target month (e.g. paid
+    through July, checking August) is NOT covered — they are due. Using `>=`
+    here wrongly marks them paid (green on the collection map) — the exact
+    bug fixed 2026-08-08.
     """
+    if current_month:
+        # 'MM-YYYY' → month index = yyyy*12 + mm
+        _mm, _yyyy = int(current_month[:2]), int(current_month[3:7])
+        current_month_expr = f"{_yyyy} * 12 + {_mm}"
+    else:
+        current_month_expr = None
+
     if DB_ENGINE == "postgresql":
+        cmp_expr = (
+            "EXTRACT(YEAR FROM CURRENT_DATE) * 12 + EXTRACT(MONTH FROM CURRENT_DATE)"
+            if current_month_expr is None else current_month_expr)
         advance_sql = (
             "SELECT customer_id FROM payments "
             "GROUP BY customer_id "
@@ -47,10 +68,12 @@ def paid_customer_subquery(current_month):
             "  EXTRACT(YEAR FROM TO_DATE(MIN(month_year), 'MM-YYYY')) * 12 + "
             "  EXTRACT(MONTH FROM TO_DATE(MIN(month_year), 'MM-YYYY')) + "
             "  COALESCE(SUM(months_paid), 0) "
-            "  >= "
-            "  EXTRACT(YEAR FROM CURRENT_DATE) * 12 + EXTRACT(MONTH FROM CURRENT_DATE)"
+            "  > " + cmp_expr
         )
     else:
+        cmp_expr = (
+            "CAST(STRFTIME('%Y', 'now') AS INTEGER) * 12 + CAST(STRFTIME('%m', 'now') AS INTEGER)"
+            if current_month_expr is None else current_month_expr)
         advance_sql = (
             "SELECT customer_id FROM payments "
             "GROUP BY customer_id "
@@ -58,8 +81,7 @@ def paid_customer_subquery(current_month):
             "  CAST(SUBSTR(MIN(month_year), 4, 4) AS INTEGER) * 12 + "
             "  CAST(SUBSTR(MIN(month_year), 1, 2) AS INTEGER) + "
             "  COALESCE(SUM(months_paid), 0) "
-            "  >= "
-            "  CAST(STRFTIME('%Y', 'now') AS INTEGER) * 12 + CAST(STRFTIME('%m', 'now') AS INTEGER)"
+            "  > " + cmp_expr
         )
 
     return (

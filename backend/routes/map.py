@@ -168,6 +168,20 @@ def customers_map(
     paid_from, paid_to = _month_range(month)
     prev_from, prev_to = _month_range(_prev_month_str(month))
 
+    # Advance-payment coverage is compared against the VIEWED month, not today —
+    # otherwise browsing a past month mis-colors annual payers (bug fixed 2026-08-08,
+    # services/payments.paid_customer_subquery). Format 'MM-YYYY' like month_year.
+    if month:
+        y, m = (int(x) for x in month.split("-"))
+        tgt = f"{m:02d}-{y}"
+        py, pm = (int(x) for x in _prev_month_str(month).split("-"))
+        prv_tgt = f"{pm:02d}-{py}"
+    else:
+        now = datetime.now()
+        tgt = now.strftime("%m-%Y")
+        prev_dt = now.replace(month=now.month - 1) if now.month > 1 else now.replace(year=now.year - 1, month=12)
+        prv_tgt = prev_dt.strftime("%m-%Y")
+
     with _get_conn() as conn:
         # This month params
         ms, me, cm = get_date_range(paid_from, paid_to)
@@ -177,7 +191,8 @@ def customers_map(
         ms2, me2, cm2 = get_date_range(prev_from, prev_to)
         prev_params = paid_subquery_params(ms2, me2, cm2)
 
-        subq = paid_customer_subquery(cm)
+        subq = paid_customer_subquery(tgt)
+        prev_subq = paid_customer_subquery(prv_tgt)
 
         _of_c = _op_flt(current_user, "c.")
 
@@ -193,7 +208,7 @@ def customers_map(
             " WHERE cn.customer_id = c.customer_id AND cn.status = 'Active' LIMIT 1) AS plan_amount "
             "FROM customers c "
             "LEFT JOIN (" + subq + ") p  ON c.customer_id = p.customer_id "
-            "LEFT JOIN (" + subq + ") p2 ON c.customer_id = p2.customer_id "
+            "LEFT JOIN (" + prev_subq + ") p2 ON c.customer_id = p2.customer_id "
             "WHERE " + _of_c + " "
             # Return ALL active customers (located AND not). The frontend splits them
             # by whether they have coordinates — one source of truth, no second query.
