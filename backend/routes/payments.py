@@ -234,6 +234,27 @@ def create_payment(
         .where(Customer.customer_id == data.customer_id)
         .values(status="Active")
     )
+
+    # If no plan change happened, the connection's expiry may be stale/missing.
+    # Derive it from the payment (billing cycle: 13th → 12th of target month)
+    # so receipts show a correct "Valid till" and future expected-month math works.
+    if not expiry_date and data.month_year and "-" in data.month_year:
+        try:
+            _m, _y = data.month_year.split("-")
+            _em = int(_m) + (months_paid or 1)
+            _ey = int(_y)
+            while _em > 12:
+                _em -= 12
+                _ey += 1
+            expiry_date = f"{_ey}-{_em:02d}-12"
+        except Exception:
+            expiry_date = None
+        if expiry_date:
+            db.execute(
+                update(Connection)
+                .where(Connection.id == data.connection_id)
+                .values(expiry_date=expiry_date)
+            )
     db.execute(
         update(Connection)
         .where(Connection.id == data.connection_id)
