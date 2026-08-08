@@ -380,8 +380,10 @@ export default function RecordPayment() {
         discount_reason: discountReason || undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
-      // Real post-payment expiry from the server (used for "Valid till" on the receipt)
-      const newExpiry = (resp as { expiry_date?: string | null }).expiry_date;
+      // Real post-payment expiry from the server (used for "Valid till" on the receipt).
+      // NOTE: axios returns the full response — the body sits at .data (resp.expiry_date
+      // would always be undefined, leaving "Valid till" blank on every receipt).
+      const newExpiry = (resp?.data as { expiry_date?: string | null } | undefined)?.expiry_date ?? null;
       if (newExpiry) setReceiptExpiry(newExpiry);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
