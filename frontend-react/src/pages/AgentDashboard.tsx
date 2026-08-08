@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Wallet, TrendingUp, ArrowRight, AlertCircle,
-  CheckCircle2, Clock, Target, Flame, MapPin, Zap,
+  CheckCircle2, Clock, Target, Flame, MapPin, Zap, Coins,
 } from 'lucide-react';
 import Rs from '../components/Rs';
 import { useAuth } from '../hooks/useAuth';
@@ -21,6 +21,12 @@ interface AgentInsights {
   month_count: number;
   month_target: number;
   month_pct: number;
+  today_commission: number;
+  week_commission: number;
+  month_commission: number;
+  last_month_commission: number;
+  last_month_count: number;
+  commission_per_payment: number;
   yesterday_collected: number;
   last_month_collected: number;
   recent_payments: Array<{
@@ -125,9 +131,42 @@ export default function AgentDashboard() {
         <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{todayStr}</div>
       </div>
 
-      {/* Big collection progress card */}
+      {/* Big collection progress card — commission for collection points, target for agents */}
       <div className="glass-card animate-fade-in" style={{ padding: 20 }}>
-        {/* Header: month + percentage badge */}
+        {isCP ? (
+          /* ── COLLECTION POINT: COMMISSION EARNED ─────────────────── */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <div style={{
+                  fontSize: '0.75rem', color: 'var(--text-light)', textTransform: 'uppercase',
+                  letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: 4,
+                }}>
+                  <Coins style={{ width: 12, height: 12, color: '#34c759' }} />
+                  {t('Commission Earned · This Month')}
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34c759', marginTop: 2 }}>
+                  <Rs amount={d.month_commission} />
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                  {t('₹{rate} × {n} payments', { rate: d.commission_per_payment, n: d.month_count })}
+                </div>
+              </div>
+              <div style={{
+                padding: '6px 12px', borderRadius: 20, background: '#34c75915', border: '1px solid #34c75930',
+              }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 650, color: '#34c759' }}>
+                  <Rs amount={(d.commission_per_payment || 5) * d.month_count} />
+                </span>
+              </div>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: 4 }}>
+              {t('You earn ₹{rate} for every payment you collect.', { rate: d.commission_per_payment })}
+            </div>
+          </div>
+        ) : (
+          /* ── AGENT: MONTH TARGET (existing) ─────────────────────────────── */
+          <>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div style={{
@@ -177,8 +216,10 @@ export default function AgentDashboard() {
             </span>
           </div>
         </div>
+          </>
+        )}
 
-        {/* 3 mini cards: Today / Week / Last Month */}
+        {/* 3 mini cards: Today / Week / Last Month — commission for CP, collections for agents */}
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <div style={{
             flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 'var(--radius-sm)',
@@ -191,10 +232,12 @@ export default function AgentDashboard() {
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#34c759' }}>
-              <Rs amount={d.today_collected} />
+              <Rs amount={isCP ? d.today_commission : d.today_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              {t('{n} payments', { n: d.today_count })}
+              {isCP
+                ? t('₹{rate} × {n}', { rate: d.commission_per_payment, n: d.today_count })
+                : t('{n} payments', { n: d.today_count })}
             </div>
           </div>
 
@@ -209,10 +252,12 @@ export default function AgentDashboard() {
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0071e3' }}>
-              <Rs amount={d.week_collected} />
+              <Rs amount={isCP ? d.week_commission : d.week_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              {t('{n} payments', { n: d.week_count })}
+              {isCP
+                ? t('₹{rate} × {n}', { rate: d.commission_per_payment, n: d.week_count })
+                : t('{n} payments', { n: d.week_count })}
             </div>
           </div>
 
@@ -227,10 +272,12 @@ export default function AgentDashboard() {
               </span>
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#5856d6' }}>
-              <Rs amount={d.last_month_collected} />
+              <Rs amount={isCP ? d.last_month_commission : d.last_month_collected} />
             </div>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-light)' }}>
-              {t('previous')}
+              {isCP
+                ? t('₹{rate} × {n}', { rate: d.commission_per_payment, n: d.last_month_count })
+                : t('previous')}
             </div>
           </div>
         </div>

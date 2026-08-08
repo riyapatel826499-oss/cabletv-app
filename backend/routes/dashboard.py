@@ -1096,11 +1096,15 @@ def agent_insights(
     db=Depends(get_db),
 ):
     """Personal dashboard for collection agents — today/week/month stats,
-    recent payments, priority follow-ups, area breakdown, collection streak."""
+    recent payments, priority follow-ups, area breakdown, collection streak.
+    NLP: collection points earn a flat commission (₹5) per successful payment."""
     if not is_agent_role(current_user):
         raise HTTPException(403, "Agent access only")
 
     uid = current_user.get("id")
+    # Flat commission per successful payment — collection-point shops earn this
+    # on EVERY transaction they collect. Applied to collection_point role.
+    commission_per_payment = 5
     _cache_key = f"agent_insights:{uid}"
     cached = get_cached(_cache_key, ttl=20)
     if cached:
@@ -1171,12 +1175,13 @@ def agent_insights(
     yesterday_collected = yesterday_row.total or 0 if yesterday_row else 0
 
     last_month_row = db.execute(
-        text(f"""SELECT COALESCE(SUM(amount), 0) AS total
-                 FROM payments
-                 WHERE {_common} AND collected_at >= :lms AND collected_at <= :lme"""),
+            text(f"""SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS cnt
+                    FROM payments
+                    WHERE {_common} AND collected_at >= :lms AND collected_at <= :lme"""),
         {"uid": uid, "lms": last_month_start, "lme": last_month_end},
     ).fetchone()
     last_month_collected = last_month_row.total or 0 if last_month_row else 0
+    last_month_count = last_month_row.cnt or 0 if last_month_row else 0
 
     # ── Month target & percentage ───────────────────────────────────────
     # Default target derived from last month's collection (rounded up to nearest 5k);
@@ -1314,6 +1319,13 @@ def agent_insights(
         "month_pct": month_pct,
         "yesterday_collected": yesterday_collected,
         "last_month_collected": last_month_collected,
+        # Flat commission per transaction (collection-point role)
+        "today_commission": round(today_count * commission_per_payment, 2),
+        "week_commission": round(week_count * commission_per_payment, 2),
+        "month_commission": round(month_count * commission_per_payment, 2),
+        "last_month_commission": round(last_month_count * commission_per_payment, 2),
+                "last_month_count": last_month_count,
+                "commission_per_payment": commission_per_payment,
         "recent_payments": recent_payments,
         "priority_count": priority_count,
         "my_open_sr": my_open_sr,
