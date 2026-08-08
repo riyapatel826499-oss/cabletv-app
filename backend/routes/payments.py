@@ -18,7 +18,7 @@ from utils import get_current_month
 from cache import invalidate_dashboard
 from routes.notifications import notify_payment
 from routes.settings import should_notify_payment
-from routes.wa_notify import send_payment_receipt
+from utils.wa_notify import send_payment_receipt
 
 ist = timezone(timedelta(hours=5, minutes=30))
 from audit import log_action
