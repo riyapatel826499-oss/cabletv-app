@@ -128,16 +128,34 @@ def create_payment(
     data.month_year = _norm_month_year(data.month_year)
     months_paid = data.months_paid or 1
     expected_my = _next_month_year_from_expiry(connection_dict.get("expiry_date"))
-    if (data.payment_type or "regular") == "regular" and months_paid == 1 and expected_my:
-        if not data.month_year:
-            data.month_year = expected_my
-        else:
+    _now_my = get_current_month()
+    _now_idx = _month_idx(_now_my)
+    if (data.payment_type or "regular") == "regular" and months_paid == 1:
+        # NEVER rewrite the client's chosen month backward. The old clamp forced
+        # any client month > the expiry-derived month back to that month; for a
+        # LAPSED customer (stale expiry, e.g. 2025-03-12) this rewrote a correct
+        # current-month reconnect payment (08-2026) to an ancient month (03-2025),
+        # hiding paid customers from the collection map.
+        if data.month_year:
             try:
-                # If client skipped ahead of the next unpaid month, force correct month
-                if _month_idx(data.month_year) > _month_idx(expected_my):
-                    data.month_year = expected_my
+                _c_idx = _month_idx(data.month_year)
+                # Only guard absurd FUTURE-dating (old frontend curMonth+2 bug):
+                # a payment more than 1 month ahead of the current month is invalid.
+                if _c_idx > _now_idx + 1:
+                    if expected_my and _month_idx(expected_my) >= _now_idx - 1:
+                        data.month_year = expected_my
+                    else:
+                        data.month_year = _now_my
             except Exception:
+                pass  # unparseable month → keep client value as-is
+        else:
+            # No month from client → default to next unpaid month for CURRENT
+            # customers (expiry within last billing month or newer); lapsed
+            # customers get the current month (reconnect/prorata).
+            if expected_my and _month_idx(expected_my) >= _now_idx - 1:
                 data.month_year = expected_my
+            else:
+                data.month_year = _now_my
     elif not data.month_year:
         data.month_year = get_current_month()
 
