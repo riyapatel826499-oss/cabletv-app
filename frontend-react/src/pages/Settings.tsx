@@ -470,6 +470,7 @@ const BRANDING_FIELDS: { key: string; label: string; type: string; hint?: string
   { key: 'map_lat', label: 'Map Latitude', type: 'number', hint: 'e.g. 11.0974473' },
   { key: 'map_lng', label: 'Map Longitude', type: 'number', hint: 'e.g. 77.2013613' },
   { key: 'map_radius_km', label: 'Map Radius (km)', type: 'number', hint: 'e.g. 3' },
+  { key: 'commission_per_rate', label: 'Collection Point Commission (₹/payment)', type: 'number', hint: 'e.g. 5 — paid to shops per successful payment they collect' },
   { key: 'app_name', label: 'App Name', type: 'text', hint: 'e.g. Wasool' },
   {
     key: 'wa_receipt_template',

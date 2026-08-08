@@ -16,6 +16,8 @@ from models.tables import (
 )
 from deps_orm import get_current_user, require_role, apply_op_filter, op_id, is_agent_role
 from utils import get_month_range, get_current_month
+from utils.operator_settings import get_settings
+from conn import get_conn
 from cache import get_cached, set_cached
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
@@ -1103,8 +1105,14 @@ def agent_insights(
 
     uid = current_user.get("id")
     # Flat commission per successful payment — collection-point shops earn this
-    # on EVERY transaction they collect. Applied to collection_point role.
-    commission_per_payment = 5
+    # on EVERY transaction they collect. Per-operator setting (white-label),
+    # default ₹5 (SSN). Applied to collection_point role.
+    try:
+        with get_conn() as conn:
+            _settings = get_settings(conn, op_id(current_user) or 1)
+            commission_per_payment = float(_settings.get("commission_per_rate", 5))
+    except Exception:
+        commission_per_payment = 5.0
     _cache_key = f"agent_insights:{uid}"
     cached = get_cached(_cache_key, ttl=20)
     if cached:

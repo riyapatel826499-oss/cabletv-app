@@ -34,6 +34,8 @@ DEFAULT_SETTINGS = {
     "prorata_enabled": True,
     "prorata_billing_day": 13,
     "prorata_target_day": 16,
+    # Collection-point commission per successful payment (₹). Per-operator.
+    "commission_per_rate": 5,
     # Service-request acknowledgment SLA — if a ticket is not acknowledged by
     # its service agent within sr_sla_minutes, it is escalated to admins.
     "sr_sla_enabled": False,
